@@ -7,8 +7,7 @@ export function notFoundHandler(_req, res) {
   res.status(404).json({ error: 'not found' });
 }
 
-// central error handler
-// eslint-disable-next-line no-unused-vars
+// central error handler (must keep 4-arg signature so express treats it as error middleware)
 export function errorHandler(err, req, res, _next) {
   if (err instanceof AppError) {
     return res.status(err.status).json({ error: err.message, details: err.details });
