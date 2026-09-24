@@ -35,7 +35,9 @@ describeIf('auth flow (integration)', () => {
       .send({ email: creds.email, password: creds.password });
     expect(login.status).toBe(200);
 
-    const me = await request(app).get('/api/auth/me').set('Authorization', `Bearer ${login.body.token}`);
+    const me = await request(app)
+      .get('/api/auth/me')
+      .set('Authorization', `Bearer ${login.body.token}`);
     expect(me.status).toBe(200);
     expect(me.body.email).toBe(creds.email);
     expect(me.body.role).toBe('user');

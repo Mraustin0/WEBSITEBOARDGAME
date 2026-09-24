@@ -4,10 +4,10 @@ const { Schema, model } = mongoose;
 
 const UserSchema = new Schema(
   {
-    username:     { type: String, required: true, unique: true, trim: true, minlength: 3 },
-    email:        { type: String, required: true, unique: true, lowercase: true, trim: true },
+    username: { type: String, required: true, unique: true, trim: true, minlength: 3 },
+    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     passwordHash: { type: String, required: true },
-    role:         { type: String, enum: ['user', 'admin'], default: 'user', index: true },
+    role: { type: String, enum: ['user', 'admin'], default: 'user', index: true },
   },
   { timestamps: true },
 );

@@ -11,11 +11,10 @@ export async function create(userId, data) {
 }
 
 export async function update(userId, id, data) {
-  const play = await PlaySession.findOneAndUpdate(
-    { _id: id, user: userId },
-    data,
-    { new: true, runValidators: true },
-  ).populate('game');
+  const play = await PlaySession.findOneAndUpdate({ _id: id, user: userId }, data, {
+    new: true,
+    runValidators: true,
+  }).populate('game');
   if (!play) throw notFound('play not found');
   return play;
 }

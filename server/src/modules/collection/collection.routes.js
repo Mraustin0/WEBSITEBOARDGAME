@@ -8,8 +8,8 @@ import * as controller from './collection.controller.js';
 const router = Router();
 router.use(requireAuth);
 
-router.get('/',       asyncHandler(controller.list));
-router.post('/',      validate({ body: addBody }),   asyncHandler(controller.add));
+router.get('/', asyncHandler(controller.list));
+router.post('/', validate({ body: addBody }), asyncHandler(controller.add));
 router.delete('/:id', validate({ params: idParam }), asyncHandler(controller.remove));
 
 export default router;

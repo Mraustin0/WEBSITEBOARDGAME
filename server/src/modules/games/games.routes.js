@@ -7,13 +7,28 @@ import * as controller from './games.controller.js';
 
 const router = Router();
 
-router.get('/',       validate({ query: listQuery }),                 asyncHandler(controller.list));
-router.get('/:id',    validate({ params: idParam }),                  asyncHandler(controller.detail));
-router.post('/',      requireAuth, requireRole('admin'),
-                      validate({ body: gameBody }),                   asyncHandler(controller.create));
-router.put('/:id',    requireAuth, requireRole('admin'),
-                      validate({ params: idParam, body: gameBodyPartial }), asyncHandler(controller.update));
-router.delete('/:id', requireAuth, requireRole('admin'),
-                      validate({ params: idParam }),                  asyncHandler(controller.remove));
+router.get('/', validate({ query: listQuery }), asyncHandler(controller.list));
+router.get('/:id', validate({ params: idParam }), asyncHandler(controller.detail));
+router.post(
+  '/',
+  requireAuth,
+  requireRole('admin'),
+  validate({ body: gameBody }),
+  asyncHandler(controller.create),
+);
+router.put(
+  '/:id',
+  requireAuth,
+  requireRole('admin'),
+  validate({ params: idParam, body: gameBodyPartial }),
+  asyncHandler(controller.update),
+);
+router.delete(
+  '/:id',
+  requireAuth,
+  requireRole('admin'),
+  validate({ params: idParam }),
+  asyncHandler(controller.remove),
+);
 
 export default router;

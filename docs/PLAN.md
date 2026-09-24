@@ -9,6 +9,7 @@
 ## 1. ที่มาและปัญหา
 
 คนเล่นบอร์ดเกมมักมีเกมสะสมเยอะ แต่:
+
 - จำไม่ได้ว่ามีเกมอะไรบ้าง
 - ไม่มีที่บันทึกว่าเล่นเกมไหนกับใคร ผลเป็นยังไง
 - อยากรู้ข้อมูลเกม (ผู้เล่น, เวลา, complexity) จากแหล่งกลาง
@@ -102,33 +103,34 @@
 
 Base: `http://localhost:4000/api`
 
-| Method | Path | Role | Description |
-|---|---|---|---|
-| POST | `/auth/register` | public | สมัคร (default role=user) |
-| POST | `/auth/login` | public | login → JWT |
-| GET | `/auth/me` | any | user info ปัจจุบัน |
-| GET | `/games` | public | list เกมทั้งหมด (search `?q=`) |
-| GET | `/games/:id` | public | รายละเอียดเกม |
-| POST | `/games` | admin | สร้างเกมใหม่ |
-| PUT | `/games/:id` | admin | แก้ไข |
-| DELETE | `/games/:id` | admin | ลบ |
-| GET | `/collection` | user | คอลเลกชันของ user |
-| POST | `/collection` | user | เพิ่มเกมเข้า collection |
-| DELETE | `/collection/:id` | user | ลบออก |
-| GET | `/plays` | user | play log ของ user |
-| POST | `/plays` | user | log play |
-| PUT | `/plays/:id` | user | แก้ไข |
-| DELETE | `/plays/:id` | user | ลบ |
-| GET | `/reviews/:gameId` | public | review ทั้งหมดของเกม |
-| POST | `/reviews` | user | post review |
-| GET | `/bgg/search?q=` | public | ค้นหาจาก BGG (external) |
-| GET | `/bgg/game/:bggId` | public | ดึงข้อมูลเกมจาก BGG |
+| Method | Path               | Role   | Description                    |
+| ------ | ------------------ | ------ | ------------------------------ |
+| POST   | `/auth/register`   | public | สมัคร (default role=user)      |
+| POST   | `/auth/login`      | public | login → JWT                    |
+| GET    | `/auth/me`         | any    | user info ปัจจุบัน             |
+| GET    | `/games`           | public | list เกมทั้งหมด (search `?q=`) |
+| GET    | `/games/:id`       | public | รายละเอียดเกม                  |
+| POST   | `/games`           | admin  | สร้างเกมใหม่                   |
+| PUT    | `/games/:id`       | admin  | แก้ไข                          |
+| DELETE | `/games/:id`       | admin  | ลบ                             |
+| GET    | `/collection`      | user   | คอลเลกชันของ user              |
+| POST   | `/collection`      | user   | เพิ่มเกมเข้า collection        |
+| DELETE | `/collection/:id`  | user   | ลบออก                          |
+| GET    | `/plays`           | user   | play log ของ user              |
+| POST   | `/plays`           | user   | log play                       |
+| PUT    | `/plays/:id`       | user   | แก้ไข                          |
+| DELETE | `/plays/:id`       | user   | ลบ                             |
+| GET    | `/reviews/:gameId` | public | review ทั้งหมดของเกม           |
+| POST   | `/reviews`         | user   | post review                    |
+| GET    | `/bgg/search?q=`   | public | ค้นหาจาก BGG (external)        |
+| GET    | `/bgg/game/:bggId` | public | ดึงข้อมูลเกมจาก BGG            |
 
 **External API:** BoardGameGeek XML API v2 — `https://boardgamegeek.com/xmlapi2/`
 
 ## 6. ขอบเขต & Functions ตาม Role
 
 ### User (ผู้ใช้ทั่วไป)
+
 - Register / Login / Logout
 - Browse เกม + ค้นหา
 - ดูรายละเอียดเกม + review
@@ -138,6 +140,7 @@ Base: `http://localhost:4000/api`
 - Import เกมจาก BGG มาเข้าระบบ (auto-fill data)
 
 ### Admin (ผู้ดูแลระบบ)
+
 - ทุกอย่างของ user
 - CRUD Game catalog (add/edit/delete master game)
 - ดู user list

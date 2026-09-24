@@ -8,7 +8,7 @@ import * as controller from './reviews.controller.js';
 const router = Router();
 
 router.get('/:gameId', validate({ params: gameIdParam }), asyncHandler(controller.listForGame));
-router.post('/',       requireAuth, validate({ body: upsertBody }), asyncHandler(controller.upsert));
-router.delete('/:id',  requireAuth, validate({ params: idParam }),  asyncHandler(controller.remove));
+router.post('/', requireAuth, validate({ body: upsertBody }), asyncHandler(controller.upsert));
+router.delete('/:id', requireAuth, validate({ params: idParam }), asyncHandler(controller.remove));
 
 export default router;

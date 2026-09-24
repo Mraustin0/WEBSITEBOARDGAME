@@ -135,4 +135,5 @@ CI: format check + lint + build + tests (with Mongo service).
 ## API Endpoints
 
 ดู `docs/PLAN.md` section 5 หรือ Swagger UI ที่ `/api/docs`.
+
 # WEBSITEBOARDGAME

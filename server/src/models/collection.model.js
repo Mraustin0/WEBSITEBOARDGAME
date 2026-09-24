@@ -4,10 +4,10 @@ const { Schema, model, Types } = mongoose;
 
 const CollectionItemSchema = new Schema(
   {
-    user:      { type: Types.ObjectId, ref: 'User', required: true, index: true },
-    game:      { type: Types.ObjectId, ref: 'Game', required: true },
+    user: { type: Types.ObjectId, ref: 'User', required: true, index: true },
+    game: { type: Types.ObjectId, ref: 'Game', required: true },
     condition: { type: String, enum: ['new', 'good', 'worn'], default: 'good' },
-    notes:     { type: String, default: '' },
+    notes: { type: String, default: '' },
   },
   { timestamps: true },
 );

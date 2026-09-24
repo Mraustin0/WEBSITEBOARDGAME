@@ -80,8 +80,16 @@ export const openapiSpec = {
           },
         },
         responses: {
-          200: { description: 'created', content: { 'application/json': { schema: { $ref: '#/components/schemas/AuthResponse' } } } },
-          409: { description: 'user exists', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          200: {
+            description: 'created',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/AuthResponse' } },
+            },
+          },
+          409: {
+            description: 'user exists',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
+          },
         },
       },
     },
@@ -102,7 +110,12 @@ export const openapiSpec = {
           },
         },
         responses: {
-          200: { description: 'ok', content: { 'application/json': { schema: { $ref: '#/components/schemas/AuthResponse' } } } },
+          200: {
+            description: 'ok',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/AuthResponse' } },
+            },
+          },
           401: { description: 'invalid credentials' },
         },
       },
@@ -112,7 +125,12 @@ export const openapiSpec = {
         tags: ['auth'],
         summary: 'Get current user',
         security: [{ bearerAuth: [] }],
-        responses: { 200: { description: 'ok', content: { 'application/json': { schema: { $ref: '#/components/schemas/User' } } } } },
+        responses: {
+          200: {
+            description: 'ok',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/User' } } },
+          },
+        },
       },
     },
     '/games': {
@@ -124,43 +142,109 @@ export const openapiSpec = {
           { name: 'limit', in: 'query', schema: { type: 'integer', default: 50 } },
         ],
         responses: {
-          200: { description: 'ok', content: { 'application/json': { schema: { type: 'array', items: { $ref: '#/components/schemas/Game' } } } } },
+          200: {
+            description: 'ok',
+            content: {
+              'application/json': {
+                schema: { type: 'array', items: { $ref: '#/components/schemas/Game' } },
+              },
+            },
+          },
         },
       },
       post: {
         tags: ['games'],
         summary: 'Create game (admin)',
         security: [{ bearerAuth: [] }],
-        requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/Game' } } } },
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/Game' } } },
+        },
         responses: { 201: { description: 'created' }, 403: { description: 'forbidden' } },
       },
     },
     '/games/{id}': {
       parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
-      get: { tags: ['games'], summary: 'Game detail', responses: { 200: { description: 'ok' }, 404: { description: 'not found' } } },
-      put: { tags: ['games'], summary: 'Update (admin)', security: [{ bearerAuth: [] }], responses: { 200: { description: 'ok' } } },
-      delete: { tags: ['games'], summary: 'Delete (admin)', security: [{ bearerAuth: [] }], responses: { 200: { description: 'ok' } } },
+      get: {
+        tags: ['games'],
+        summary: 'Game detail',
+        responses: { 200: { description: 'ok' }, 404: { description: 'not found' } },
+      },
+      put: {
+        tags: ['games'],
+        summary: 'Update (admin)',
+        security: [{ bearerAuth: [] }],
+        responses: { 200: { description: 'ok' } },
+      },
+      delete: {
+        tags: ['games'],
+        summary: 'Delete (admin)',
+        security: [{ bearerAuth: [] }],
+        responses: { 200: { description: 'ok' } },
+      },
     },
     '/collection': {
-      get: { tags: ['collection'], summary: 'My collection', security: [{ bearerAuth: [] }], responses: { 200: { description: 'ok' } } },
-      post: { tags: ['collection'], summary: 'Add to collection', security: [{ bearerAuth: [] }], responses: { 201: { description: 'created' } } },
+      get: {
+        tags: ['collection'],
+        summary: 'My collection',
+        security: [{ bearerAuth: [] }],
+        responses: { 200: { description: 'ok' } },
+      },
+      post: {
+        tags: ['collection'],
+        summary: 'Add to collection',
+        security: [{ bearerAuth: [] }],
+        responses: { 201: { description: 'created' } },
+      },
     },
     '/collection/{id}': {
-      delete: { tags: ['collection'], summary: 'Remove', security: [{ bearerAuth: [] }], responses: { 200: { description: 'ok' } } },
+      delete: {
+        tags: ['collection'],
+        summary: 'Remove',
+        security: [{ bearerAuth: [] }],
+        responses: { 200: { description: 'ok' } },
+      },
     },
     '/plays': {
-      get: { tags: ['plays'], summary: 'My plays', security: [{ bearerAuth: [] }], responses: { 200: { description: 'ok' } } },
-      post: { tags: ['plays'], summary: 'Log play', security: [{ bearerAuth: [] }], responses: { 201: { description: 'created' } } },
+      get: {
+        tags: ['plays'],
+        summary: 'My plays',
+        security: [{ bearerAuth: [] }],
+        responses: { 200: { description: 'ok' } },
+      },
+      post: {
+        tags: ['plays'],
+        summary: 'Log play',
+        security: [{ bearerAuth: [] }],
+        responses: { 201: { description: 'created' } },
+      },
     },
     '/plays/{id}': {
-      put: { tags: ['plays'], security: [{ bearerAuth: [] }], responses: { 200: { description: 'ok' } } },
-      delete: { tags: ['plays'], security: [{ bearerAuth: [] }], responses: { 200: { description: 'ok' } } },
+      put: {
+        tags: ['plays'],
+        security: [{ bearerAuth: [] }],
+        responses: { 200: { description: 'ok' } },
+      },
+      delete: {
+        tags: ['plays'],
+        security: [{ bearerAuth: [] }],
+        responses: { 200: { description: 'ok' } },
+      },
     },
     '/reviews/{gameId}': {
-      get: { tags: ['reviews'], summary: 'Reviews for game', responses: { 200: { description: 'ok' } } },
+      get: {
+        tags: ['reviews'],
+        summary: 'Reviews for game',
+        responses: { 200: { description: 'ok' } },
+      },
     },
     '/reviews': {
-      post: { tags: ['reviews'], summary: 'Upsert my review', security: [{ bearerAuth: [] }], responses: { 200: { description: 'ok' } } },
+      post: {
+        tags: ['reviews'],
+        summary: 'Upsert my review',
+        security: [{ bearerAuth: [] }],
+        responses: { 200: { description: 'ok' } },
+      },
     },
     '/bgg/search': {
       get: {

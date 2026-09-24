@@ -3,7 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "workspaces": ["server", "client"],
+  "workspaces": [
+    "server",
+    "client"
+  ],
   "scripts": {
     "dev": "npm-run-all --parallel dev:*",
     "dev:server": "npm --workspace server run dev",
@@ -29,8 +32,13 @@
     "prettier": "^3.3.3"
   },
   "lint-staged": {
-    "*.{js,jsx}": ["eslint --fix", "prettier --write"],
-    "*.{json,md,css,html}": ["prettier --write"]
+    "*.{js,jsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,css,html}": [
+      "prettier --write"
+    ]
   },
   "engines": {
     "node": ">=20"

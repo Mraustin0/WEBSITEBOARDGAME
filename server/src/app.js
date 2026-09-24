@@ -9,12 +9,12 @@ import { logger } from './lib/logger.js';
 import { openapiSpec } from './lib/openapi.js';
 import { errorHandler, notFoundHandler } from './middleware/error.js';
 
-import authRoutes       from './modules/auth/auth.routes.js';
-import gamesRoutes      from './modules/games/games.routes.js';
+import authRoutes from './modules/auth/auth.routes.js';
+import gamesRoutes from './modules/games/games.routes.js';
 import collectionRoutes from './modules/collection/collection.routes.js';
-import playsRoutes      from './modules/plays/plays.routes.js';
-import reviewsRoutes    from './modules/reviews/reviews.routes.js';
-import bggRoutes        from './modules/bgg/bgg.routes.js';
+import playsRoutes from './modules/plays/plays.routes.js';
+import reviewsRoutes from './modules/reviews/reviews.routes.js';
+import bggRoutes from './modules/bgg/bgg.routes.js';
 
 export function createApp() {
   const app = express();
@@ -28,14 +28,18 @@ export function createApp() {
   app.get('/api/health', (_req, res) => res.json({ ok: true, ts: Date.now() }));
 
   app.get('/api/openapi.json', (_req, res) => res.json(openapiSpec));
-  app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(openapiSpec, { customSiteTitle: 'Boardgame Everyday API' }));
+  app.use(
+    '/api/docs',
+    swaggerUi.serve,
+    swaggerUi.setup(openapiSpec, { customSiteTitle: 'Boardgame Everyday API' }),
+  );
 
-  app.use('/api/auth',       authRoutes);
-  app.use('/api/games',      gamesRoutes);
+  app.use('/api/auth', authRoutes);
+  app.use('/api/games', gamesRoutes);
   app.use('/api/collection', collectionRoutes);
-  app.use('/api/plays',      playsRoutes);
-  app.use('/api/reviews',    reviewsRoutes);
-  app.use('/api/bgg',        bggRoutes);
+  app.use('/api/plays', playsRoutes);
+  app.use('/api/reviews', reviewsRoutes);
+  app.use('/api/bgg', bggRoutes);
 
   app.use('/api', notFoundHandler);
   app.use(errorHandler);

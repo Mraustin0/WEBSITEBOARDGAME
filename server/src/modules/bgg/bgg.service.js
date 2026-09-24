@@ -19,11 +19,13 @@ async function fetchXml(path) {
 
 export async function search(query) {
   const data = await fetchXml(`/search?query=${encodeURIComponent(query)}&type=boardgame`);
-  return arr(data?.items?.item).slice(0, 30).map((it) => ({
-    bggId: Number(it.id),
-    name: it.name?.value || '',
-    yearPublished: it.yearpublished?.value ? Number(it.yearpublished.value) : undefined,
-  }));
+  return arr(data?.items?.item)
+    .slice(0, 30)
+    .map((it) => ({
+      bggId: Number(it.id),
+      name: it.name?.value || '',
+      yearPublished: it.yearpublished?.value ? Number(it.yearpublished.value) : undefined,
+    }));
 }
 
 export async function detail(bggId) {

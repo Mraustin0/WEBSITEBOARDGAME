@@ -8,7 +8,7 @@ import * as controller from './auth.controller.js';
 const router = Router();
 
 router.post('/register', validate({ body: registerSchema }), asyncHandler(controller.register));
-router.post('/login',    validate({ body: loginSchema }),    asyncHandler(controller.login));
-router.get('/me',        requireAuth,                        controller.me);
+router.post('/login', validate({ body: loginSchema }), asyncHandler(controller.login));
+router.get('/me', requireAuth, controller.me);
 
 export default router;
