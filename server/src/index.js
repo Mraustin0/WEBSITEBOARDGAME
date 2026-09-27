@@ -2,10 +2,12 @@ import { env } from './config/env.js';
 import { connectDb, disconnectDb } from './lib/db.js';
 import { logger } from './lib/logger.js';
 import { createApp } from './app.js';
+import { startLifecycleJob } from './modules/reservations/reservations.lifecycle.js';
 
 async function main() {
   await connectDb(env.MONGODB_URI);
   const app = createApp();
+  startLifecycleJob(); // booked → playing อัตโนมัติเมื่อถึงเวลาเริ่ม
   const server = app.listen(env.PORT, () => {
     logger.info(`API listening on http://localhost:${env.PORT}`);
     logger.info(`API docs: http://localhost:${env.PORT}/api/docs`);

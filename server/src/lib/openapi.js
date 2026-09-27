@@ -1,3 +1,5 @@
+import { bPaths, bSchemas } from './openapi.b.js';
+
 export const openapiSpec = {
   openapi: '3.0.3',
   info: {
@@ -46,8 +48,10 @@ export const openapiSpec = {
           yearPublished: { type: 'integer', nullable: true },
           thumbnail: { type: 'string', nullable: true },
           description: { type: 'string', nullable: true },
+          status: { type: 'string', enum: ['available', 'in_use', 'maintenance'] },
         },
       },
+      ...bSchemas,
     },
   },
   security: [],
@@ -262,5 +266,6 @@ export const openapiSpec = {
         responses: { 200: { description: 'ok' }, 404: { description: 'not found' } },
       },
     },
+    ...bPaths,
   },
 };
