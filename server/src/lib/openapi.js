@@ -1,3 +1,4 @@
+import { aPaths, aSchemas } from './openapi.a.js';
 import { bPaths, bSchemas } from './openapi.b.js';
 
 export const openapiSpec = {
@@ -51,6 +52,7 @@ export const openapiSpec = {
           status: { type: 'string', enum: ['available', 'in_use', 'maintenance'] },
         },
       },
+      ...aSchemas,
       ...bSchemas,
     },
   },
@@ -140,18 +142,33 @@ export const openapiSpec = {
     '/games': {
       get: {
         tags: ['games'],
-        summary: 'List games',
+        summary: 'List games (paginated + filters + sort)',
         parameters: [
           { name: 'q', in: 'query', schema: { type: 'string' } },
+          { name: 'minPlayers', in: 'query', schema: { type: 'integer' } },
+          { name: 'maxPlayers', in: 'query', schema: { type: 'integer' } },
+          { name: 'year', in: 'query', schema: { type: 'integer' } },
+          {
+            name: 'status',
+            in: 'query',
+            schema: { type: 'string', enum: ['available', 'in_use', 'maintenance'] },
+          },
+          { name: 'category', in: 'query', schema: { type: 'string' } },
+          { name: 'mechanic', in: 'query', schema: { type: 'string' } },
+          {
+            name: 'sort',
+            in: 'query',
+            schema: { type: 'string', enum: ['name', 'year', 'createdAt', 'bggRating'] },
+          },
+          { name: 'order', in: 'query', schema: { type: 'string', enum: ['asc', 'desc'] } },
+          { name: 'page', in: 'query', schema: { type: 'integer', default: 1 } },
           { name: 'limit', in: 'query', schema: { type: 'integer', default: 50 } },
         ],
         responses: {
           200: {
             description: 'ok',
             content: {
-              'application/json': {
-                schema: { type: 'array', items: { $ref: '#/components/schemas/Game' } },
-              },
+              'application/json': { schema: { $ref: '#/components/schemas/Paginated' } },
             },
           },
         },
@@ -266,6 +283,7 @@ export const openapiSpec = {
         responses: { 200: { description: 'ok' }, 404: { description: 'not found' } },
       },
     },
+    ...aPaths,
     ...bPaths,
   },
 };

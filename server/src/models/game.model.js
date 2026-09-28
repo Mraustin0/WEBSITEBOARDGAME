@@ -11,7 +11,15 @@ const GameSchema = new Schema(
     playtimeMin: { type: Number, default: 60, min: 1 },
     yearPublished: { type: Number },
     thumbnail: { type: String },
+    image: { type: String },
     description: { type: String },
+    // BGG-derived aggregate stats (populated on import)
+    bggAverage: { type: Number, min: 0, max: 10 },
+    bggWeight: { type: Number, min: 0, max: 5 },
+    bggRating: { type: Number, min: 0 },
+    categories: { type: [String], default: [], index: true },
+    mechanics: { type: [String], default: [], index: true },
+    designers: { type: [String], default: [] },
     // สถานะของกล่องเกมในร้าน: available → in_use (มีโต๊ะกำลังเล่น) → available; maintenance = ปิดจอง
     status: {
       type: String,
