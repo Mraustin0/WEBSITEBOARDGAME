@@ -6,7 +6,197 @@ Error ทุกตัวเป็น `{ "error": "ข้อความ", "detai
 
 เวลาส่งเป็น ISO string เช่น `2026-10-12T13:00:00+07:00`. พารามิเตอร์ `date` ใช้ `YYYY-MM-DD` ตามเวลาไทย.
 
+## สารบัญ
+
+1. [วิธีใช้งาน (เริ่มต้น)](#วิธีใช้งาน-เริ่มต้น)
+2. [กฎการจอง](#กฎการจอง-get-apireservationsrules) / [สถานะ](#สถานะ)
+3. [ฝั่งผู้ใช้](#ฝั่งผู้ใช้-fe-user-2-คน) / [ฝั่งแอดมิน](#ฝั่งแอดมิน-fe-admin-2-คน)
+4. หน้าจอ admin: Walk-in / เช็คบิล / จัดการการจอง / ตั้งค่าร้าน / ซ่อมบำรุง / รายงาน
+5. [Demo data](#demo-data)
+
+## วิธีใช้งาน (เริ่มต้น)
+
+### 1. รัน backend ในเครื่อง
+
+```bash
+npm install                                   # ที่ root ของ repo (ครั้งแรก / หลัง pull ที่มี package ใหม่)
+cp server/.env.example server/.env            # แล้วแก้ MONGODB_URI + JWT_SECRET (ยาว ≥ 16 ตัว)
+npm run --workspace server seed               # เกมตัวอย่าง
+npm run --workspace server seed:tables        # โต๊ะ 10 ตัว
+npm run --workspace server seed:demo          # (ไม่บังคับ) ข้อมูลย้อนหลังให้กราฟมีข้อมูล
+npm run dev                                   # server :4000 + client :5173 พร้อมกัน
+```
+
+- API: `http://localhost:4000/api` — frontend (Vite) เรียก `/api/...` ได้เลย เพราะ `vite.config.js` proxy ไปที่ :4000 ให้แล้ว
+- Swagger: `http://localhost:4000/api/docs`
+- บัญชี admin: สมัครสมาชิกปกติก่อน แล้วรัน `npm run --workspace server promote -- <email>`
+- สมาชิกจาก `seed:demo`: `demo_ploy@demo.local` … รหัสผ่าน `demo1234`
+
+### 2. ลองยิง API ใน Swagger (ไม่ต้องเขียนโค้ด)
+
+1. เปิด `/api/docs` → `POST /auth/login` → **Try it out** → ใส่ email/password → **Execute**
+2. copy ค่า `token` จากผลลัพธ์
+3. กดปุ่ม **Authorize** (ขวาบน) → วาง token → **Authorize**
+4. ทุก endpoint ที่มีรูปกุญแจจะส่ง token ให้อัตโนมัติ
+
+### 3. ตัวช่วยเรียก API ใน React (แนะนำให้ทุกคนใช้ไฟล์เดียวกัน)
+
+`client/src/lib/api.js`
+
+```js
+const BASE = '/api'; // Vite proxy → http://localhost:4000/api
+
+export async function api(path, { method = 'GET', body, query } = {}) {
+  const token = localStorage.getItem('token');
+  const qs = query
+    ? '?' +
+      new URLSearchParams(
+        Object.entries(query).filter(([, v]) => v !== undefined && v !== null && v !== ''),
+      )
+    : '';
+  const res = await fetch(`${BASE}${path}${qs}`, {
+    method,
+    headers: {
+      ...(body && { 'Content-Type': 'application/json' }),
+      ...(token && { Authorization: `Bearer ${token}` }),
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (res.status === 204) return null;
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    const err = new Error(data?.error || res.statusText);
+    err.status = res.status; // 400 / 401 / 403 / 404 / 409
+    err.details = data?.details; // 400: { field: ['ข้อความ'] } ใช้โชว์ใต้ช่องกรอก
+    throw err;
+  }
+  return data;
+}
+```
+
+Login แล้วเก็บ token + แยกหน้าตาม role:
+
+```js
+const { token, user } = await api('/auth/login', { method: 'POST', body: { email, password } });
+localStorage.setItem('token', token);
+navigate(user.role === 'admin' ? '/admin' : '/catalog');
+```
+
+เจอ `err.status === 401` → token หมดอายุ (7 วัน) ให้ลบ token แล้วพาไปหน้า login
+
+### 4. เรื่องเวลา (สำคัญ)
+
+server เก็บเวลาเป็น UTC แต่ร้านใช้เวลาไทย — ส่ง/แสดงผลแบบนี้:
+
+```js
+// วันที่ (input type="date") + รอบเวลา → ส่งให้ API
+const startAt = new Date(`${date}T${time}:00+07:00`).toISOString(); // date='2026-10-12', time='13:00'
+
+// แสดงผล
+new Date(r.startAt).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' });
+
+// วันนี้แบบ YYYY-MM-DD (ใช้กับ ?date= / ?from= / ?to=)
+const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
+```
+
+### 5. ตัวอย่าง flow: สมาชิกจองโต๊ะ (หน้า 2–4 ฝั่ง user)
+
+```js
+// 1) ผู้ใช้เลือกวัน เวลา จำนวนคน → ดูว่าอะไรว่าง
+const slot = { startAt, durationHours: 2, players: 4 };
+const avail = await api('/reservations/availability', { query: slot });
+if (!avail.bookable) alert(avail.reason); // เช่น เกิน 3 วัน / นอกเวลาทำการ
+
+// 2) ผังโต๊ะช่วงเวลานั้น (การ์ดสี: available=ขาว-ฟ้า, reserved/occupied/closed=เทา)
+const floor = await api('/tables/floor', { query: { startAt, durationHours: 2 } });
+
+// 3) เลือกโต๊ะ + เกม → ราคา (กล่อง Price Calculator)
+const body = { table: tableId, game: gameId ?? null, players: 4, startAt, durationHours: 2 };
+const { price } = await api('/reservations/quote', { method: 'POST', body });
+
+// 4) ยืนยัน
+try {
+  const reservation = await api('/reservations', { method: 'POST', body });
+} catch (err) {
+  if (err.status === 409)
+    alert('มีคนจองตัดหน้าแล้ว: ' + err.message); // ให้โหลด availability ใหม่
+  else if (err.status === 400) showFieldErrors(err.details ?? {}, err.message);
+}
+```
+
+ปุ่ม "จองโต๊ะเล่นเกมนี้" บนการ์ดเกม → ส่ง `gameId` ไปหน้าจอง (`navigate('/booking?game=' + id)`) แล้วใช้เป็น `game` ใน body
+
+Game Selector Modal → ใช้ `avail.games.filter((g) => g.available)` และค้นหาชื่อฝั่ง client
+
+### 6. ตัวอย่าง flow: ประวัติการจอง + คืนเกม (หน้า 5 ฝั่ง user)
+
+```js
+const active = await api('/reservations', { query: { scope: 'active' } }); // กำลังเล่น
+const upcoming = await api('/reservations', { query: { scope: 'upcoming' } }); // ล่วงหน้า
+const past = await api('/reservations', { query: { scope: 'past', page: 1, limit: 20 } });
+// ผลเป็น { items, total, page, limit }
+
+await api(`/reservations/${id}/return`, { method: 'PATCH' }); // เล่นเสร็จแล้ว / คืนเกม
+await api(`/reservations/${id}/cancel`, { method: 'PATCH', body: { reason: 'ติดธุระ' } });
+await api(`/reservations/${id}`, { method: 'PUT', body: { startAt: newStart } }); // แก้เวลา
+await api(`/reservations/${id}/game`, { method: 'PATCH', body: { game: newGameId } }); // เปลี่ยนเกม
+```
+
+### 7. ตัวอย่าง flow: admin เปิดโต๊ะ walk-in → เช็คบิล (หน้า 14–15)
+
+```js
+// เปิดโต๊ะทันที (ยังไม่เลือกเกมก็ได้)
+const r = await api('/reservations/admin', {
+  method: 'POST',
+  body: { table: tableId, players: 4, durationHours: 2, customer: { name, phone } },
+});
+// เลือกเกมทีหลัง
+await api(`/reservations/${r._id}/game`, { method: 'PATCH', body: { game: gameId } });
+
+// เปิด modal เช็คบิล → แสดงเวลาเล่นจริง + ยอด
+const { bill } = await api(`/reservations/${r._id}/checkout`);
+
+// ปิดบิล + รับเงิน (ถ้าชำรุด ระบบเปิดใบแจ้งซ่อมให้เอง)
+await api(`/reservations/${r._id}/return`, {
+  method: 'PATCH',
+  body: { condition: 'good', paymentMethod: 'cash' },
+});
+```
+
+### 8. ดาวน์โหลด CSV (หน้า 13)
+
+ต้องแนบ token จึงใช้ `<a href>` ตรง ๆ ไม่ได้:
+
+```js
+const res = await fetch(`/api/stats/export.csv?from=${from}&to=${to}`, {
+  headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+});
+const url = URL.createObjectURL(await res.blob());
+Object.assign(document.createElement('a'), {
+  href: url,
+  download: `reservations_${from}_${to}.csv`,
+}).click();
+URL.revokeObjectURL(url);
+```
+
+### 9. ผังโต๊ะแบบ Real-time
+
+ไม่มี websocket — ให้โหลดซ้ำทุก 30 วินาที:
+
+```js
+useEffect(() => {
+  const load = () => api('/tables/floor').then(setFloor);
+  load();
+  const id = setInterval(load, 30_000);
+  return () => clearInterval(id);
+}, []);
+```
+
+วาดโต๊ะจาก `position` (เป็น %): `style={{ left: `${t.position.x}%`, top: `${t.position.y}%`, width: `${t.position.w}%`, height: `${t.position.h}%` }}` ใน container ที่ `position: relative`
+
 ## กฎการจอง (`GET /api/reservations/rules`)
+
+> ค่าทั้งหมดในตารางนี้คือค่าเริ่มต้น admin แก้ได้ที่หน้า "ตั้งค่าร้าน" (`PUT /api/settings`) — frontend ควรอ่านค่าจริงจาก `GET /api/reservations/rules` หรือ `GET /api/settings`
 
 | กฎ          | ค่า                                                                              |
 | ----------- | -------------------------------------------------------------------------------- |
@@ -20,7 +210,7 @@ Error ทุกตัวเป็น `{ "error": "ข้อความ", "detai
 
 ## สถานะ
 
-- **Reservation:** `booked` (จองล่วงหน้า) → `playing` (ถึงเวลาเริ่ม — ระบบเปลี่ยนให้อัตโนมัติ) → `completed` (กดคืนเกม). ยกเลิกได้ → `cancelled`
+- **Reservation:** `booked` (จองล่วงหน้า) → `playing` (ถึงเวลาเริ่ม — ระบบเปลี่ยนให้อัตโนมัติ) → `completed` (กดคืนเกม). ยกเลิกได้ → `cancelled`, ลูกค้าไม่มา (admin กด) → `no_show`
 - **Game:** `available` → `in_use` (มีโต๊ะกำลังเล่น) → `available` หลังคืนเกม. `maintenance` = admin ปิดจอง
 - **Table:** `active` / `closed`. บน floor plan มี `state`: `available` · `reserved` · `occupied` · `closed`
 
@@ -177,9 +367,111 @@ Table body (`position` เป็น % ของพื้นที่ floor plan 
 
 ชื่อที่แสดงของลูกค้า: `user?.username ?? customer.name ?? customer.phone`
 
+## หน้าจอ admin ชุดที่ 3 (ตั้งค่าร้าน / ซ่อมบำรุง / รายละเอียด / รายงาน)
+
+### หน้า 6 — ตั้งค่าร้าน
+
+- อ่าน: `GET /api/settings` (public — ฝั่ง user ใช้แสดงราคาและเวลาเปิด-ปิดได้)
+- บันทึก: `PUT /api/settings` (admin) ส่งเฉพาะหมวดที่แก้ ไม่ต้องส่งทั้งก้อน
+
+```json
+{
+  "store": { "name": "Boardgame Everyday", "phone": "043-000000" },
+  "pricing": { "perPersonHour": 60, "flat3hPerPerson": 150, "revenueTargetPerDay": 5000 },
+  "booking": {
+    "maxAdvanceDays": 3,
+    "minHours": 1,
+    "maxHours": 6,
+    "overtimeGraceMin": 10,
+    "extraSeats": 2
+  },
+  "operatingHours": {
+    "enforce": true,
+    "days": [
+      { "day": 0, "open": "10:00", "close": "24:00", "closed": false },
+      { "day": 1, "open": "10:00", "close": "22:00", "closed": true }
+    ]
+  },
+  "noShow": { "graceMin": 30, "depositPerPerson": 0, "suspendAfter": 3 }
+}
+```
+
+- `day`: 0 = อาทิตย์ … 6 = เสาร์ (ต้องส่งครบ 7 วัน) — `close` น้อยกว่า `open` = ปิดหลังเที่ยงคืน (เช่น 18:00–02:00)
+- `operatingHours.enforce: true` → สมาชิกจองนอกเวลาทำการไม่ได้ (admin เปิดโต๊ะนอกเวลาได้)
+- ปุ่ม Discard = โหลด `GET /api/settings` ใหม่
+- ราคาใหม่มีผลกับการจองใหม่เท่านั้น (การจองเดิมเก็บราคาตอนจองไว้)
+
+### หน้า 5 / 7 — รายละเอียดสมาชิก + No-show
+
+| ส่วนบนหน้า                     | Endpoint                                                                                                                |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| Profile & Stats                | `GET /api/stats/members/:userId` → `user`, `visits`, `totalSpent`, `hoursPlayed`, `lastVisitAt`, `reservations.no_show` |
+| Account Preferences            | ในผลเดียวกัน: `favoriteTable`, `favoriteGames`, `favoriteCategories`                                                    |
+| Session & Gaming History       | `GET /api/reservations/admin?user=:userId`                                                                              |
+| + เปิดโต๊ะให้สมาชิก (Check-in) | `POST /api/reservations/admin` body มี `"user": ":userId"`                                                              |
+| ลูกค้าไม่มา                    | `PATCH /api/reservations/admin/:id/no-show`                                                                             |
+
+`noShowLimit` = จำนวน no-show ที่ควรระงับบัญชี (จาก settings) — การระงับบัญชีจริงเป็น endpoint ของคน A (`/api/admin/users`)
+
+### หน้า 3 — รายละเอียดเกม (ส่วนสถิติ)
+
+`GET /api/stats/games/:gameId` → `sessions`, `hours`, `revenue`, `lastPlayedAt`, `rating`, `damageReports`, `maintenance` (ประวัติซ่อม), `recentSessions` (10 รอบล่าสุด)
+
+ปุ่ม "บันทึกส่งซ่อม" → `POST /api/maintenance` (ดูหน้า 8)
+
+### หน้า 8 — ติดตามการซ่อมบำรุง
+
+| ส่วนบนหน้า          | Endpoint                                                                                       |
+| ------------------- | ---------------------------------------------------------------------------------------------- |
+| Status Dashboard    | `GET /api/maintenance/summary` → `pending`, `in_progress`, `resolved`, `totalCost`             |
+| Kanban (3 คอลัมน์)  | `GET /api/maintenance?status=pending` / `in_progress` (กรอง `itemType=game\|table`)            |
+| ลากการ์ดข้ามคอลัมน์ | `PATCH /api/maintenance/:id` body `{ "status": "in_progress" }`                                |
+| ปิดงานซ่อม          | `PATCH /api/maintenance/:id` body `{ "status": "resolved", "cost": 200, "resolution": "..." }` |
+| Repair History      | `GET /api/maintenance?status=resolved`                                                         |
+| + แจ้งปัญหาใหม่     | `POST /api/maintenance`                                                                        |
+
+```json
+{
+  "itemType": "game",
+  "game": "<gameId>",
+  "title": "การ์ดหาย",
+  "description": "...",
+  "priority": "high"
+}
+```
+
+- แจ้งซ่อม → เกมเป็น `maintenance` (จองไม่ได้) / โต๊ะเป็น `closed` อัตโนมัติ
+- ปิดงาน (`resolved`) หรือลบใบแจ้ง → เปิดใช้งานคืนอัตโนมัติ (ถ้าไม่มีใบอื่นค้าง)
+- คืนเกมแบบ `condition: "damaged"` (หน้า 15) → ระบบเปิดใบแจ้งซ่อมให้เอง
+
+### หน้า 12 — ภาพรวมร้าน
+
+`GET /api/stats/overview?date=` เพิ่มค่าใหม่: `revenueTarget`, `revenueTargetPct`, `utilizationPct` (อัตราการใช้โต๊ะเทียบเวลาเปิดร้าน), `collected` (เงินที่รับแล้ว), `unpaid`, `walkIns`, `activeMembers7d`, `openMaintenance`, `popularGames` (ของวันนั้น), `reservations.no_show`
+
+### หน้า 13 — รายงานและสถิติ
+
+| ส่วนบนหน้า                        | Endpoint                                                                         |
+| --------------------------------- | -------------------------------------------------------------------------------- |
+| Date Range (วันนี้/7/30/กำหนดเอง) | ใส่ `?from=YYYY-MM-DD&to=YYYY-MM-DD` ทุก endpoint ด้านล่าง                       |
+| KPI Cards + % เปลี่ยนแปลง         | `GET /api/stats/report` → `kpis`, `changePct`, `previous`                        |
+| Revenue chart                     | ผลเดียวกัน → `revenueTrend[]`                                                    |
+| Category pie                      | ผลเดียวกัน → `categories[]` (`category`, `sessions`, `revenue`, `pct`)           |
+| Top Games                         | ผลเดียวกัน → `topGames[]`                                                        |
+| Peak Hours Heatmap                | `GET /api/stats/heatmap` → `matrix[วัน 0-6][ชั่วโมง 0-23]`                       |
+| Export                            | `GET /api/stats/export.csv` (ต้องแนบ token — ใช้ fetch แล้วสร้าง blob ดาวน์โหลด) |
+
+`kpis`: `revenue`, `sessions`, `players`, `hours`, `avgPerSession`, `newMembers`, `repeatRatePct`
+
+### ส่วนที่ backend B ไม่ได้ทำ
+
+- รายได้อาหาร/เครื่องดื่ม, ส่งยอดเข้า POS, เก็บ/ริบเงินมัดจำจริง — ไม่มีในระบบ (settings เก็บแค่ค่า `depositPerPerson` ไว้แสดง)
+- Audit log (หน้า 9), ศูนย์แจ้งเตือน (หน้า 10), สิทธิ์ละเอียด (หน้า 16), SSO — นอกขอบเขต B
+- ระบบ Pending/Confirmed — การจองยืนยันทันที
+
 ## Demo data
 
 ```bash
 npm run --workspace server seed          # เกมตัวอย่าง (คน A)
 npm run --workspace server seed:tables   # ผังโต๊ะ 10 ตัว (Main / VIP / Outdoor)
+npm run --workspace server seed:demo     # สมาชิก demo + การจองย้อนหลัง 21 วัน + รีวิว (ให้กราฟมีข้อมูล)
 ```

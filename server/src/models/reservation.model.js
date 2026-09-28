@@ -3,8 +3,10 @@ import mongoose from 'mongoose';
 const { Schema, model, Types } = mongoose;
 
 // booked → playing (ถึงเวลาเริ่ม, auto) → completed (กดคืนเกม)
-// booked | playing → cancelled
-export const RESERVATION_STATUSES = ['booked', 'playing', 'completed', 'cancelled'];
+// booked | playing → cancelled, booked | playing → no_show (ลูกค้าไม่มา — admin กด)
+export const RESERVATION_STATUSES = ['booked', 'playing', 'completed', 'cancelled', 'no_show'];
+// สถานะที่ไม่นับเป็นรายได้ / การใช้บริการ
+export const NOT_SERVED = ['cancelled', 'no_show'];
 export const ACTIVE_STATUSES = ['booked', 'playing'];
 export const SOURCES = ['online', 'walk_in', 'admin'];
 export const PAYMENT_METHODS = ['cash', 'transfer', 'card', 'qr'];
@@ -41,6 +43,7 @@ const ReservationSchema = new Schema(
     cancelledAt: Date,
     cancelledBy: { type: Types.ObjectId, ref: 'User' },
     cancelReason: { type: String, default: '' },
+    noShowAt: Date,
     // เช็คบิลตอนคืนเกม
     checkout: {
       actualMinutes: Number,

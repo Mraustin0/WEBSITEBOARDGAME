@@ -21,7 +21,7 @@ const router = Router();
 const admin = [requireAuth, requireRole('admin')];
 
 // public
-router.get('/rules', controller.rules);
+router.get('/rules', asyncHandler(controller.rules));
 router.get(
   '/availability',
   validate({ query: availabilityQuery }),
@@ -46,6 +46,12 @@ router.patch(
   ...admin,
   validate({ params: idParam, body: payBody }),
   asyncHandler(controller.pay),
+);
+router.patch(
+  '/admin/:id/no-show',
+  ...admin,
+  validate({ params: idParam }),
+  asyncHandler(controller.markNoShow),
 );
 router.delete(
   '/admin/:id',

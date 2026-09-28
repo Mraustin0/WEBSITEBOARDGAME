@@ -1,6 +1,9 @@
 import * as service from './reservations.service.js';
 
-export const rules = (_req, res) => res.json(service.rules());
+export const rules = async (_req, res) => res.json(await service.rules());
+
+export const markNoShow = async (req, res) =>
+  res.json(await service.markNoShow(req.params.id, req.user));
 
 export const availability = async (req, res) => res.json(await service.availability(req.query));
 

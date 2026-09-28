@@ -5,10 +5,11 @@ import { PACKAGES, RULES } from './reservations.rules.js';
 const objectId = z.string().regex(/^[a-f0-9]{24}$/i, 'invalid id');
 const dateStr = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'use YYYY-MM-DD');
 
+// ขอบเขตจริง (min/max ชม.) ตั้งได้ในหน้าตั้งค่าร้าน → ตรวจใน service อีกชั้น
 const hours = z.coerce
   .number()
-  .min(RULES.MIN_HOURS)
-  .max(RULES.MAX_HOURS)
+  .min(0.5)
+  .max(12)
   .refine((v) => Number.isInteger(v * 2), 'durationHours must be in 0.5 hour steps');
 
 const players = z.coerce.number().int().min(1).max(30);

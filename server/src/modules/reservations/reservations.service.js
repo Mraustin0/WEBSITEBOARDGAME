@@ -11,9 +11,13 @@ import {
   calcPrice,
   computeEnd,
   conflictFilter,
+  durationError,
+  operatingHoursError,
   PACKAGES,
   RULES,
 } from './reservations.rules.js';
+import { getRules } from '../settings/settings.service.js';
+import { openDamageTicket } from '../maintenance/maintenance.service.js';
 import { findBusy, refreshGameStatus, syncLifecycle } from './reservations.lifecycle.js';
 
 const POPULATE = [
@@ -57,14 +61,21 @@ async function loadGame(id) {
  */
 async function validateBooking(
   { table: tableId, game: gameId, players, startAt, durationHours, package: pkg = 'hourly' },
-  { userId, excludeId, allowExtraSeats = false, now = new Date() },
+  { userId, excludeId, staff = false, now = new Date() },
 ) {
-  const windowErr = bookingWindowError(startAt, now);
+  const rules = await getRules();
+  const windowErr = bookingWindowError(startAt, now, rules);
   if (windowErr) throw badRequest(windowErr);
+  const durErr = durationError(durationHours, rules);
+  if (durErr) throw badRequest(durErr);
+  const endAtCheck = computeEnd(startAt, durationHours);
+  // admin เปิดโต๊ะนอกเวลาได้ (เช่น ลูกค้าประจำ) — จำกัดเฉพาะสมาชิกจองเอง
+  const hoursErr = staff ? null : operatingHoursError(startAt, endAtCheck, rules.OPERATING);
+  if (hoursErr) throw badRequest(hoursErr);
 
   const [table, game] = await Promise.all([loadTable(tableId), loadGame(gameId)]);
 
-  const maxSeats = table.capacity + (allowExtraSeats ? RULES.EXTRA_SEATS : 0);
+  const maxSeats = table.capacity + (staff ? rules.EXTRA_SEATS : 0);
   if (players > maxSeats) {
     throw badRequest(`table ${table.code} seats up to ${maxSeats} players`);
   }
@@ -90,6 +101,7 @@ async function validateBooking(
     durationHours,
     tableExtraPerHour: table.extraPerHour,
     pkg,
+    rules,
   });
   return { table, game, endAt, price };
 }
@@ -130,7 +142,10 @@ export async function create(userId, body) {
 const SCOPES = {
   active: { filter: { status: 'playing' }, sort: { startAt: 1 } },
   upcoming: { filter: { status: 'booked' }, sort: { startAt: 1 } },
-  past: { filter: { status: { $in: ['completed', 'cancelled'] } }, sort: { startAt: -1 } },
+  past: {
+    filter: { status: { $in: ['completed', 'cancelled', 'no_show'] } },
+    sort: { startAt: -1 },
+  },
   all: { filter: {}, sort: { startAt: -1 } },
 };
 
@@ -174,7 +189,7 @@ export async function update(id, user, patch) {
   const { table, game, endAt, price } = await validateBooking(next, {
     userId: r.user,
     excludeId: r._id,
-    allowExtraSeats: isAdmin(user),
+    staff: isAdmin(user),
   });
 
   Object.assign(r, {
@@ -224,14 +239,16 @@ function assertPlaying(r) {
   }
 }
 
-function billFor(r, now = new Date()) {
+async function billFor(r, now = new Date()) {
   return calcCheckout({
     startedAt: r.startedAt ?? r.startAt,
     now,
     durationHours: r.durationHours,
     players: r.players,
     tableExtraPerHour: r.price?.tableExtraPerHour ?? 0,
+    perPersonHour: r.price?.perPersonHour,
     bookedTotal: r.price.total,
+    rules: await getRules(),
   });
 }
 
@@ -241,7 +258,7 @@ export async function checkoutPreview(id, user) {
   const r = await loadOwned(id, user);
   assertPlaying(r);
   await r.populate(POPULATE);
-  return { reservation: r, bill: billFor(r) };
+  return { reservation: r, bill: await billFor(r) };
 }
 
 /**
@@ -260,7 +277,7 @@ export async function returnGame(
   assertPlaying(r);
 
   const now = new Date();
-  const bill = billFor(r, now);
+  const bill = await billFor(r, now);
   Object.assign(r, {
     status: 'completed',
     returnedAt: now,
@@ -287,7 +304,8 @@ export async function returnGame(
   await r.save();
 
   if (r.game && condition === 'damaged') {
-    await Game.updateOne({ _id: r.game }, { $set: { status: 'maintenance' } });
+    // เปิดใบแจ้งซ่อมอัตโนมัติ → เกมเป็น maintenance จนกว่าจะปิดงานซ่อม
+    await openDamageTicket({ reservation: r, note: damageNote, reportedBy: user._id });
   } else {
     await refreshGameStatus(r.game);
   }
@@ -348,7 +366,11 @@ export async function availability({ startAt, durationHours, players }) {
   const now = new Date();
   await syncLifecycle(now);
   const endAt = computeEnd(startAt, durationHours);
-  const windowErr = bookingWindowError(startAt, now);
+  const rules = await getRules();
+  const windowErr =
+    bookingWindowError(startAt, now, rules) ||
+    durationError(durationHours, rules) ||
+    operatingHoursError(startAt, endAt, rules.OPERATING);
 
   const [busy, tables, games] = await Promise.all([
     findBusy({ startAt, endAt }, now),
@@ -408,7 +430,7 @@ export async function adminCreate(admin, body) {
 
   const { table, game, endAt, price } = await validateBooking(
     { ...body, startAt },
-    { userId: body.user, allowExtraSeats: true, now },
+    { userId: body.user, staff: true, now },
   );
   const r = await Reservation.create({
     user: body.user ?? null,
@@ -487,4 +509,22 @@ export async function adminRemove(id) {
   return r;
 }
 
-export const rules = () => ({ ...RULES, PACKAGES });
+export async function rules() {
+  const r = await getRules();
+  return { ...r, PACKAGES };
+}
+
+/** admin กด "ลูกค้าไม่มา" — ปล่อยโต๊ะ/เกมคืน และนับสถิติ no-show ของสมาชิก */
+export async function markNoShow(id, admin) {
+  await syncLifecycle();
+  const r = await Reservation.findById(id);
+  if (!r) throw notFound('reservation not found');
+  if (!['booked', 'playing'].includes(r.status)) {
+    throw conflict(`cannot mark a ${r.status} reservation as no-show`);
+  }
+  const wasPlaying = r.status === 'playing';
+  Object.assign(r, { status: 'no_show', noShowAt: new Date(), cancelledBy: admin._id });
+  await r.save();
+  if (wasPlaying) await refreshGameStatus(r.game);
+  return r.populate(POPULATE);
+}

@@ -19,6 +19,8 @@ import bggRoutes from './modules/bgg/bgg.routes.js';
 import tablesRoutes from './modules/tables/tables.routes.js';
 import reservationsRoutes from './modules/reservations/reservations.routes.js';
 import statsRoutes from './modules/stats/stats.routes.js';
+import settingsRoutes from './modules/settings/settings.routes.js';
+import maintenanceRoutes from './modules/maintenance/maintenance.routes.js';
 import adminRoutes from './modules/admin/admin.routes.js';
 
 export function createApp() {
@@ -48,6 +50,8 @@ export function createApp() {
   app.use('/api/tables', tablesRoutes);
   app.use('/api/reservations', reservationsRoutes);
   app.use('/api/stats', statsRoutes);
+  app.use('/api/settings', settingsRoutes);
+  app.use('/api/maintenance', maintenanceRoutes);
   app.use('/api/admin', adminRoutes);
 
   app.use('/api', notFoundHandler);

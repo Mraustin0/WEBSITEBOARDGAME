@@ -15,3 +15,7 @@ export const popularQuery = z
     limit: z.coerce.number().int().positive().max(50).default(10),
   })
   .refine((q) => !q.from || !q.to || q.from <= q.to, 'from must be <= to');
+
+const objectId = z.string().regex(/^[a-f0-9]{24}$/i, 'invalid id');
+export const userIdParam = z.object({ userId: objectId });
+export const gameIdParam = z.object({ gameId: objectId });
