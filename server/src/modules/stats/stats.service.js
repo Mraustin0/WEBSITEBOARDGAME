@@ -39,7 +39,7 @@ export async function overview({ date }) {
         $group: {
           _id: '$status',
           count: { $sum: 1 },
-          revenue: { $sum: '$price.total' },
+          revenue: { $sum: { $ifNull: ['$checkout.total', '$price.total'] } },
           players: { $sum: '$players' },
           hours: { $sum: '$durationHours' },
         },
@@ -96,7 +96,15 @@ export async function daily(query) {
         _id: { $dateToString: { format: '%Y-%m-%d', date: '$startAt', timezone: TZ } },
         reservations: { $sum: { $cond: [{ $ne: ['$status', 'cancelled'] }, 1, 0] } },
         cancelled: { $sum: { $cond: [{ $eq: ['$status', 'cancelled'] }, 1, 0] } },
-        revenue: { $sum: { $cond: [{ $ne: ['$status', 'cancelled'] }, '$price.total', 0] } },
+        revenue: {
+          $sum: {
+            $cond: [
+              { $ne: ['$status', 'cancelled'] },
+              { $ifNull: ['$checkout.total', '$price.total'] },
+              0,
+            ],
+          },
+        },
         players: { $sum: { $cond: [{ $ne: ['$status', 'cancelled'] }, '$players', 0] } },
       },
     },
@@ -183,7 +191,7 @@ export async function tablesUsage(query) {
           _id: '$table',
           reservations: { $sum: 1 },
           hours: { $sum: '$durationHours' },
-          revenue: { $sum: '$price.total' },
+          revenue: { $sum: { $ifNull: ['$checkout.total', '$price.total'] } },
         },
       },
     ]),
@@ -215,7 +223,7 @@ export async function mine(userId) {
           _id: '$status',
           count: { $sum: 1 },
           hours: { $sum: '$durationHours' },
-          spent: { $sum: '$price.total' },
+          spent: { $sum: { $ifNull: ['$checkout.total', '$price.total'] } },
         },
       },
     ]),

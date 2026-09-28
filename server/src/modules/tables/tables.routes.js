@@ -6,6 +6,7 @@ import {
   floorQuery,
   idParam,
   listQuery,
+  scheduleQuery,
   statusBody,
   tableBody,
   tableBodyPartial,
@@ -17,6 +18,12 @@ const admin = [requireAuth, requireRole('admin')];
 
 router.get('/', validate({ query: listQuery }), asyncHandler(controller.list));
 router.get('/floor', validate({ query: floorQuery }), asyncHandler(controller.floor));
+router.get(
+  '/schedule',
+  ...admin,
+  validate({ query: scheduleQuery }),
+  asyncHandler(controller.schedule),
+);
 router.get('/:id', validate({ params: idParam }), asyncHandler(controller.detail));
 
 router.post('/', ...admin, validate({ body: tableBody }), asyncHandler(controller.create));

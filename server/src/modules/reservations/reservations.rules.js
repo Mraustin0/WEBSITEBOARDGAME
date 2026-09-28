@@ -8,20 +8,67 @@ export const RULES = {
   MAX_HOURS: 6,
   START_GRACE_MIN: 15, // ยอมให้เวลาเริ่มย้อนหลังได้ 15 นาที (walk-in)
   OVERDUE_BLOCK_MIN: 30, // โต๊ะ/เกมที่เล่นเกินเวลายังไม่คืน กันไม่ให้จองช่วงใกล้ ๆ นี้
+  FLAT_3H_PER_PERSON: 130, // แพ็กเกจเหมา 3 ชม. (ถูกกว่ารายชั่วโมง 3 × 50 = 150)
+  FLAT_HOURS: 3,
+  EXTRA_SEATS: 2, // admin เสริมเก้าอี้ได้เกิน capacity โต๊ะไม่เกิน 2 ที่
+  OVERTIME_GRACE_MIN: 10, // เล่นเกินเวลาไม่เกิน 10 นาที ไม่คิดเงินเพิ่ม
 };
+
+export const PACKAGES = ['hourly', 'flat3h'];
 
 export function computeEnd(startAt, durationHours) {
   return new Date(startAt.getTime() + durationHours * HOUR_MS);
 }
 
-export function calcPrice({ players, durationHours, tableExtraPerHour = 0 }) {
+/**
+ * ราคา
+ *  - hourly: ชั่วโมง × (ผู้เล่น × 50 + ค่าโต๊ะ/ชม.)
+ *  - flat3h: ผู้เล่น × 130 + 3 × ค่าโต๊ะ/ชม. (durationHours ต้องเป็น 3)
+ */
+export function calcPrice({ players, durationHours, tableExtraPerHour = 0, pkg = 'hourly' }) {
   const perHour = players * RULES.PRICE_PER_PERSON_HOUR + tableExtraPerHour;
+  const total =
+    pkg === 'flat3h'
+      ? players * RULES.FLAT_3H_PER_PERSON + RULES.FLAT_HOURS * tableExtraPerHour
+      : perHour * durationHours;
   return {
-    total: Math.round(perHour * durationHours),
+    total: Math.round(total),
+    package: pkg,
     perPersonHour: RULES.PRICE_PER_PERSON_HOUR,
     tableExtraPerHour,
     players,
     hours: durationHours,
+  };
+}
+
+/**
+ * คิดเงินตอนเช็คบิล: ราคาที่จองไว้ + ค่าเล่นเกินเวลา
+ * เกินเวลาไม่เกิน OVERTIME_GRACE_MIN ไม่คิด, เกินกว่านั้นปัดขึ้นทีละครึ่งชั่วโมง คิดอัตรารายชั่วโมง
+ * เล่นน้อยกว่าที่จอง = จ่ายตามที่จอง
+ */
+export function calcCheckout({
+  startedAt,
+  now = new Date(),
+  durationHours,
+  players,
+  tableExtraPerHour = 0,
+  bookedTotal,
+}) {
+  const actualMinutes = Math.max(0, Math.round((now - startedAt) / MINUTE_MS));
+  const overMinutes = actualMinutes - durationHours * 60;
+  const overtimeHours =
+    overMinutes > RULES.OVERTIME_GRACE_MIN ? Math.ceil(overMinutes / 30) / 2 : 0;
+  const perHour = players * RULES.PRICE_PER_PERSON_HOUR + tableExtraPerHour;
+  const overtimeCharge = Math.round(overtimeHours * perHour);
+  return {
+    startedAt,
+    endedAt: now,
+    actualMinutes,
+    bookedHours: durationHours,
+    overtimeHours,
+    bookedTotal,
+    overtimeCharge,
+    total: bookedTotal + overtimeCharge,
   };
 }
 

@@ -52,3 +52,10 @@ export const floorQuery = z.object({
   startAt: z.coerce.date().optional(),
   durationHours: z.coerce.number().min(0.5).max(12).default(1),
 });
+
+export const scheduleQuery = z.object({
+  date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'use YYYY-MM-DD')
+    .optional(),
+});

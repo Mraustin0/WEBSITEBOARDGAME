@@ -3,12 +3,16 @@ import { validate } from '../../middleware/validate.js';
 import { requireAuth, requireRole } from '../../middleware/auth.js';
 import { asyncHandler } from '../../lib/errors.js';
 import {
+  adminBookingBody,
   adminListQuery,
   availabilityQuery,
   bookingBody,
   cancelBody,
   idParam,
   listQuery,
+  payBody,
+  returnBody,
+  setGameBody,
   updateBody,
 } from './reservations.schema.js';
 import * as controller from './reservations.controller.js';
@@ -30,6 +34,18 @@ router.get(
   ...admin,
   validate({ query: adminListQuery }),
   asyncHandler(controller.adminList),
+);
+router.post(
+  '/admin',
+  ...admin,
+  validate({ body: adminBookingBody }),
+  asyncHandler(controller.adminCreate),
+);
+router.patch(
+  '/admin/:id/pay',
+  ...admin,
+  validate({ params: idParam, body: payBody }),
+  asyncHandler(controller.pay),
 );
 router.delete(
   '/admin/:id',
@@ -54,6 +70,20 @@ router.patch(
   validate({ params: idParam, body: cancelBody }),
   asyncHandler(controller.cancel),
 );
-router.patch('/:id/return', validate({ params: idParam }), asyncHandler(controller.returnGame));
+router.get(
+  '/:id/checkout',
+  validate({ params: idParam }),
+  asyncHandler(controller.checkoutPreview),
+);
+router.patch(
+  '/:id/return',
+  validate({ params: idParam, body: returnBody }),
+  asyncHandler(controller.returnGame),
+);
+router.patch(
+  '/:id/game',
+  validate({ params: idParam, body: setGameBody }),
+  asyncHandler(controller.setGame),
+);
 
 export default router;

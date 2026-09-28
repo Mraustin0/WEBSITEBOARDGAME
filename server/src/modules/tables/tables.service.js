@@ -1,6 +1,7 @@
 import { Table } from '../../models/table.model.js';
 import { Reservation, ACTIVE_STATUSES } from '../../models/reservation.model.js';
 import { conflict, notFound } from '../../lib/errors.js';
+import { localDayRange, toLocalDateString } from '../../lib/time.js';
 import { computeEnd } from '../reservations/reservations.rules.js';
 import { findBusy, syncLifecycle } from '../reservations/reservations.lifecycle.js';
 
@@ -100,4 +101,62 @@ export async function floor({ startAt, durationHours }) {
       };
     }),
   };
+}
+
+/**
+ * ตารางเวลาจองโต๊ะของวัน (Timeline) แยกตามโซน — สำหรับหน้า Reservations Management ของ admin
+ * ไม่รวมรายการที่ยกเลิก
+ */
+export async function schedule({ date }) {
+  await syncLifecycle();
+  const day = date ?? toLocalDateString(new Date());
+  const { start, end } = localDayRange(day);
+
+  const [tables, reservations] = await Promise.all([
+    Table.find().sort({ zone: 1, code: 1 }).lean(),
+    Reservation.find({
+      status: { $ne: 'cancelled' },
+      startAt: { $lt: end },
+      endAt: { $gt: start },
+    })
+      .sort({ startAt: 1 })
+      .populate('game', 'name thumbnail')
+      .populate('user', 'username')
+      .lean(),
+  ]);
+
+  const byTable = new Map();
+  for (const r of reservations) {
+    const key = String(r.table);
+    if (!byTable.has(key)) byTable.set(key, []);
+    byTable.get(key).push({
+      reservationId: r._id,
+      status: r.status,
+      source: r.source ?? 'online',
+      startAt: r.startAt,
+      endAt: r.endAt,
+      players: r.players,
+      game: r.game,
+      customer: r.user?.username || r.customer?.name || r.customer?.phone || '',
+      paid: r.payment?.status === 'paid',
+    });
+  }
+
+  const zones = [];
+  for (const t of tables) {
+    let zone = zones.find((z) => z.zone === t.zone);
+    if (!zone) {
+      zone = { zone: t.zone, tables: [] };
+      zones.push(zone);
+    }
+    zone.tables.push({
+      _id: t._id,
+      code: t.code,
+      name: t.name,
+      capacity: t.capacity,
+      status: t.status,
+      reservations: byTable.get(String(t._id)) || [],
+    });
+  }
+  return { date: day, start, end, zones };
 }
