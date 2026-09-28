@@ -138,7 +138,7 @@ describeIf('walk-in + checkout (integration)', () => {
       .set(auth(adminT));
     expect(late.body.bill.overtimeHours).toBe(0.5);
     expect(late.body.bill.overtimeCharge).toBe(100);
-    expect(late.body.bill.total).toBe(200 + 100);
+    expect(late.body.bill.total).toBe(400 + 100);
   });
 
   it('return with damage + cash payment → completed, paid, game maintenance', async () => {
@@ -148,10 +148,10 @@ describeIf('walk-in + checkout (integration)', () => {
       .send({ condition: 'damaged', damageNote: 'missing 2 tiles', paymentMethod: 'cash' });
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('completed');
-    expect(res.body.checkout.total).toBe(300);
+    expect(res.body.checkout.total).toBe(500);
     expect(res.body.checkout.condition).toBe('damaged');
     expect(res.body.payment.status).toBe('paid');
-    expect(res.body.payment.amount).toBe(300);
+    expect(res.body.payment.amount).toBe(500);
     expect(res.body.returnedBy.username).toBe('wc_admin');
 
     const game = await request(app).get(`/api/games/${azul._id}`);
@@ -274,6 +274,6 @@ describeIf('walk-in + checkout (integration)', () => {
   it('revenue stats use the checkout total (incl. overtime)', async () => {
     const res = await request(app).get('/api/stats/overview').set(auth(adminT));
     expect(res.status).toBe(200);
-    expect(res.body.revenue).toBeGreaterThanOrEqual(300 + 100);
+    expect(res.body.revenue).toBeGreaterThanOrEqual(500 + 100);
   });
 });
