@@ -6,6 +6,8 @@ import {
   calcPrice,
   computeEnd,
   conflictFilter,
+  openHoursOfDay,
+  operatingHoursError,
   overlaps,
 } from '../src/modules/reservations/reservations.rules.js';
 import { eachLocalDate, localDayRange, toLocalDateString } from '../src/lib/time.js';
@@ -94,5 +96,57 @@ describe('packages + checkout (unit)', () => {
     expect(bill.overtimeCharge).toBe(0.5 * 3 * RULES.PRICE_PER_PERSON_HOUR);
     expect(bill.total).toBe(300 + 75);
     expect(calcCheckout({ ...base, startedAt: start, now: at(185) }).overtimeHours).toBe(1.5);
+  });
+});
+
+describe('settings-driven rules (unit)', () => {
+  const week = (patch = {}) =>
+    [0, 1, 2, 3, 4, 5, 6].map((day) => ({
+      day,
+      open: '10:00',
+      close: '22:00',
+      closed: false,
+      ...patch,
+    }));
+  // 2026-10-05 เป็นวันจันทร์ — เวลาไทย = UTC+7
+  const bkk = (hhmm, date = '2026-10-05') => new Date(`${date}T${hhmm}:00+07:00`);
+  const plus = (d, h) => new Date(d.getTime() + h * H);
+
+  it('uses custom prices', () => {
+    const rules = { ...RULES, PRICE_PER_PERSON_HOUR: 60 };
+    expect(calcPrice({ players: 2, durationHours: 1, rules }).total).toBe(120);
+  });
+
+  it('ignores operating hours when not enforced', () => {
+    const s = bkk('03:00');
+    expect(operatingHoursError(s, plus(s, 1), { enforce: false, days: week() })).toBeNull();
+  });
+
+  it('accepts bookings inside and rejects outside opening hours', () => {
+    const op = { enforce: true, days: week() };
+    const ok = bkk('20:00');
+    expect(operatingHoursError(ok, plus(ok, 2), op)).toBeNull();
+    const late = bkk('21:00');
+    expect(operatingHoursError(late, plus(late, 2), op)).toMatch(/outside/);
+    const early = bkk('09:00');
+    expect(operatingHoursError(early, plus(early, 1), op)).toMatch(/outside/);
+  });
+
+  it('handles closing after midnight and closed days', () => {
+    const op = { enforce: true, days: week({ open: '18:00', close: '02:00' }) };
+    const afterMidnight = bkk('00:30', '2026-10-06'); // กะของวันจันทร์
+    expect(operatingHoursError(afterMidnight, plus(afterMidnight, 1), op)).toBeNull();
+    const tooLate = bkk('01:30', '2026-10-06');
+    expect(operatingHoursError(tooLate, plus(tooLate, 1), op)).toMatch(/outside/);
+
+    const closedMon = { enforce: true, days: week().map((d) => ({ ...d, closed: d.day === 1 })) };
+    const mon = bkk('12:00');
+    expect(operatingHoursError(mon, plus(mon, 1), closedMon)).toMatch(/closed on Mon/);
+  });
+
+  it('computes open hours per day', () => {
+    expect(openHoursOfDay(1, { days: week() })).toBe(12);
+    expect(openHoursOfDay(1, { days: week({ open: '18:00', close: '02:00' }) })).toBe(8);
+    expect(openHoursOfDay(1, { days: week({ closed: true }) })).toBe(0);
   });
 });

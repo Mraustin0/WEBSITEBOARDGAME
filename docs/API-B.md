@@ -8,6 +8,8 @@ Error ทุกตัวเป็น `{ "error": "ข้อความ", "detai
 
 ## กฎการจอง (`GET /api/reservations/rules`)
 
+> ค่าทั้งหมดในตารางนี้คือค่าเริ่มต้น admin แก้ได้ที่หน้า "ตั้งค่าร้าน" (`PUT /api/settings`) — frontend ควรอ่านค่าจริงจาก `GET /api/reservations/rules` หรือ `GET /api/settings`
+
 | กฎ          | ค่า                                                                              |
 | ----------- | -------------------------------------------------------------------------------- |
 | ราคา        | `ชั่วโมง × (ผู้เล่น × 50 + extraPerHour ของโต๊ะ)` บาท                            |
@@ -20,7 +22,7 @@ Error ทุกตัวเป็น `{ "error": "ข้อความ", "detai
 
 ## สถานะ
 
-- **Reservation:** `booked` (จองล่วงหน้า) → `playing` (ถึงเวลาเริ่ม — ระบบเปลี่ยนให้อัตโนมัติ) → `completed` (กดคืนเกม). ยกเลิกได้ → `cancelled`
+- **Reservation:** `booked` (จองล่วงหน้า) → `playing` (ถึงเวลาเริ่ม — ระบบเปลี่ยนให้อัตโนมัติ) → `completed` (กดคืนเกม). ยกเลิกได้ → `cancelled`, ลูกค้าไม่มา (admin กด) → `no_show`
 - **Game:** `available` → `in_use` (มีโต๊ะกำลังเล่น) → `available` หลังคืนเกม. `maintenance` = admin ปิดจอง
 - **Table:** `active` / `closed`. บน floor plan มี `state`: `available` · `reserved` · `occupied` · `closed`
 
@@ -177,9 +179,111 @@ Table body (`position` เป็น % ของพื้นที่ floor plan 
 
 ชื่อที่แสดงของลูกค้า: `user?.username ?? customer.name ?? customer.phone`
 
+## หน้าจอ admin ชุดที่ 3 (ตั้งค่าร้าน / ซ่อมบำรุง / รายละเอียด / รายงาน)
+
+### หน้า 6 — ตั้งค่าร้าน
+
+- อ่าน: `GET /api/settings` (public — ฝั่ง user ใช้แสดงราคาและเวลาเปิด-ปิดได้)
+- บันทึก: `PUT /api/settings` (admin) ส่งเฉพาะหมวดที่แก้ ไม่ต้องส่งทั้งก้อน
+
+```json
+{
+  "store": { "name": "Boardgame Everyday", "phone": "043-000000" },
+  "pricing": { "perPersonHour": 60, "flat3hPerPerson": 150, "revenueTargetPerDay": 5000 },
+  "booking": {
+    "maxAdvanceDays": 3,
+    "minHours": 1,
+    "maxHours": 6,
+    "overtimeGraceMin": 10,
+    "extraSeats": 2
+  },
+  "operatingHours": {
+    "enforce": true,
+    "days": [
+      { "day": 0, "open": "10:00", "close": "24:00", "closed": false },
+      { "day": 1, "open": "10:00", "close": "22:00", "closed": true }
+    ]
+  },
+  "noShow": { "graceMin": 30, "depositPerPerson": 0, "suspendAfter": 3 }
+}
+```
+
+- `day`: 0 = อาทิตย์ … 6 = เสาร์ (ต้องส่งครบ 7 วัน) — `close` น้อยกว่า `open` = ปิดหลังเที่ยงคืน (เช่น 18:00–02:00)
+- `operatingHours.enforce: true` → สมาชิกจองนอกเวลาทำการไม่ได้ (admin เปิดโต๊ะนอกเวลาได้)
+- ปุ่ม Discard = โหลด `GET /api/settings` ใหม่
+- ราคาใหม่มีผลกับการจองใหม่เท่านั้น (การจองเดิมเก็บราคาตอนจองไว้)
+
+### หน้า 5 / 7 — รายละเอียดสมาชิก + No-show
+
+| ส่วนบนหน้า                     | Endpoint                                                                                                                |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| Profile & Stats                | `GET /api/stats/members/:userId` → `user`, `visits`, `totalSpent`, `hoursPlayed`, `lastVisitAt`, `reservations.no_show` |
+| Account Preferences            | ในผลเดียวกัน: `favoriteTable`, `favoriteGames`, `favoriteCategories`                                                    |
+| Session & Gaming History       | `GET /api/reservations/admin?user=:userId`                                                                              |
+| + เปิดโต๊ะให้สมาชิก (Check-in) | `POST /api/reservations/admin` body มี `"user": ":userId"`                                                              |
+| ลูกค้าไม่มา                    | `PATCH /api/reservations/admin/:id/no-show`                                                                             |
+
+`noShowLimit` = จำนวน no-show ที่ควรระงับบัญชี (จาก settings) — การระงับบัญชีจริงเป็น endpoint ของคน A (`/api/admin/users`)
+
+### หน้า 3 — รายละเอียดเกม (ส่วนสถิติ)
+
+`GET /api/stats/games/:gameId` → `sessions`, `hours`, `revenue`, `lastPlayedAt`, `rating`, `damageReports`, `maintenance` (ประวัติซ่อม), `recentSessions` (10 รอบล่าสุด)
+
+ปุ่ม "บันทึกส่งซ่อม" → `POST /api/maintenance` (ดูหน้า 8)
+
+### หน้า 8 — ติดตามการซ่อมบำรุง
+
+| ส่วนบนหน้า          | Endpoint                                                                                       |
+| ------------------- | ---------------------------------------------------------------------------------------------- |
+| Status Dashboard    | `GET /api/maintenance/summary` → `pending`, `in_progress`, `resolved`, `totalCost`             |
+| Kanban (3 คอลัมน์)  | `GET /api/maintenance?status=pending` / `in_progress` (กรอง `itemType=game\|table`)            |
+| ลากการ์ดข้ามคอลัมน์ | `PATCH /api/maintenance/:id` body `{ "status": "in_progress" }`                                |
+| ปิดงานซ่อม          | `PATCH /api/maintenance/:id` body `{ "status": "resolved", "cost": 200, "resolution": "..." }` |
+| Repair History      | `GET /api/maintenance?status=resolved`                                                         |
+| + แจ้งปัญหาใหม่     | `POST /api/maintenance`                                                                        |
+
+```json
+{
+  "itemType": "game",
+  "game": "<gameId>",
+  "title": "การ์ดหาย",
+  "description": "...",
+  "priority": "high"
+}
+```
+
+- แจ้งซ่อม → เกมเป็น `maintenance` (จองไม่ได้) / โต๊ะเป็น `closed` อัตโนมัติ
+- ปิดงาน (`resolved`) หรือลบใบแจ้ง → เปิดใช้งานคืนอัตโนมัติ (ถ้าไม่มีใบอื่นค้าง)
+- คืนเกมแบบ `condition: "damaged"` (หน้า 15) → ระบบเปิดใบแจ้งซ่อมให้เอง
+
+### หน้า 12 — ภาพรวมร้าน
+
+`GET /api/stats/overview?date=` เพิ่มค่าใหม่: `revenueTarget`, `revenueTargetPct`, `utilizationPct` (อัตราการใช้โต๊ะเทียบเวลาเปิดร้าน), `collected` (เงินที่รับแล้ว), `unpaid`, `walkIns`, `activeMembers7d`, `openMaintenance`, `popularGames` (ของวันนั้น), `reservations.no_show`
+
+### หน้า 13 — รายงานและสถิติ
+
+| ส่วนบนหน้า                        | Endpoint                                                                         |
+| --------------------------------- | -------------------------------------------------------------------------------- |
+| Date Range (วันนี้/7/30/กำหนดเอง) | ใส่ `?from=YYYY-MM-DD&to=YYYY-MM-DD` ทุก endpoint ด้านล่าง                       |
+| KPI Cards + % เปลี่ยนแปลง         | `GET /api/stats/report` → `kpis`, `changePct`, `previous`                        |
+| Revenue chart                     | ผลเดียวกัน → `revenueTrend[]`                                                    |
+| Category pie                      | ผลเดียวกัน → `categories[]` (`category`, `sessions`, `revenue`, `pct`)           |
+| Top Games                         | ผลเดียวกัน → `topGames[]`                                                        |
+| Peak Hours Heatmap                | `GET /api/stats/heatmap` → `matrix[วัน 0-6][ชั่วโมง 0-23]`                       |
+| Export                            | `GET /api/stats/export.csv` (ต้องแนบ token — ใช้ fetch แล้วสร้าง blob ดาวน์โหลด) |
+
+`kpis`: `revenue`, `sessions`, `players`, `hours`, `avgPerSession`, `newMembers`, `repeatRatePct`
+
+### ส่วนที่ backend B ไม่ได้ทำ
+
+- รายได้อาหาร/เครื่องดื่ม, ส่งยอดเข้า POS, เก็บ/ริบเงินมัดจำจริง — ไม่มีในระบบ (settings เก็บแค่ค่า `depositPerPerson` ไว้แสดง)
+- Audit log (หน้า 9), ศูนย์แจ้งเตือน (หน้า 10), สิทธิ์ละเอียด (หน้า 16), SSO — นอกขอบเขต B
+- ระบบ Pending/Confirmed — การจองยืนยันทันที
+
 ## Demo data
 
 ```bash
 npm run --workspace server seed          # เกมตัวอย่าง (คน A)
 npm run --workspace server seed:tables   # ผังโต๊ะ 10 ตัว (Main / VIP / Outdoor)
+npm run --workspace server seed:demo     # สมาชิก demo + การจองย้อนหลัง 21 วัน + รีวิว (ให้กราฟมีข้อมูล)
 ```

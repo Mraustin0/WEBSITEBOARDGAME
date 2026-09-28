@@ -164,7 +164,7 @@ export const bSchemas = {
       endAt: { type: 'string', format: 'date-time' },
       durationHours: { type: 'number' },
       price: ref('Price'),
-      status: { type: 'string', enum: ['booked', 'playing', 'completed', 'cancelled'] },
+      status: { type: 'string', enum: ['booked', 'playing', 'completed', 'cancelled', 'no_show'] },
       source: { type: 'string', enum: ['online', 'walk_in', 'admin'] },
       customer: {
         type: 'object',
@@ -446,7 +446,10 @@ const reservationsPaths = {
         q('date', date),
         q('from', date, 'ใช้คู่กับ to สำหรับดูรายสัปดาห์/เดือน'),
         q('to', date),
-        q('status', { type: 'string', enum: ['booked', 'playing', 'completed', 'cancelled'] }),
+        q('status', {
+          type: 'string',
+          enum: ['booked', 'playing', 'completed', 'cancelled', 'no_show'],
+        }),
         q('table', { type: 'string' }),
         q('zone', { type: 'string' }),
         q('user', { type: 'string' }),
@@ -579,4 +582,198 @@ const statsPaths = {
   },
 };
 
-export const bPaths = { ...tablesPaths, ...reservationsPaths, ...reviewsPaths, ...statsPaths };
+const settingsPaths = {
+  '/settings': {
+    get: {
+      tags: ['settings'],
+      summary: 'การตั้งค่าร้าน (public): ราคา, กฎการจอง, เวลาทำการ, no-show',
+      responses: { 200: { description: 'ok' } },
+    },
+    put: {
+      tags: ['settings'],
+      summary: 'แก้การตั้งค่าร้าน (admin) — ส่งเฉพาะส่วนที่แก้',
+      security: bearer,
+      requestBody: {
+        required: true,
+        content: json({
+          type: 'object',
+          example: {
+            pricing: { perPersonHour: 60, flat3hPerPerson: 150, revenueTargetPerDay: 5000 },
+            booking: { maxAdvanceDays: 3, minHours: 1, maxHours: 6, overtimeGraceMin: 10 },
+            operatingHours: {
+              enforce: true,
+              days: [{ day: 0, open: '10:00', close: '24:00', closed: false }],
+            },
+            noShow: { graceMin: 30, suspendAfter: 3 },
+          },
+        }),
+      },
+      responses: { 200: { description: 'ok' }, 400: err('invalid') },
+    },
+  },
+};
+
+const ticket = {
+  type: 'object',
+  properties: {
+    _id: { type: 'string' },
+    itemType: { type: 'string', enum: ['game', 'table'] },
+    game: { type: 'object', nullable: true },
+    table: { type: 'object', nullable: true },
+    title: { type: 'string' },
+    description: { type: 'string' },
+    priority: { type: 'string', enum: ['low', 'medium', 'high'] },
+    status: { type: 'string', enum: ['pending', 'in_progress', 'resolved'] },
+    cost: { type: 'number' },
+    resolution: { type: 'string' },
+    reportedBy: { type: 'object' },
+    resolvedAt: { type: 'string', format: 'date-time', nullable: true },
+  },
+};
+
+const maintenancePaths = {
+  '/maintenance': {
+    get: {
+      tags: ['maintenance'],
+      summary: 'รายการแจ้งซ่อม (admin) — Kanban / ประวัติ (status=resolved)',
+      security: bearer,
+      parameters: [
+        q('status', { type: 'string', enum: ['pending', 'in_progress', 'resolved'] }),
+        q('itemType', { type: 'string', enum: ['game', 'table'] }),
+        q('game', { type: 'string' }),
+        q('table', { type: 'string' }),
+        q('priority', { type: 'string', enum: ['low', 'medium', 'high'] }),
+      ],
+      responses: { 200: ok(paged(ticket)) },
+    },
+    post: {
+      tags: ['maintenance'],
+      summary: 'แจ้งปัญหาใหม่ — เกมจะเป็น maintenance / โต๊ะจะถูกปิด',
+      security: bearer,
+      requestBody: {
+        required: true,
+        content: json({
+          type: 'object',
+          required: ['itemType', 'title'],
+          properties: {
+            itemType: { type: 'string', enum: ['game', 'table'] },
+            game: { type: 'string' },
+            table: { type: 'string' },
+            title: { type: 'string' },
+            description: { type: 'string' },
+            priority: { type: 'string', enum: ['low', 'medium', 'high'] },
+            cost: { type: 'number' },
+          },
+        }),
+      },
+      responses: { 201: ok(ticket, 'created') },
+    },
+  },
+  '/maintenance/summary': {
+    get: {
+      tags: ['maintenance'],
+      summary: 'ตัวเลขสรุป pending / in_progress / resolved + ค่าซ่อมรวม',
+      security: bearer,
+      responses: { 200: { description: 'ok' } },
+    },
+  },
+  '/maintenance/{id}': {
+    parameters: [idPath()],
+    get: {
+      tags: ['maintenance'],
+      summary: 'รายละเอียด',
+      security: bearer,
+      responses: { 200: ok(ticket) },
+    },
+    patch: {
+      tags: ['maintenance'],
+      summary: 'อัปเดต (ย้ายคอลัมน์ Kanban) — resolved = เปิดใช้งานของคืนอัตโนมัติ',
+      security: bearer,
+      requestBody: {
+        content: json({
+          type: 'object',
+          properties: {
+            status: { type: 'string', enum: ['pending', 'in_progress', 'resolved'] },
+            priority: { type: 'string' },
+            cost: { type: 'number' },
+            resolution: { type: 'string' },
+          },
+        }),
+      },
+      responses: { 200: ok(ticket) },
+    },
+    delete: {
+      tags: ['maintenance'],
+      summary: 'ลบใบแจ้งซ่อม',
+      security: bearer,
+      responses: { 200: { description: 'ok' } },
+    },
+  },
+};
+
+const moreStatsPaths = {
+  '/stats/report': {
+    get: {
+      tags: ['stats'],
+      summary: 'รายงาน: KPI + % เทียบช่วงก่อนหน้า, กราฟรายได้, สัดส่วนหมวดหมู่, เกมยอดนิยม',
+      security: bearer,
+      parameters: [q('from', date), q('to', date)],
+      responses: { 200: { description: 'ok' } },
+    },
+  },
+  '/stats/heatmap': {
+    get: {
+      tags: ['stats'],
+      summary: 'Peak hours heatmap: matrix[วัน 0-6][ชั่วโมง 0-23]',
+      security: bearer,
+      parameters: [q('from', date), q('to', date)],
+      responses: { 200: { description: 'ok' } },
+    },
+  },
+  '/stats/export.csv': {
+    get: {
+      tags: ['stats'],
+      summary: 'ดาวน์โหลดการจองในช่วงวันเป็น CSV',
+      security: bearer,
+      parameters: [q('from', date), q('to', date)],
+      responses: { 200: { description: 'text/csv' } },
+    },
+  },
+  '/stats/members/{userId}': {
+    parameters: [idPath('userId')],
+    get: {
+      tags: ['stats'],
+      summary: 'รายละเอียดสมาชิก (admin): ยอดใช้จ่าย, จำนวนครั้ง, ชั่วโมง, no-show, ของโปรด',
+      security: bearer,
+      responses: { 200: { description: 'ok' } },
+    },
+  },
+  '/stats/games/{gameId}': {
+    parameters: [idPath('gameId')],
+    get: {
+      tags: ['stats'],
+      summary: 'สถิติเกม (admin): จำนวนรอบ, คะแนน, ประวัติชำรุด/ซ่อม, รอบล่าสุด',
+      security: bearer,
+      responses: { 200: { description: 'ok' } },
+    },
+  },
+  '/reservations/admin/{id}/no-show': {
+    parameters: [idPath()],
+    patch: {
+      tags: ['reservations'],
+      summary: 'ลูกค้าไม่มา (admin) → no_show, ปล่อยโต๊ะ/เกมคืน',
+      security: bearer,
+      responses: { 200: ok(ref('Reservation')), 409: err('not booked/playing') },
+    },
+  },
+};
+
+export const bPaths = {
+  ...tablesPaths,
+  ...reservationsPaths,
+  ...reviewsPaths,
+  ...statsPaths,
+  ...moreStatsPaths,
+  ...settingsPaths,
+  ...maintenancePaths,
+};
