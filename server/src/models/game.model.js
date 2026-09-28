@@ -12,6 +12,13 @@ const GameSchema = new Schema(
     yearPublished: { type: Number },
     thumbnail: { type: String },
     description: { type: String },
+    // สถานะของกล่องเกมในร้าน: available → in_use (มีโต๊ะกำลังเล่น) → available; maintenance = ปิดจอง
+    status: {
+      type: String,
+      enum: ['available', 'in_use', 'maintenance'],
+      default: 'available',
+      index: true,
+    },
     createdBy: { type: Types.ObjectId, ref: 'User' },
   },
   { timestamps: true },

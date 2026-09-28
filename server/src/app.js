@@ -15,6 +15,9 @@ import collectionRoutes from './modules/collection/collection.routes.js';
 import playsRoutes from './modules/plays/plays.routes.js';
 import reviewsRoutes from './modules/reviews/reviews.routes.js';
 import bggRoutes from './modules/bgg/bgg.routes.js';
+import tablesRoutes from './modules/tables/tables.routes.js';
+import reservationsRoutes from './modules/reservations/reservations.routes.js';
+import statsRoutes from './modules/stats/stats.routes.js';
 
 export function createApp() {
   const app = express();
@@ -40,6 +43,9 @@ export function createApp() {
   app.use('/api/plays', playsRoutes);
   app.use('/api/reviews', reviewsRoutes);
   app.use('/api/bgg', bggRoutes);
+  app.use('/api/tables', tablesRoutes);
+  app.use('/api/reservations', reservationsRoutes);
+  app.use('/api/stats', statsRoutes);
 
   app.use('/api', notFoundHandler);
   app.use(errorHandler);

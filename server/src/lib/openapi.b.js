@@ -1,0 +1,439 @@
+// OpenAPI spec ของ module คน B (tables, reservations, reviews, stats)
+// แยกไฟล์เพื่อลด merge conflict กับ openapi.js — ถูก spread เข้าไปใน openapi.js
+const bearer = [{ bearerAuth: [] }];
+const ref = (name) => ({ $ref: `#/components/schemas/${name}` });
+const json = (schema) => ({ 'application/json': { schema } });
+const ok = (schema, description = 'ok') => ({ description, content: json(schema) });
+const err = (description) => ({ description, content: json(ref('Error')) });
+const idPath = (name = 'id') => ({
+  name,
+  in: 'path',
+  required: true,
+  schema: { type: 'string' },
+});
+const q = (name, schema, description) => ({ name, in: 'query', schema, description });
+const date = { type: 'string', example: '2026-10-12', description: 'YYYY-MM-DD (เวลาไทย)' };
+const paged = (item) => ({
+  type: 'object',
+  properties: {
+    items: { type: 'array', items: item },
+    total: { type: 'integer' },
+    page: { type: 'integer' },
+    limit: { type: 'integer' },
+  },
+});
+
+export const bSchemas = {
+  Table: {
+    type: 'object',
+    properties: {
+      _id: { type: 'string' },
+      code: { type: 'string', example: 'T-01' },
+      name: { type: 'string' },
+      zone: { type: 'string', example: 'VIP' },
+      capacity: { type: 'integer', example: 4 },
+      status: { type: 'string', enum: ['active', 'closed'] },
+      extraPerHour: { type: 'number', example: 0 },
+      shape: { type: 'string', enum: ['rect', 'round'] },
+      position: {
+        type: 'object',
+        description: 'ตำแหน่งบน floor plan เป็น % (0-100)',
+        properties: {
+          x: { type: 'number' },
+          y: { type: 'number' },
+          w: { type: 'number' },
+          h: { type: 'number' },
+        },
+      },
+      notes: { type: 'string' },
+    },
+  },
+  TableInput: {
+    type: 'object',
+    required: ['code', 'capacity'],
+    properties: {
+      code: { type: 'string', example: 'T-01' },
+      name: { type: 'string' },
+      zone: { type: 'string', example: 'Main' },
+      capacity: { type: 'integer', example: 4 },
+      status: { type: 'string', enum: ['active', 'closed'] },
+      extraPerHour: { type: 'number', example: 0 },
+      shape: { type: 'string', enum: ['rect', 'round'] },
+      position: {
+        type: 'object',
+        properties: {
+          x: { type: 'number' },
+          y: { type: 'number' },
+          w: { type: 'number' },
+          h: { type: 'number' },
+        },
+      },
+      notes: { type: 'string' },
+    },
+  },
+  FloorTable: {
+    allOf: [
+      ref('Table'),
+      {
+        type: 'object',
+        properties: {
+          state: { type: 'string', enum: ['available', 'reserved', 'occupied', 'closed'] },
+          current: { type: 'object', nullable: true, description: 'การเล่นที่กำลังเกิดขึ้น' },
+          reservations: { type: 'array', items: { type: 'object' } },
+        },
+      },
+    ],
+  },
+  Price: {
+    type: 'object',
+    properties: {
+      total: { type: 'number', example: 300 },
+      perPersonHour: { type: 'number', example: 50 },
+      tableExtraPerHour: { type: 'number', example: 0 },
+      players: { type: 'integer' },
+      hours: { type: 'number' },
+    },
+  },
+  BookingInput: {
+    type: 'object',
+    required: ['table', 'players', 'startAt', 'durationHours'],
+    properties: {
+      table: { type: 'string', description: 'Table _id' },
+      game: { type: 'string', nullable: true, description: 'Game _id (optional)' },
+      players: { type: 'integer', example: 4 },
+      startAt: { type: 'string', format: 'date-time', example: '2026-10-12T13:00:00+07:00' },
+      durationHours: { type: 'number', example: 2, description: '1-6 ชม. ทีละ 0.5' },
+      note: { type: 'string' },
+    },
+  },
+  Reservation: {
+    type: 'object',
+    properties: {
+      _id: { type: 'string' },
+      user: { type: 'object', properties: { username: { type: 'string' } } },
+      table: ref('Table'),
+      game: { ...ref('Game'), nullable: true },
+      players: { type: 'integer' },
+      startAt: { type: 'string', format: 'date-time' },
+      endAt: { type: 'string', format: 'date-time' },
+      durationHours: { type: 'number' },
+      price: ref('Price'),
+      status: { type: 'string', enum: ['booked', 'playing', 'completed', 'cancelled'] },
+      note: { type: 'string' },
+      startedAt: { type: 'string', format: 'date-time', nullable: true },
+      returnedAt: { type: 'string', format: 'date-time', nullable: true },
+      cancelledAt: { type: 'string', format: 'date-time', nullable: true },
+      cancelReason: { type: 'string' },
+    },
+  },
+  Review: {
+    type: 'object',
+    properties: {
+      _id: { type: 'string' },
+      user: { type: 'object', properties: { username: { type: 'string' } } },
+      game: { type: 'string' },
+      rating: { type: 'integer', minimum: 1, maximum: 10 },
+      comment: { type: 'string' },
+    },
+  },
+};
+
+const tablesPaths = {
+  '/tables': {
+    get: {
+      tags: ['tables'],
+      summary: 'List tables',
+      parameters: [q('zone', { type: 'string' }), q('status', { type: 'string' })],
+      responses: { 200: ok({ type: 'array', items: ref('Table') }) },
+    },
+    post: {
+      tags: ['tables'],
+      summary: 'Create table (admin)',
+      security: bearer,
+      requestBody: { required: true, content: json(ref('TableInput')) },
+      responses: { 201: ok(ref('Table'), 'created'), 409: err('code already exists') },
+    },
+  },
+  '/tables/floor': {
+    get: {
+      tags: ['tables'],
+      summary: 'Interactive floor plan — สถานะโต๊ะในช่วงเวลา (default: ตอนนี้ + 1 ชม.)',
+      parameters: [
+        q('startAt', { type: 'string', format: 'date-time' }),
+        q('durationHours', { type: 'number', default: 1 }),
+      ],
+      responses: {
+        200: ok({
+          type: 'object',
+          properties: {
+            startAt: { type: 'string' },
+            endAt: { type: 'string' },
+            zones: { type: 'array', items: { type: 'string' } },
+            tables: { type: 'array', items: ref('FloorTable') },
+          },
+        }),
+      },
+    },
+  },
+  '/tables/{id}': {
+    parameters: [idPath()],
+    get: { tags: ['tables'], summary: 'Table detail', responses: { 200: ok(ref('Table')) } },
+    put: {
+      tags: ['tables'],
+      summary: 'Update table (admin)',
+      security: bearer,
+      requestBody: { content: json(ref('TableInput')) },
+      responses: { 200: ok(ref('Table')) },
+    },
+    delete: {
+      tags: ['tables'],
+      summary: 'Delete table (admin) — ห้ามถ้ามีการจองค้าง',
+      security: bearer,
+      responses: { 200: { description: 'ok' }, 409: err('has active reservations') },
+    },
+  },
+  '/tables/{id}/status': {
+    parameters: [idPath()],
+    patch: {
+      tags: ['tables'],
+      summary: 'เปิด/ปิดปรับปรุงโต๊ะ (admin)',
+      security: bearer,
+      requestBody: {
+        required: true,
+        content: json({
+          type: 'object',
+          properties: { status: { type: 'string', enum: ['active', 'closed'] } },
+        }),
+      },
+      responses: { 200: ok(ref('Table')) },
+    },
+  },
+};
+
+const reservationsPaths = {
+  '/reservations/rules': {
+    get: {
+      tags: ['reservations'],
+      summary: 'ค่าคงที่ของระบบจอง (ราคา/ชม., จองล่วงหน้าได้กี่วัน ฯลฯ)',
+      responses: { 200: { description: 'ok' } },
+    },
+  },
+  '/reservations/availability': {
+    get: {
+      tags: ['reservations'],
+      summary: 'เลือกช่วงเวลา → ดูโต๊ะและเกมที่ว่าง',
+      parameters: [
+        { ...q('startAt', { type: 'string', format: 'date-time' }), required: true },
+        q('durationHours', { type: 'number', default: 1 }),
+        q('players', { type: 'integer' }),
+      ],
+      responses: {
+        200: ok({
+          type: 'object',
+          properties: {
+            bookable: { type: 'boolean' },
+            reason: { type: 'string', nullable: true },
+            tables: { type: 'array', items: { type: 'object' } },
+            games: { type: 'array', items: { type: 'object' } },
+          },
+        }),
+      },
+    },
+  },
+  '/reservations/quote': {
+    post: {
+      tags: ['reservations'],
+      summary: 'คำนวณราคา + ตรวจว่าจองได้ (ยังไม่บันทึก)',
+      security: bearer,
+      requestBody: { required: true, content: json(ref('BookingInput')) },
+      responses: {
+        200: ok({ type: 'object', properties: { price: ref('Price') } }),
+        400: err('invalid'),
+        409: err('conflict'),
+      },
+    },
+  },
+  '/reservations': {
+    get: {
+      tags: ['reservations'],
+      summary: 'การจองของฉัน',
+      security: bearer,
+      parameters: [
+        q(
+          'scope',
+          { type: 'string', enum: ['active', 'upcoming', 'past', 'all'], default: 'all' },
+          'active=กำลังเล่น, upcoming=ล่วงหน้า, past=จบ/ยกเลิก',
+        ),
+        q('page', { type: 'integer', default: 1 }),
+        q('limit', { type: 'integer', default: 20 }),
+      ],
+      responses: { 200: ok(paged(ref('Reservation'))) },
+    },
+    post: {
+      tags: ['reservations'],
+      summary: 'ยืนยันการจองโต๊ะ (+ผูกเกม)',
+      security: bearer,
+      requestBody: { required: true, content: json(ref('BookingInput')) },
+      responses: {
+        201: ok(ref('Reservation'), 'created'),
+        400: err('นอกช่วงเวลา / เกินความจุ / จำนวนผู้เล่นไม่ตรงเกม'),
+        409: err('โต๊ะหรือเกมถูกจองแล้ว / โต๊ะปิด / เกม maintenance'),
+      },
+    },
+  },
+  '/reservations/{id}': {
+    parameters: [idPath()],
+    get: {
+      tags: ['reservations'],
+      summary: 'รายละเอียด (เจ้าของ หรือ admin)',
+      security: bearer,
+      responses: { 200: ok(ref('Reservation')), 404: err('not found') },
+    },
+    put: {
+      tags: ['reservations'],
+      summary: 'แก้ไขการจอง (เฉพาะสถานะ booked)',
+      security: bearer,
+      requestBody: { content: json(ref('BookingInput')) },
+      responses: { 200: ok(ref('Reservation')), 409: err('conflict') },
+    },
+  },
+  '/reservations/{id}/cancel': {
+    parameters: [idPath()],
+    patch: {
+      tags: ['reservations'],
+      summary: 'ยกเลิก (สมาชิก: เฉพาะ booked, admin: booked/playing)',
+      security: bearer,
+      requestBody: {
+        content: json({ type: 'object', properties: { reason: { type: 'string' } } }),
+      },
+      responses: { 200: ok(ref('Reservation')), 409: err('cannot cancel') },
+    },
+  },
+  '/reservations/{id}/return': {
+    parameters: [idPath()],
+    patch: {
+      tags: ['reservations'],
+      summary: 'เล่นเสร็จแล้ว / คืนเกม → completed, เกมกลับเป็น available',
+      security: bearer,
+      responses: { 200: ok(ref('Reservation')), 409: err('not playing') },
+    },
+  },
+  '/reservations/admin': {
+    get: {
+      tags: ['reservations'],
+      summary: 'การจองทั้งหมด (admin) — กรองตามวัน/สถานะ/โต๊ะ',
+      security: bearer,
+      parameters: [
+        q('date', date),
+        q('status', { type: 'string', enum: ['booked', 'playing', 'completed', 'cancelled'] }),
+        q('table', { type: 'string' }),
+        q('page', { type: 'integer', default: 1 }),
+        q('limit', { type: 'integer', default: 20 }),
+      ],
+      responses: { 200: ok(paged(ref('Reservation'))) },
+    },
+  },
+  '/reservations/admin/{id}': {
+    parameters: [idPath()],
+    delete: {
+      tags: ['reservations'],
+      summary: 'ลบรายการจอง (admin)',
+      security: bearer,
+      responses: { 200: { description: 'ok' } },
+    },
+  },
+};
+
+const reviewsPaths = {
+  '/reviews/my': {
+    get: {
+      tags: ['reviews'],
+      summary: 'รีวิวของฉัน',
+      security: bearer,
+      responses: { 200: ok({ type: 'array', items: ref('Review') }) },
+    },
+  },
+  '/reviews/{gameId}/summary': {
+    parameters: [idPath('gameId')],
+    get: {
+      tags: ['reviews'],
+      summary: 'คะแนนเฉลี่ย + จำนวน + distribution',
+      responses: {
+        200: ok({
+          type: 'object',
+          properties: {
+            average: { type: 'number', nullable: true },
+            count: { type: 'integer' },
+            distribution: { type: 'object', additionalProperties: { type: 'integer' } },
+          },
+        }),
+      },
+    },
+  },
+  '/reviews/{id}': {
+    parameters: [idPath()],
+    delete: {
+      tags: ['reviews'],
+      summary: 'ลบรีวิว (เจ้าของ หรือ admin)',
+      security: bearer,
+      responses: { 200: { description: 'ok' } },
+    },
+  },
+};
+
+const statsPaths = {
+  '/stats/popular-games': {
+    get: {
+      tags: ['stats'],
+      summary: 'เกมที่ถูกจองบ่อยสุด + คะแนนเฉลี่ย (public)',
+      parameters: [q('from', date), q('to', date), q('limit', { type: 'integer', default: 10 })],
+      responses: { 200: { description: 'ok' } },
+    },
+  },
+  '/stats/me': {
+    get: {
+      tags: ['stats'],
+      summary: 'สถิติส่วนตัว (จำนวนครั้ง, ชั่วโมง, ยอดใช้จ่าย, เกมโปรด, การจองถัดไป)',
+      security: bearer,
+      responses: { 200: { description: 'ok' } },
+    },
+  },
+  '/stats/overview': {
+    get: {
+      tags: ['stats'],
+      summary: 'Admin dashboard ของวัน',
+      security: bearer,
+      parameters: [q('date', date)],
+      responses: { 200: { description: 'ok' } },
+    },
+  },
+  '/stats/daily': {
+    get: {
+      tags: ['stats'],
+      summary: 'กราฟรายวัน: การจอง/รายได้ (default 7 วันล่าสุด)',
+      security: bearer,
+      parameters: [q('from', date), q('to', date)],
+      responses: { 200: { description: 'ok' } },
+    },
+  },
+  '/stats/hourly': {
+    get: {
+      tags: ['stats'],
+      summary: 'ช่วงเวลาที่มีคนจองเยอะ (0-23 น.)',
+      security: bearer,
+      parameters: [q('from', date), q('to', date)],
+      responses: { 200: { description: 'ok' } },
+    },
+  },
+  '/stats/tables': {
+    get: {
+      tags: ['stats'],
+      summary: 'การใช้งานแต่ละโต๊ะ',
+      security: bearer,
+      parameters: [q('from', date), q('to', date)],
+      responses: { 200: { description: 'ok' } },
+    },
+  },
+};
+
+export const bPaths = { ...tablesPaths, ...reservationsPaths, ...reviewsPaths, ...statsPaths };

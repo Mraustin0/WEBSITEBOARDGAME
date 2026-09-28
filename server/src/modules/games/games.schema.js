@@ -18,6 +18,7 @@ export const gameBody = z.object({
   yearPublished: z.coerce.number().int().optional(),
   thumbnail: z.string().url().optional().or(z.literal('')),
   description: z.string().max(10000).optional(),
+  status: z.enum(['available', 'in_use', 'maintenance']).optional(),
 });
 
 export const gameBodyPartial = gameBody.partial();
