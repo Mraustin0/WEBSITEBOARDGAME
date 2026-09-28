@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   RULES,
   bookingWindowError,
+  calcCheckout,
   calcPrice,
   computeEnd,
   conflictFilter,
@@ -67,5 +68,31 @@ describe('time helpers (Asia/Bangkok)', () => {
       '2026-10-01',
       '2026-10-02',
     ]);
+  });
+});
+
+describe('packages + checkout (unit)', () => {
+  it('flat3h package = players × 130 + 3 × table extra', () => {
+    const p = calcPrice({ players: 4, durationHours: 3, tableExtraPerHour: 100, pkg: 'flat3h' });
+    expect(p.total).toBe(4 * RULES.FLAT_3H_PER_PERSON + 3 * 100);
+    expect(p.package).toBe('flat3h');
+  });
+
+  const base = { durationHours: 2, players: 3, tableExtraPerHour: 0, bookedTotal: 300 };
+  const start = new Date('2026-10-01T10:00:00Z');
+  const at = (min) => new Date(start.getTime() + min * 60 * 1000);
+
+  it('no overtime when finishing early or within grace period', () => {
+    expect(calcCheckout({ ...base, startedAt: start, now: at(60) }).total).toBe(300);
+    expect(calcCheckout({ ...base, startedAt: start, now: at(130) }).overtimeCharge).toBe(0);
+  });
+
+  it('overtime rounds up to half hours at hourly rate', () => {
+    const bill = calcCheckout({ ...base, startedAt: start, now: at(135) }); // เกิน 15 นาที
+    expect(bill.actualMinutes).toBe(135);
+    expect(bill.overtimeHours).toBe(0.5);
+    expect(bill.overtimeCharge).toBe(0.5 * 3 * RULES.PRICE_PER_PERSON_HOUR);
+    expect(bill.total).toBe(300 + 75);
+    expect(calcCheckout({ ...base, startedAt: start, now: at(185) }).overtimeHours).toBe(1.5);
   });
 });

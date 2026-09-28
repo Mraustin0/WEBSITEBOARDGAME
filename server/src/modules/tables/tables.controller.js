@@ -2,6 +2,8 @@ import * as service from './tables.service.js';
 
 export const list = async (req, res) => res.json(await service.list(req.query));
 
+export const schedule = async (req, res) => res.json(await service.schedule(req.query));
+
 export const floor = async (req, res) => res.json(await service.floor(req.query));
 
 export const detail = async (req, res) => res.json(await service.findById(req.params.id));

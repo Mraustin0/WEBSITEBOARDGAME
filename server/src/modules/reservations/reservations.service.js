@@ -2,13 +2,16 @@ import mongoose from 'mongoose';
 import { Reservation } from '../../models/reservation.model.js';
 import { Table } from '../../models/table.model.js';
 import { Game } from '../../models/game.model.js';
+import { User } from '../../models/user.model.js';
 import { badRequest, conflict, notFound } from '../../lib/errors.js';
-import { localDayRange } from '../../lib/time.js';
+import { localDayRange, localRange } from '../../lib/time.js';
 import {
   bookingWindowError,
+  calcCheckout,
   calcPrice,
   computeEnd,
   conflictFilter,
+  PACKAGES,
   RULES,
 } from './reservations.rules.js';
 import { findBusy, refreshGameStatus, syncLifecycle } from './reservations.lifecycle.js';
@@ -17,7 +20,11 @@ const POPULATE = [
   { path: 'table', select: 'code name zone capacity status extraPerHour' },
   { path: 'game', select: 'name thumbnail minPlayers maxPlayers status' },
   { path: 'user', select: 'username email' },
+  { path: 'createdBy', select: 'username' },
+  { path: 'returnedBy', select: 'username' },
 ];
+
+const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const isAdmin = (user) => user.role === 'admin';
 const sameId = (a, b) => String(a?._id ?? a) === String(b?._id ?? b);
@@ -49,16 +56,17 @@ async function loadGame(id) {
  * ใช้ร่วมกันทั้ง create / update / quote
  */
 async function validateBooking(
-  { table: tableId, game: gameId, players, startAt, durationHours },
-  { userId, excludeId, now = new Date() },
+  { table: tableId, game: gameId, players, startAt, durationHours, package: pkg = 'hourly' },
+  { userId, excludeId, allowExtraSeats = false, now = new Date() },
 ) {
   const windowErr = bookingWindowError(startAt, now);
   if (windowErr) throw badRequest(windowErr);
 
   const [table, game] = await Promise.all([loadTable(tableId), loadGame(gameId)]);
 
-  if (players > table.capacity) {
-    throw badRequest(`table ${table.code} seats up to ${table.capacity} players`);
+  const maxSeats = table.capacity + (allowExtraSeats ? RULES.EXTRA_SEATS : 0);
+  if (players > maxSeats) {
+    throw badRequest(`table ${table.code} seats up to ${maxSeats} players`);
   }
   if (game && (players < game.minPlayers || players > game.maxPlayers)) {
     throw badRequest(`${game.name} needs ${game.minPlayers}-${game.maxPlayers} players`);
@@ -77,7 +85,12 @@ async function validateBooking(
   if (gameClash) throw conflict(`${game.name} is already booked for this time`);
   if (userClash) throw conflict('you already have a reservation overlapping this time');
 
-  const price = calcPrice({ players, durationHours, tableExtraPerHour: table.extraPerHour });
+  const price = calcPrice({
+    players,
+    durationHours,
+    tableExtraPerHour: table.extraPerHour,
+    pkg,
+  });
   return { table, game, endAt, price };
 }
 
@@ -153,10 +166,15 @@ export async function update(id, user, patch) {
     players: patch.players ?? r.players,
     startAt: patch.startAt ?? r.startAt,
     durationHours: patch.durationHours ?? r.durationHours,
+    package: patch.package ?? r.price?.package ?? 'hourly',
   };
+  if (next.package === 'flat3h' && next.durationHours !== RULES.FLAT_HOURS) {
+    throw badRequest(`flat3h package must be ${RULES.FLAT_HOURS} hours`);
+  }
   const { table, game, endAt, price } = await validateBooking(next, {
     userId: r.user,
     excludeId: r._id,
+    allowExtraSeats: isAdmin(user),
   });
 
   Object.assign(r, {
@@ -196,10 +214,7 @@ export async function cancel(id, user, reason = '') {
   return r.populate(POPULATE);
 }
 
-/** กด "เล่นเสร็จแล้ว / คืนเกม" (สมาชิกเจ้าของ หรือ admin ที่เคาน์เตอร์) */
-export async function returnGame(id, user) {
-  await syncLifecycle();
-  const r = await loadOwned(id, user);
+function assertPlaying(r) {
   if (r.status !== 'playing') {
     throw conflict(
       r.status === 'booked'
@@ -207,9 +222,122 @@ export async function returnGame(id, user) {
         : `reservation is already ${r.status}`,
     );
   }
-  Object.assign(r, { status: 'completed', returnedAt: new Date(), returnedBy: user._id });
+}
+
+function billFor(r, now = new Date()) {
+  return calcCheckout({
+    startedAt: r.startedAt ?? r.startAt,
+    now,
+    durationHours: r.durationHours,
+    players: r.players,
+    tableExtraPerHour: r.price?.tableExtraPerHour ?? 0,
+    bookedTotal: r.price.total,
+  });
+}
+
+/** ดูยอดก่อนเช็คบิล (ยังไม่บันทึก) — ใช้แสดงใน Checkout modal */
+export async function checkoutPreview(id, user) {
+  await syncLifecycle();
+  const r = await loadOwned(id, user);
+  assertPlaying(r);
+  await r.populate(POPULATE);
+  return { reservation: r, bill: billFor(r) };
+}
+
+/**
+ * กด "เล่นเสร็จแล้ว / คืนเกม" (สมาชิกเจ้าของ หรือ admin ที่เคาน์เตอร์)
+ * - บันทึกเวลาเล่นจริง + ค่าเล่นเกินเวลา
+ * - condition = damaged → เกมถูกตั้งเป็น maintenance อัตโนมัติ
+ * - admin ส่ง paymentMethod มาด้วย = เก็บเงินพร้อมปิดบิล
+ */
+export async function returnGame(
+  id,
+  user,
+  { condition = 'good', damageNote = '', paymentMethod } = {},
+) {
+  await syncLifecycle();
+  const r = await loadOwned(id, user);
+  assertPlaying(r);
+
+  const now = new Date();
+  const bill = billFor(r, now);
+  Object.assign(r, {
+    status: 'completed',
+    returnedAt: now,
+    returnedBy: user._id,
+    checkout: {
+      actualMinutes: bill.actualMinutes,
+      overtimeHours: bill.overtimeHours,
+      overtimeCharge: bill.overtimeCharge,
+      total: bill.total,
+      condition,
+      damageNote,
+      inspectedBy: isAdmin(user) ? user._id : undefined,
+    },
+  });
+  if (paymentMethod && isAdmin(user)) {
+    r.payment = {
+      status: 'paid',
+      method: paymentMethod,
+      amount: bill.total,
+      paidAt: now,
+      receivedBy: user._id,
+    };
+  }
   await r.save();
-  await refreshGameStatus(r.game);
+
+  if (r.game && condition === 'damaged') {
+    await Game.updateOne({ _id: r.game }, { $set: { status: 'maintenance' } });
+  } else {
+    await refreshGameStatus(r.game);
+  }
+  return r.populate(POPULATE);
+}
+
+/** เปลี่ยน/เลือกเกมให้การจอง — ใช้ได้ทั้งตอน booked และระหว่างเล่น (walk-in ที่เริ่มโดยยังไม่เลือกเกม) */
+export async function setGame(id, user, gameId) {
+  await syncLifecycle();
+  const r = await loadOwned(id, user);
+  if (r.status === 'booked') return update(id, user, { game: gameId });
+  assertPlaying(r);
+
+  const oldGame = r.game;
+  let game = null;
+  if (gameId) {
+    game = await loadGame(gameId);
+    if (r.players < game.minPlayers || r.players > game.maxPlayers) {
+      throw badRequest(`${game.name} needs ${game.minPlayers}-${game.maxPlayers} players`);
+    }
+    const now = new Date();
+    const clash = await Reservation.exists({
+      ...conflictFilter({ startAt: now, endAt: r.endAt > now ? r.endAt : now }, now),
+      _id: { $ne: r._id },
+      game: game._id,
+    });
+    if (clash) throw conflict(`${game.name} is being played or booked right now`);
+  }
+
+  r.game = game?._id ?? null;
+  await r.save();
+  if (oldGame && String(oldGame) !== String(r.game)) await refreshGameStatus(oldGame);
+  if (game) await refreshGameStatus(game._id);
+  return Reservation.findById(r._id).populate(POPULATE);
+}
+
+/** admin รับชำระเงิน (กรณีคืนเกมแล้วแต่ยังไม่จ่าย) */
+export async function pay(id, admin, method) {
+  const r = await Reservation.findById(id);
+  if (!r) throw notFound('reservation not found');
+  if (r.status !== 'completed') throw conflict('check out (return the game) before payment');
+  if (r.payment?.status === 'paid') throw conflict('already paid');
+  r.payment = {
+    status: 'paid',
+    method,
+    amount: r.checkout?.total ?? r.price.total,
+    paidAt: new Date(),
+    receivedBy: admin._id,
+  };
+  await r.save();
   return r.populate(POPULATE);
 }
 
@@ -265,15 +393,81 @@ export async function availability({ startAt, durationHours, players }) {
 
 // ---------- admin ----------
 
-export async function adminList({ date, status, table, page, limit }) {
+/**
+ * Admin เปิดโต๊ะ walk-in / เพิ่มการจองแทนลูกค้า
+ * ต่างจากสมาชิกจองเอง: ไม่ส่ง startAt = เริ่มทันที, ใส่ชื่อ/เบอร์ลูกค้าที่ไม่มีบัญชีได้,
+ * เสริมเก้าอี้เกิน capacity ได้ RULES.EXTRA_SEATS ที่
+ */
+export async function adminCreate(admin, body) {
+  const now = new Date();
+  await syncLifecycle(now);
+  const startAt = body.startAt ?? now;
+  const walkIn = startAt.getTime() <= now.getTime() + 5 * 60 * 1000;
+
+  if (body.user && !(await User.exists({ _id: body.user }))) throw notFound('member not found');
+
+  const { table, game, endAt, price } = await validateBooking(
+    { ...body, startAt },
+    { userId: body.user, allowExtraSeats: true, now },
+  );
+  const r = await Reservation.create({
+    user: body.user ?? null,
+    customer: body.customer,
+    source: walkIn ? 'walk_in' : 'admin',
+    createdBy: admin._id,
+    table: table._id,
+    game: game?._id ?? null,
+    players: body.players,
+    startAt,
+    endAt,
+    durationHours: body.durationHours,
+    price,
+    note: body.note,
+  });
+  await syncLifecycle();
+  return Reservation.findById(r._id).populate(POPULATE);
+}
+
+export async function adminList({
+  date,
+  from,
+  to,
+  status,
+  table,
+  zone,
+  user,
+  game,
+  source,
+  payment,
+  q,
+  page,
+  limit,
+}) {
   await syncLifecycle();
   const query = {};
   if (date) {
     const { start, end } = localDayRange(date);
     query.startAt = { $gte: start, $lt: end };
+  } else if (from || to) {
+    const { start, end } = localRange(from ?? to, to ?? from);
+    query.startAt = { $gte: start, $lt: end };
   }
   if (status) query.status = status;
   if (table) query.table = new mongoose.Types.ObjectId(table);
+  if (zone) {
+    const ids = await Table.find({ zone }).distinct('_id');
+    query.table = table ? query.table : { $in: ids };
+  }
+  if (user) query.user = new mongoose.Types.ObjectId(user);
+  if (game) query.game = new mongoose.Types.ObjectId(game);
+  if (source) query.source = source;
+  if (payment === 'paid') query['payment.status'] = 'paid';
+  if (payment === 'unpaid') query['payment.status'] = { $ne: 'paid' };
+  if (q) {
+    const rx = new RegExp(escapeRegex(q), 'i');
+    const users = await User.find({ $or: [{ username: rx }, { email: rx }] }).distinct('_id');
+    query.$or = [{ 'customer.name': rx }, { 'customer.phone': rx }, { user: { $in: users } }];
+  }
 
   const [items, total] = await Promise.all([
     Reservation.find(query)
@@ -293,4 +487,4 @@ export async function adminRemove(id) {
   return r;
 }
 
-export const rules = () => ({ ...RULES });
+export const rules = () => ({ ...RULES, PACKAGES });

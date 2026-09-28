@@ -19,6 +19,11 @@ describe('B routes require auth where expected', () => {
     ['get', '/api/stats/overview'],
     ['get', '/api/stats/me'],
     ['get', '/api/reviews/my'],
+    ['post', '/api/reservations/admin'],
+    ['patch', '/api/reservations/admin/64b000000000000000000000/pay'],
+    ['get', '/api/reservations/64b000000000000000000000/checkout'],
+    ['patch', '/api/reservations/64b000000000000000000000/game'],
+    ['get', '/api/tables/schedule'],
   ];
   it.each(cases)('%s %s → 401 without token', async (method, path) => {
     const res = await request(app)[method](path).send({});

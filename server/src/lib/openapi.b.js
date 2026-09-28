@@ -103,7 +103,53 @@ export const bSchemas = {
       players: { type: 'integer', example: 4 },
       startAt: { type: 'string', format: 'date-time', example: '2026-10-12T13:00:00+07:00' },
       durationHours: { type: 'number', example: 2, description: '1-6 ชม. ทีละ 0.5' },
+      package: {
+        type: 'string',
+        enum: ['hourly', 'flat3h'],
+        default: 'hourly',
+        description: 'flat3h = เหมา 3 ชม. (durationHours ต้องเป็น 3)',
+      },
       note: { type: 'string' },
+    },
+  },
+  AdminBookingInput: {
+    type: 'object',
+    required: ['table', 'players', 'durationHours'],
+    description: 'ต้องมี user (สมาชิก) หรือ customer.name/phone (ลูกค้าไม่มีบัญชี)',
+    properties: {
+      table: { type: 'string' },
+      game: { type: 'string', nullable: true },
+      players: {
+        type: 'integer',
+        example: 4,
+        description: 'เกิน capacity ได้ 2 ที่ (เก้าอี้เสริม)',
+      },
+      startAt: {
+        type: 'string',
+        format: 'date-time',
+        description: 'ไม่ส่ง = เริ่มทันที (walk-in)',
+      },
+      durationHours: { type: 'number', example: 2 },
+      package: { type: 'string', enum: ['hourly', 'flat3h'] },
+      user: { type: 'string', description: 'User _id ของสมาชิก (optional)' },
+      customer: {
+        type: 'object',
+        properties: { name: { type: 'string' }, phone: { type: 'string' } },
+      },
+      note: { type: 'string' },
+    },
+  },
+  Bill: {
+    type: 'object',
+    properties: {
+      startedAt: { type: 'string', format: 'date-time' },
+      endedAt: { type: 'string', format: 'date-time' },
+      actualMinutes: { type: 'integer' },
+      bookedHours: { type: 'number' },
+      overtimeHours: { type: 'number' },
+      bookedTotal: { type: 'number' },
+      overtimeCharge: { type: 'number' },
+      total: { type: 'number' },
     },
   },
   Reservation: {
@@ -119,6 +165,21 @@ export const bSchemas = {
       durationHours: { type: 'number' },
       price: ref('Price'),
       status: { type: 'string', enum: ['booked', 'playing', 'completed', 'cancelled'] },
+      source: { type: 'string', enum: ['online', 'walk_in', 'admin'] },
+      customer: {
+        type: 'object',
+        properties: { name: { type: 'string' }, phone: { type: 'string' } },
+      },
+      checkout: { type: 'object', description: 'ยอดจริงตอนคืนเกม + สภาพเกม' },
+      payment: {
+        type: 'object',
+        properties: {
+          status: { type: 'string', enum: ['unpaid', 'paid'] },
+          method: { type: 'string', enum: ['cash', 'transfer', 'card', 'qr'] },
+          amount: { type: 'number' },
+          paidAt: { type: 'string', format: 'date-time' },
+        },
+      },
       note: { type: 'string' },
       startedAt: { type: 'string', format: 'date-time', nullable: true },
       returnedAt: { type: 'string', format: 'date-time', nullable: true },
@@ -173,6 +234,15 @@ const tablesPaths = {
           },
         }),
       },
+    },
+  },
+  '/tables/schedule': {
+    get: {
+      tags: ['tables'],
+      summary: 'ตารางเวลาจองโต๊ะของวัน แยกตามโซน (admin)',
+      security: bearer,
+      parameters: [q('date', date)],
+      responses: { 200: { description: 'ok' } },
     },
   },
   '/tables/{id}': {
@@ -313,24 +383,97 @@ const reservationsPaths = {
     parameters: [idPath()],
     patch: {
       tags: ['reservations'],
-      summary: 'เล่นเสร็จแล้ว / คืนเกม → completed, เกมกลับเป็น available',
+      summary: 'เล่นเสร็จแล้ว / คืนเกม (เช็คบิล) → completed',
+      description:
+        'condition=damaged → เกมเป็น maintenance, admin ส่ง paymentMethod = รับเงินพร้อมปิดบิล',
       security: bearer,
+      requestBody: {
+        content: json({
+          type: 'object',
+          properties: {
+            condition: { type: 'string', enum: ['good', 'damaged'], default: 'good' },
+            damageNote: { type: 'string' },
+            paymentMethod: { type: 'string', enum: ['cash', 'transfer', 'card', 'qr'] },
+          },
+        }),
+      },
       responses: { 200: ok(ref('Reservation')), 409: err('not playing') },
     },
   },
+  '/reservations/{id}/checkout': {
+    parameters: [idPath()],
+    get: {
+      tags: ['reservations'],
+      summary: 'ดูยอดก่อนเช็คบิล (เวลาเล่นจริง + ค่าเกินเวลา)',
+      security: bearer,
+      responses: {
+        200: ok({
+          type: 'object',
+          properties: { reservation: ref('Reservation'), bill: ref('Bill') },
+        }),
+      },
+    },
+  },
+  '/reservations/{id}/game': {
+    parameters: [idPath()],
+    patch: {
+      tags: ['reservations'],
+      summary: 'เลือก/เปลี่ยนเกม (ได้ทั้งก่อนเริ่มและระหว่างเล่น)',
+      security: bearer,
+      requestBody: {
+        required: true,
+        content: json({
+          type: 'object',
+          properties: { game: { type: 'string', nullable: true } },
+        }),
+      },
+      responses: { 200: ok(ref('Reservation')), 409: err('game busy') },
+    },
+  },
   '/reservations/admin': {
+    post: {
+      tags: ['reservations'],
+      summary: 'เปิดโต๊ะ walk-in / เพิ่มการจองแทนลูกค้า (admin)',
+      security: bearer,
+      requestBody: { required: true, content: json(ref('AdminBookingInput')) },
+      responses: { 201: ok(ref('Reservation'), 'created'), 409: err('conflict') },
+    },
     get: {
       tags: ['reservations'],
       summary: 'การจองทั้งหมด (admin) — กรองตามวัน/สถานะ/โต๊ะ',
       security: bearer,
       parameters: [
         q('date', date),
+        q('from', date, 'ใช้คู่กับ to สำหรับดูรายสัปดาห์/เดือน'),
+        q('to', date),
         q('status', { type: 'string', enum: ['booked', 'playing', 'completed', 'cancelled'] }),
         q('table', { type: 'string' }),
+        q('zone', { type: 'string' }),
+        q('user', { type: 'string' }),
+        q('game', { type: 'string' }),
+        q('source', { type: 'string', enum: ['online', 'walk_in', 'admin'] }),
+        q('payment', { type: 'string', enum: ['unpaid', 'paid'] }),
+        q('q', { type: 'string' }, 'ค้นชื่อ/เบอร์ลูกค้า หรือ username/email สมาชิก'),
         q('page', { type: 'integer', default: 1 }),
         q('limit', { type: 'integer', default: 20 }),
       ],
       responses: { 200: ok(paged(ref('Reservation'))) },
+    },
+  },
+  '/reservations/admin/{id}/pay': {
+    parameters: [idPath()],
+    patch: {
+      tags: ['reservations'],
+      summary: 'รับชำระเงิน (admin) — หลังคืนเกมแล้ว',
+      security: bearer,
+      requestBody: {
+        required: true,
+        content: json({
+          type: 'object',
+          properties: { method: { type: 'string', enum: ['cash', 'transfer', 'card', 'qr'] } },
+        }),
+      },
+      responses: { 200: ok(ref('Reservation')), 409: err('already paid / not checked out') },
     },
   },
   '/reservations/admin/{id}': {
