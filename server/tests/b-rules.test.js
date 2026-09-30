@@ -4,6 +4,7 @@ import {
   bookingWindowError,
   calcCheckout,
   calcPrice,
+  cancelCutoffError,
   computeEnd,
   conflictFilter,
   openHoursOfDay,
@@ -148,5 +149,15 @@ describe('settings-driven rules (unit)', () => {
     expect(openHoursOfDay(1, { days: week() })).toBe(12);
     expect(openHoursOfDay(1, { days: week({ open: '18:00', close: '02:00' }) })).toBe(8);
     expect(openHoursOfDay(1, { days: week({ closed: true }) })).toBe(0);
+  });
+
+  it('members can cancel only up to CANCEL_CUTOFF_HOURS before start', () => {
+    const now = new Date('2026-10-01T10:00:00Z');
+    const at = (h) => new Date(now.getTime() + h * H);
+    expect(RULES.CANCEL_CUTOFF_HOURS).toBe(2);
+    expect(cancelCutoffError(at(3), now)).toBeNull();
+    expect(cancelCutoffError(at(2), now)).toBeNull(); // พอดี 2 ชม. ยังยกเลิกได้
+    expect(cancelCutoffError(at(1.5), now)).toMatch(/2 hours/);
+    expect(cancelCutoffError(at(1), now, { ...RULES, CANCEL_CUTOFF_HOURS: 0 })).toBeNull();
   });
 });

@@ -9,6 +9,7 @@ import {
   bookingWindowError,
   calcCheckout,
   calcPrice,
+  cancelCutoffError,
   computeEnd,
   conflictFilter,
   durationError,
@@ -22,7 +23,10 @@ import { findBusy, refreshGameStatus, syncLifecycle } from './reservations.lifec
 
 const POPULATE = [
   { path: 'table', select: 'code name zone capacity status extraPerHour' },
-  { path: 'game', select: 'name thumbnail minPlayers maxPlayers status' },
+  {
+    path: 'game',
+    select: 'name thumbnail image minPlayers maxPlayers playtimeMin bggAverage status',
+  },
   { path: 'user', select: 'username email' },
   { path: 'createdBy', select: 'username' },
   { path: 'returnedBy', select: 'username' },
@@ -149,19 +153,36 @@ const SCOPES = {
   all: { filter: {}, sort: { startAt: -1 } },
 };
 
-export async function listMine(userId, { scope, page, limit }) {
+/** filter ค้นหาจากรหัส/ชื่อโต๊ะ หรือชื่อเกม (ช่องค้นหาในหน้า "การจองของฉัน") */
+async function searchFilter(q) {
+  if (!q) return {};
+  const rx = new RegExp(escapeRegex(q), 'i');
+  const [tables, games] = await Promise.all([
+    Table.find({ $or: [{ code: rx }, { name: rx }, { zone: rx }] }).distinct('_id'),
+    Game.find({ name: rx }).distinct('_id'),
+  ]);
+  return { $or: [{ table: { $in: tables } }, { game: { $in: games } }] };
+}
+
+export async function listMine(userId, { scope, q, page, limit }) {
   await syncLifecycle();
   const { filter, sort } = SCOPES[scope];
-  const query = { user: userId, ...filter };
-  const [items, total] = await Promise.all([
+  const base = { user: userId, ...(await searchFilter(q)) };
+  const query = { ...base, ...filter };
+  const countOf = (name) => Reservation.countDocuments({ ...base, ...SCOPES[name].filter });
+  const [items, total, active, upcoming, past] = await Promise.all([
     Reservation.find(query)
       .populate(POPULATE)
       .sort(sort)
       .skip((page - 1) * limit)
       .limit(limit),
     Reservation.countDocuments(query),
+    countOf('active'),
+    countOf('upcoming'),
+    countOf('past'),
   ]);
-  return { items, total, page, limit };
+  // counts = ตัวเลขบนแท็บ (นับตามคำค้นเดียวกัน)
+  return { items, total, page, limit, counts: { active, upcoming, past } };
 }
 
 export async function getById(id, user) {
@@ -216,6 +237,10 @@ export async function cancel(id, user, reason = '') {
   }
   if (!['booked', 'playing'].includes(r.status)) {
     throw conflict(`cannot cancel a ${r.status} reservation`);
+  }
+  if (!admin) {
+    const err = cancelCutoffError(r.startAt, new Date(), await getRules());
+    if (err) throw conflict(err);
   }
   const wasPlaying = r.status === 'playing';
   Object.assign(r, {
@@ -376,12 +401,28 @@ export async function availability({ startAt, durationHours, players }) {
     findBusy({ startAt, endAt }, now),
     Table.find().sort({ zone: 1, code: 1 }).lean(),
     Game.find()
-      .select('name thumbnail minPlayers maxPlayers playtimeMin status')
+      .select(
+        'name thumbnail image minPlayers maxPlayers playtimeMin status bggAverage bggWeight categories designers yearPublished',
+      )
       .sort({ name: 1 })
       .lean(),
   ]);
   const busyTables = new Set(busy.map((r) => String(r.table)));
   const busyGames = new Set(busy.filter((r) => r.game).map((r) => String(r.game._id)));
+  // เกมนี้ถูกใช้/จองอยู่ที่โต๊ะไหนในช่วงนั้น (แสดง "In Use (T-04)" ใน modal เลือกเกม)
+  const tableCode = new Map(tables.map((t) => [String(t._id), t.code]));
+  const gameTables = new Map();
+  for (const r of busy) {
+    if (!r.game) continue;
+    const key = String(r.game._id);
+    if (!gameTables.has(key)) gameTables.set(key, []);
+    gameTables.get(key).push({
+      table: tableCode.get(String(r.table)) ?? null,
+      status: r.status,
+      startAt: r.startAt,
+      endAt: r.endAt,
+    });
+  }
 
   const tableReason = (t) => {
     if (t.status !== 'active') return 'closed';
@@ -408,7 +449,12 @@ export async function availability({ startAt, durationHours, players }) {
     }),
     games: games.map((g) => {
       const reason = gameReason(g);
-      return { ...g, available: !reason && !windowErr, reason };
+      return {
+        ...g,
+        available: !reason && !windowErr,
+        reason,
+        inUseAt: gameTables.get(String(g._id)) ?? [],
+      };
     }),
   };
 }

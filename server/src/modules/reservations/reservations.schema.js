@@ -99,6 +99,7 @@ const pagination = {
 
 export const listQuery = z.object({
   scope: z.enum(['active', 'upcoming', 'past', 'all']).default('all'),
+  q: z.string().trim().min(1).max(80).optional(), // ค้นรหัส/ชื่อโต๊ะ หรือชื่อเกม
   ...pagination,
 });
 

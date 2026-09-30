@@ -129,6 +129,8 @@ try {
 ปุ่ม "จองโต๊ะเล่นเกมนี้" บนการ์ดเกม → ส่ง `gameId` ไปหน้าจอง (`navigate('/booking?game=' + id)`) แล้วใช้เป็น `game` ใน body
 
 Game Selector Modal → ใช้ `avail.games.filter((g) => g.available)` และค้นหาชื่อฝั่ง client
+เกมที่ไม่ว่างมี `reason` (`booked` / `maintenance` / `player_count`) และ `inUseAt` บอกว่าถูกใช้ที่โต๊ะไหน เช่น `[{ table: 'A1', status: 'playing', startAt, endAt }]` → แสดง "In Use (A1)"
+แต่ละเกมมี `bggAverage` (เรตติ้ง), `bggWeight`, `categories` ให้แสดงบนการ์ดได้เลย
 
 ### 6. ตัวอย่าง flow: ประวัติการจอง + คืนเกม (หน้า 5 ฝั่ง user)
 
@@ -136,9 +138,14 @@ Game Selector Modal → ใช้ `avail.games.filter((g) => g.available)` แ�
 const active = await api('/reservations', { query: { scope: 'active' } }); // กำลังเล่น
 const upcoming = await api('/reservations', { query: { scope: 'upcoming' } }); // ล่วงหน้า
 const past = await api('/reservations', { query: { scope: 'past', page: 1, limit: 20 } });
-// ผลเป็น { items, total, page, limit }
+// ผลเป็น { items, total, page, limit, counts: { active, upcoming, past } }
+// counts ใช้เป็นตัวเลขบนแท็บได้เลย (เรียกครั้งเดียวก็ได้ทั้ง 3 ตัว)
+
+// ช่องค้นหา "ค้นหาห้อง หรือชื่อบอร์ดเกม" → ส่ง q (ค้นรหัส/ชื่อ/โซนโต๊ะ หรือชื่อเกม)
+const found = await api('/reservations', { query: { scope: 'all', q: 'catan' } });
 
 await api(`/reservations/${id}/return`, { method: 'PATCH' }); // เล่นเสร็จแล้ว / คืนเกม
+// ยกเลิกเองได้ถึงก่อนเริ่ม 2 ชม. (rules.CANCEL_CUTOFF_HOURS) — ช้ากว่านั้นได้ 409 ให้ติดต่อพนักงาน
 await api(`/reservations/${id}/cancel`, { method: 'PATCH', body: { reason: 'ติดธุระ' } });
 await api(`/reservations/${id}`, { method: 'PUT', body: { startAt: newStart } }); // แก้เวลา
 await api(`/reservations/${id}/game`, { method: 'PATCH', body: { game: newGameId } }); // เปลี่ยนเกม
@@ -200,15 +207,16 @@ useEffect(() => {
 
 > ค่าทั้งหมดในตารางนี้คือค่าเริ่มต้น admin แก้ได้ที่หน้า "ตั้งค่าร้าน" (`PUT /api/settings`) — frontend ควรอ่านค่าจริงจาก `GET /api/reservations/rules` หรือ `GET /api/settings`
 
-| กฎ          | ค่า                                                                              |
-| ----------- | -------------------------------------------------------------------------------- |
-| ราคา        | `ชั่วโมง × (ผู้เล่น × 50 + extraPerHour ของโต๊ะ)` บาท                            |
-| จองล่วงหน้า | ไม่เกิน 3 วัน, เริ่มย้อนหลังได้ไม่เกิน 15 นาที (walk-in)                         |
-| ระยะเวลา    | 1–6 ชม. ทีละ 0.5                                                                 |
-| แพ็กเกจ     | `hourly` (รายชั่วโมง) หรือ `flat3h` เหมา 3 ชม. = ผู้เล่น × 130 + 3 × ค่าโต๊ะ     |
-| เกินเวลา    | เกินไม่เกิน 10 นาทีไม่คิด เกินกว่านั้นคิดเพิ่มทีละครึ่งชั่วโมง (อัตรารายชั่วโมง) |
-| ผู้เล่น     | ≤ capacity ของโต๊ะ และอยู่ในช่วง min–max ของเกม                                  |
-| ชนกัน       | โต๊ะเดียวกัน / เกมเดียวกัน / ผู้ใช้คนเดียวกัน ห้ามเวลาทับกัน                     |
+| กฎ          | ค่า                                                                                 |
+| ----------- | ----------------------------------------------------------------------------------- |
+| ราคา        | `ชั่วโมง × (ผู้เล่น × 50 + extraPerHour ของโต๊ะ)` บาท                               |
+| จองล่วงหน้า | ไม่เกิน 3 วัน, เริ่มย้อนหลังได้ไม่เกิน 15 นาที (walk-in)                            |
+| ระยะเวลา    | 1–6 ชม. ทีละ 0.5                                                                    |
+| แพ็กเกจ     | `hourly` (รายชั่วโมง) หรือ `flat3h` เหมา 3 ชม. = ผู้เล่น × 130 + 3 × ค่าโต๊ะ        |
+| เกินเวลา    | เกินไม่เกิน 10 นาทีไม่คิด เกินกว่านั้นคิดเพิ่มทีละครึ่งชั่วโมง (อัตรารายชั่วโมง)    |
+| ผู้เล่น     | ≤ capacity ของโต๊ะ และอยู่ในช่วง min–max ของเกม                                     |
+| ยกเลิก      | สมาชิกยกเลิกเองได้ถึงก่อนเริ่ม 2 ชม. (`CANCEL_CUTOFF_HOURS`, 0 = ได้จนถึงเวลาเริ่ม) |
+| ชนกัน       | โต๊ะเดียวกัน / เกมเดียวกัน / ผู้ใช้คนเดียวกัน ห้ามเวลาทับกัน                        |
 
 ## สถานะ
 
@@ -224,9 +232,9 @@ useEffect(() => {
 | Floor plan                | `GET /api/tables/floor?startAt=&durationHours=2` (ไม่ส่ง = ตอนนี้)                    |
 | คำนวณราคาก่อนยืนยัน       | `POST /api/reservations/quote` (body เดียวกับจอง)                                     |
 | ยืนยันจอง                 | `POST /api/reservations`                                                              |
-| การจองของฉัน (3 แท็บ)     | `GET /api/reservations?scope=active` · `upcoming` · `past`                            |
+| การจองของฉัน (3 แท็บ)     | `GET /api/reservations?scope=active` · `upcoming` · `past` (+ `counts`, ค้นด้วย `q`)  |
 | แก้ไขการจอง               | `PUT /api/reservations/:id` (ได้เฉพาะ `booked`)                                       |
-| ยกเลิก                    | `PATCH /api/reservations/:id/cancel` body `{ "reason": "..." }`                       |
+| ยกเลิก                    | `PATCH /api/reservations/:id/cancel` body `{ "reason": "..." }` (ก่อนเริ่ม ≥ 2 ชม.)   |
 | เล่นเสร็จ / คืนเกม        | `PATCH /api/reservations/:id/return`                                                  |
 | รีวิวเกม                  | `POST /api/reviews` · `GET /api/reviews/:gameId` · `GET /api/reviews/:gameId/summary` |
 | รีวิวของฉัน               | `GET /api/reviews/my`                                                                 |
@@ -385,7 +393,8 @@ Table body (`position` เป็น % ของพื้นที่ floor plan 
     "minHours": 1,
     "maxHours": 6,
     "overtimeGraceMin": 10,
-    "extraSeats": 2
+    "extraSeats": 2,
+    "cancelCutoffHours": 2
   },
   "operatingHours": {
     "enforce": true,

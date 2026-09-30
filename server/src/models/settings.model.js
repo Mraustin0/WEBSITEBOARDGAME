@@ -36,6 +36,7 @@ const SettingsSchema = new Schema(
       maxHours: { type: Number, default: 6, min: 0.5 },
       overtimeGraceMin: { type: Number, default: 10, min: 0 },
       extraSeats: { type: Number, default: 2, min: 0 },
+      cancelCutoffHours: { type: Number, default: 2, min: 0 }, // สมาชิกยกเลิกเองได้ถึงก่อนเริ่มกี่ชม.
     },
     operatingHours: {
       enforce: { type: Boolean, default: false }, // true = ห้ามสมาชิกจองนอกเวลาทำการ

@@ -20,6 +20,7 @@ export const RULES = {
   OVERTIME_GRACE_MIN: 10, // เล่นเกินเวลาไม่เกิน 10 นาที ไม่คิดเงินเพิ่ม
   START_GRACE_MIN: 15, // ยอมให้เวลาเริ่มย้อนหลังได้ 15 นาที (walk-in)
   OVERDUE_BLOCK_MIN: 30, // โต๊ะ/เกมที่เล่นเกินเวลายังไม่คืน กันไม่ให้จองช่วงใกล้ ๆ นี้
+  CANCEL_CUTOFF_HOURS: 2, // สมาชิกยกเลิกเองได้ถึงก่อนเริ่ม 2 ชม. (0 = ยกเลิกได้ตลอดจนถึงเวลาเริ่ม)
   OPERATING: { enforce: false, days: DEFAULT_DAYS },
 };
 
@@ -97,6 +98,15 @@ export function bookingWindowError(startAt, now = new Date(), rules = RULES) {
   }
   if (startAt.getTime() > now.getTime() + rules.MAX_ADVANCE_DAYS * 24 * HOUR_MS) {
     return `can book at most ${rules.MAX_ADVANCE_DAYS} days in advance`;
+  }
+  return null;
+}
+
+/** สมาชิกยกเลิกเองได้ไหม — ต้องยกเลิกก่อนเวลาเริ่มอย่างน้อย CANCEL_CUTOFF_HOURS */
+export function cancelCutoffError(startAt, now = new Date(), rules = RULES) {
+  const cutoff = rules.CANCEL_CUTOFF_HOURS ?? 0;
+  if (cutoff > 0 && startAt.getTime() - now.getTime() < cutoff * HOUR_MS) {
+    return `can cancel at most ${cutoff} hours before start — please contact staff`;
   }
   return null;
 }

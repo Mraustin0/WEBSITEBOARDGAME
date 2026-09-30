@@ -304,7 +304,34 @@ const reservationsPaths = {
             bookable: { type: 'boolean' },
             reason: { type: 'string', nullable: true },
             tables: { type: 'array', items: { type: 'object' } },
-            games: { type: 'array', items: { type: 'object' } },
+            games: {
+              type: 'array',
+              description:
+                'เกมทั้งหมด + available/reason + bggAverage, bggWeight, categories และ inUseAt = โต๊ะที่ใช้เกมนี้ในช่วงนั้น',
+              items: {
+                type: 'object',
+                properties: {
+                  available: { type: 'boolean' },
+                  reason: {
+                    type: 'string',
+                    nullable: true,
+                    enum: ['booked', 'maintenance', 'player_count', null],
+                  },
+                  inUseAt: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        table: { type: 'string', example: 'A1' },
+                        status: { type: 'string', enum: ['booked', 'playing'] },
+                        startAt: { type: 'string', format: 'date-time' },
+                        endAt: { type: 'string', format: 'date-time' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
           },
         }),
       },
@@ -334,10 +361,31 @@ const reservationsPaths = {
           { type: 'string', enum: ['active', 'upcoming', 'past', 'all'], default: 'all' },
           'active=กำลังเล่น, upcoming=ล่วงหน้า, past=จบ/ยกเลิก',
         ),
+        q('q', { type: 'string' }, 'ค้นรหัส/ชื่อ/โซนโต๊ะ หรือชื่อเกม'),
         q('page', { type: 'integer', default: 1 }),
         q('limit', { type: 'integer', default: 20 }),
       ],
-      responses: { 200: ok(paged(ref('Reservation'))) },
+      responses: {
+        200: ok({
+          allOf: [
+            paged(ref('Reservation')),
+            {
+              type: 'object',
+              properties: {
+                counts: {
+                  type: 'object',
+                  description: 'ตัวเลขบนแท็บ (นับตาม q เดียวกัน)',
+                  properties: {
+                    active: { type: 'integer' },
+                    upcoming: { type: 'integer' },
+                    past: { type: 'integer' },
+                  },
+                },
+              },
+            },
+          ],
+        }),
+      },
     },
     post: {
       tags: ['reservations'],
@@ -371,12 +419,16 @@ const reservationsPaths = {
     parameters: [idPath()],
     patch: {
       tags: ['reservations'],
-      summary: 'ยกเลิก (สมาชิก: เฉพาะ booked, admin: booked/playing)',
+      summary:
+        'ยกเลิก (สมาชิก: เฉพาะ booked และก่อนเริ่มอย่างน้อย booking.cancelCutoffHours = 2 ชม., admin: booked/playing ได้ตลอด)',
       security: bearer,
       requestBody: {
         content: json({ type: 'object', properties: { reason: { type: 'string' } } }),
       },
-      responses: { 200: ok(ref('Reservation')), 409: err('cannot cancel') },
+      responses: {
+        200: ok(ref('Reservation')),
+        409: err('cannot cancel / can cancel at most 2 hours before start'),
+      },
     },
   },
   '/reservations/{id}/return': {
@@ -639,7 +691,13 @@ const settingsPaths = {
           type: 'object',
           example: {
             pricing: { perPersonHour: 60, flat3hPerPerson: 150, revenueTargetPerDay: 5000 },
-            booking: { maxAdvanceDays: 3, minHours: 1, maxHours: 6, overtimeGraceMin: 10 },
+            booking: {
+              maxAdvanceDays: 3,
+              minHours: 1,
+              maxHours: 6,
+              overtimeGraceMin: 10,
+              cancelCutoffHours: 2,
+            },
             operatingHours: {
               enforce: true,
               days: [{ day: 0, open: '10:00', close: '24:00', closed: false }],
