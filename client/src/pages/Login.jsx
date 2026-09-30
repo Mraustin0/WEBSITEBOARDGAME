@@ -85,7 +85,7 @@ export default function Login() {
         }}
       >
         <div style={{ width: '100%', maxWidth: '420px' }}>
-          <h2>ยินดีต้อนรับกลับมา</h2>
+          <h2>ยินดีต้อนรับกลับมา demo_admin@demo.local demo1234</h2>
           {errorMsg && <div style={{ color: 'red', marginBottom: '1rem' }}>{errorMsg}</div>}
           <form
             onSubmit={handleLogin}

@@ -20,10 +20,20 @@ export default function Inventory() {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await response.json();
-        if (Array.isArray(data)) setGames(data);
-        else if (data && Array.isArray(data.data)) setGames(data.data);
-        else if (data && Array.isArray(data.games)) setGames(data.games);
-        else setGames([]);
+        console.log('API Response:', data);
+
+        // รองรับคีย์ items ที่หลังบ้านส่งกลับมา
+        if (Array.isArray(data)) {
+          setGames(data);
+        } else if (data && Array.isArray(data.items)) {
+          setGames(data.items);
+        } else if (data && Array.isArray(data.data)) {
+          setGames(data.data);
+        } else if (data && Array.isArray(data.games)) {
+          setGames(data.games);
+        } else {
+          setGames([]);
+        }
       } catch (error) {
         console.error(error);
       } finally {
@@ -106,7 +116,6 @@ export default function Inventory() {
               ADMIN
             </span>
           </div>
-
           <div
             style={{
               fontSize: '0.75rem',
@@ -161,7 +170,6 @@ export default function Inventory() {
             </div>
           </div>
         </div>
-
         <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '1rem' }}>
           <div style={{ fontSize: '0.75rem', color: '#86efac', marginBottom: '0.5rem' }}>
             ● Live Store Floor
@@ -358,7 +366,7 @@ export default function Inventory() {
           >
             {filteredGames.map((game) => (
               <div
-                key={game._id}
+                key={game._id || game.id}
                 style={{
                   background: 'white',
                   borderRadius: '12px',
@@ -424,7 +432,7 @@ export default function Inventory() {
                   }}
                 >
                   <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>
-                    ID: {game._id.slice(-6)}
+                    ID: {game._id ? game._id.slice(-6) : 'N/A'}
                   </span>
                   <button
                     style={{
