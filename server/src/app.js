@@ -12,8 +12,6 @@ import { authLimiter, bggLimiter } from './middleware/rate-limit.js';
 
 import authRoutes from './modules/auth/auth.routes.js';
 import gamesRoutes from './modules/games/games.routes.js';
-import collectionRoutes from './modules/collection/collection.routes.js';
-import playsRoutes from './modules/plays/plays.routes.js';
 import reviewsRoutes from './modules/reviews/reviews.routes.js';
 import bggRoutes from './modules/bgg/bgg.routes.js';
 import tablesRoutes from './modules/tables/tables.routes.js';
@@ -43,8 +41,6 @@ export function createApp() {
 
   app.use('/api/auth', authLimiter, authRoutes);
   app.use('/api/games', gamesRoutes);
-  app.use('/api/collection', collectionRoutes);
-  app.use('/api/plays', playsRoutes);
   app.use('/api/reviews', reviewsRoutes);
   app.use('/api/bgg', bggLimiter, bggRoutes);
   app.use('/api/tables', tablesRoutes);
