@@ -30,7 +30,9 @@ npm run dev                                   # server :4000 + client :5173 พ�
 - API: `http://localhost:4000/api` — frontend (Vite) เรียก `/api/...` ได้เลย เพราะ `vite.config.js` proxy ไปที่ :4000 ให้แล้ว
 - Swagger: `http://localhost:4000/api/docs`
 - บัญชี admin: สมัครสมาชิกปกติก่อน แล้วรัน `npm run --workspace server promote -- <email>`
-- สมาชิกจาก `seed:demo`: `demo_ploy@demo.local` … รหัสผ่าน `demo1234`
+- บัญชีจาก `seed:demo` (รหัสผ่าน `demo1234` ทุกบัญชี)
+  - admin: `demo_admin@demo.local`
+  - สมาชิก: `demo_ploy@demo.local`, `demo_ton@demo.local`, `demo_mint@demo.local`, `demo_bank@demo.local`, `demo_fah@demo.local`
 
 ### 2. ลองยิง API ใน Swagger (ไม่ต้องเขียนโค้ด)
 

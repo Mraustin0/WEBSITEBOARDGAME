@@ -6,7 +6,8 @@ export const openapiSpec = {
   info: {
     title: 'Boardgame Everyday API',
     version: '0.1.0',
-    description: 'REST API for managing board game collection, play sessions, and reviews.',
+    description:
+      'REST API for a board game café: game catalog, table booking, reviews and reports.',
   },
   servers: [{ url: '/api', description: 'current host' }],
   components: {
@@ -200,69 +201,6 @@ export const openapiSpec = {
       delete: {
         tags: ['games'],
         summary: 'Delete (admin)',
-        security: [{ bearerAuth: [] }],
-        responses: { 200: { description: 'ok' } },
-      },
-    },
-    '/collection': {
-      get: {
-        tags: ['collection'],
-        summary: 'My collection',
-        security: [{ bearerAuth: [] }],
-        responses: { 200: { description: 'ok' } },
-      },
-      post: {
-        tags: ['collection'],
-        summary: 'Add to collection',
-        security: [{ bearerAuth: [] }],
-        responses: { 201: { description: 'created' } },
-      },
-    },
-    '/collection/{id}': {
-      delete: {
-        tags: ['collection'],
-        summary: 'Remove',
-        security: [{ bearerAuth: [] }],
-        responses: { 200: { description: 'ok' } },
-      },
-    },
-    '/plays': {
-      get: {
-        tags: ['plays'],
-        summary: 'My plays',
-        security: [{ bearerAuth: [] }],
-        responses: { 200: { description: 'ok' } },
-      },
-      post: {
-        tags: ['plays'],
-        summary: 'Log play',
-        security: [{ bearerAuth: [] }],
-        responses: { 201: { description: 'created' } },
-      },
-    },
-    '/plays/{id}': {
-      put: {
-        tags: ['plays'],
-        security: [{ bearerAuth: [] }],
-        responses: { 200: { description: 'ok' } },
-      },
-      delete: {
-        tags: ['plays'],
-        security: [{ bearerAuth: [] }],
-        responses: { 200: { description: 'ok' } },
-      },
-    },
-    '/reviews/{gameId}': {
-      get: {
-        tags: ['reviews'],
-        summary: 'Reviews for game',
-        responses: { 200: { description: 'ok' } },
-      },
-    },
-    '/reviews': {
-      post: {
-        tags: ['reviews'],
-        summary: 'Upsert my review',
         security: [{ bearerAuth: [] }],
         responses: { 200: { description: 'ok' } },
       },
