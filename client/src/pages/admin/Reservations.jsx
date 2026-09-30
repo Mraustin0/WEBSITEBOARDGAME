@@ -1,66 +1,166 @@
-import { useEffect, useState } from 'react';
-import { api } from '../../lib/api';
+import { useCallback, useEffect, useState } from 'react';
+import { api } from '../../lib/api.js';
+import { addDays, formatThaiDate, monthRange, todayTH, weekRange } from '../../lib/date.js';
+import { customerName } from '../../lib/reservationStatus.js';
+import StatCards from '../../components/admin/reservations/StatCards.jsx';
+import TodayList from '../../components/admin/reservations/TodayList.jsx';
+import ScheduleGrid from '../../components/admin/reservations/ScheduleGrid.jsx';
+import NewBookingModal from '../../components/admin/reservations/NewBookingModal.jsx';
+import './reservations.css';
 
-export default function AdminReservations() {
-  const [reservations, setReservations] = useState([]);
+const RANGES = [
+  { key: 'day', label: 'วัน' },
+  { key: 'week', label: 'สัปดาห์' },
+  { key: 'month', label: 'เดือน' },
+];
+
+export default function Reservations() {
+  const [date, setDate] = useState(todayTH());
+  const [range, setRange] = useState('day');
+  const [q, setQ] = useState('');
+  const [overview, setOverview] = useState(null);
+  const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState('');
+  const [busyId, setBusyId] = useState(null);
+  const [showNew, setShowNew] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const load = useCallback(async () => {
+    setError('');
+    try {
+      const query = { q };
+      if (range === 'day') query.date = date;
+      else {
+        const r = range === 'week' ? weekRange(date) : monthRange(date);
+        query.from = r.from;
+        query.to = r.to;
+      }
+      const [ov, list] = await Promise.all([
+        api('/stats/overview', { query: { date } }),
+        api('/reservations/admin', { query }),
+      ]);
+      const rows = Array.isArray(list) ? list : (list?.items ?? []);
+      rows.sort((a, b) => new Date(a.startAt) - new Date(b.startAt));
+      setOverview(ov);
+      setItems(rows);
+    } catch (err) {
+      setError(err.status === 401 ? 'เซสชันหมดอายุ หรือยังไม่ได้เข้าสู่ระบบ' : err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [date, range, q]);
 
   useEffect(() => {
-    async function fetchReservations() {
-      try {
-        // ดึงข้อมูลจาก Backend (ปรับ path ให้ตรงกับ API จริงใน Swagger ของคุณ)
-        const data = await api('/reservations');
-        // สมมติว่า backend ส่งข้อมูลมาในรูปแบบ array โดยตรง หรืออยู่ใน data.items
-        setReservations(data.items || data || []);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
+    setLoading(true);
+    load();
+  }, [load]);
+
+  function reloadAll() {
+    load();
+    setRefreshKey((k) => k + 1);
+  }
+
+  async function runAction(r, path, options) {
+    setBusyId(r._id);
+    setError('');
+    try {
+      await api(path, options);
+      reloadAll();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusyId(null);
     }
+  }
 
-    fetchReservations();
-  }, []);
+  function onCancel(r) {
+    const reason = window.prompt(`ยกเลิกการจองของ ${customerName(r)}\nเหตุผล (ไม่บังคับ):`, '');
+    if (reason === null) return;
+    runAction(r, `/reservations/${r._id}/cancel`, {
+      method: 'PATCH',
+      body: { reason: reason.trim() || undefined },
+    });
+  }
 
-  if (loading) return <div className="p-8 text-center text-gray-500">กำลังโหลดข้อมูล...</div>;
-  if (error) return <div className="p-8 text-center text-red-500">เกิดข้อผิดพลาด: {error}</div>;
+  function onNoShow(r) {
+    if (!window.confirm(`บันทึกว่า ${customerName(r)} ไม่มาตามนัด?`)) return;
+    runAction(r, `/reservations/admin/${r._id}/no-show`, { method: 'PATCH' });
+  }
+
+  const step = range === 'day' ? 1 : range === 'week' ? 7 : 30;
 
   return (
-    <div className="p-8 font-sans">
-      <h1 className="text-2xl font-bold mb-6">จัดการการจอง (Admin)</h1>
-
-      <div className="overflow-x-auto">
-        <table className="min-w-full bg-white border border-gray-200">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="py-2 px-4 border-b text-left">รหัสการจอง</th>
-              <th className="py-2 px-4 border-b text-left">ลูกค้า</th>
-              <th className="py-2 px-4 border-b text-left">วันที่/เวลา</th>
-              <th className="py-2 px-4 border-b text-left">สถานะ</th>
-            </tr>
-          </thead>
-          <tbody>
-            {reservations.length === 0 ? (
-              <tr>
-                <td colSpan="4" className="py-4 text-center text-gray-500">
-                  ไม่พบข้อมูลการจอง
-                </td>
-              </tr>
-            ) : (
-              reservations.map((res, index) => (
-                <tr key={index} className="hover:bg-gray-50">
-                  {/* เปลี่ยนฟิลด์ res._id, res.customer ให้ตรงกับ JSON ที่ Backend ส่งมา */}
-                  <td className="py-2 px-4 border-b">{res._id || res.id}</td>
-                  <td className="py-2 px-4 border-b">{res.customer?.name || 'ไม่ระบุ'}</td>
-                  <td className="py-2 px-4 border-b">{res.date || 'ไม่ระบุ'}</td>
-                  <td className="py-2 px-4 border-b">{res.status || 'รอดำเนินการ'}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+    <div className="reservations-page">
+      <div className="page-head">
+        <div>
+          <h1>จัดการการจองล่วงหน้า</h1>
+          <p className="muted">ดูและจัดการการจองทั้งหมดตามวัน สัปดาห์ หรือเดือน</p>
+        </div>
+        <button type="button" className="btn-primary" onClick={() => setShowNew(true)}>
+          + เพิ่มการจองใหม่
+        </button>
       </div>
+
+      <div className="toolbar">
+        <div className="tabs">
+          {RANGES.map((r) => (
+            <button
+              key={r.key}
+              type="button"
+              className={'tab' + (range === r.key ? ' active' : '')}
+              onClick={() => setRange(r.key)}
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
+        <div className="date-nav">
+          <button type="button" className="btn-ghost" onClick={() => setDate(addDays(date, -step))}>
+            ‹
+          </button>
+          <input
+            className="input"
+            type="date"
+            value={date}
+            onChange={(e) => e.target.value && setDate(e.target.value)}
+          />
+          <button type="button" className="btn-ghost" onClick={() => setDate(addDays(date, step))}>
+            ›
+          </button>
+          <button type="button" className="btn-ghost" onClick={() => setDate(todayTH())}>
+            วันนี้
+          </button>
+          <span className="muted">{formatThaiDate(date)}</span>
+        </div>
+      </div>
+
+      {error && <div className="form-error">{error}</div>}
+
+      <StatCards overview={overview} loading={loading && !overview} />
+
+      <div className="res-main">
+        <ScheduleGrid date={date} refreshKey={refreshKey} />
+        <TodayList
+          items={items}
+          loading={loading}
+          busyId={busyId}
+          onSearch={setQ}
+          onCancel={onCancel}
+          onNoShow={onNoShow}
+        />
+      </div>
+
+      {showNew && (
+        <NewBookingModal
+          date={date}
+          onClose={() => setShowNew(false)}
+          onCreated={() => {
+            setShowNew(false);
+            reloadAll();
+          }}
+        />
+      )}
     </div>
   );
 }
