@@ -1,13 +1,18 @@
-export default function App() {
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import AdminReservations from './pages/admin/Reservations';
+
+function App() {
   return (
-    <main style={{ fontFamily: 'system-ui', padding: '2rem', maxWidth: 720, margin: '0 auto' }}>
-      <h1>🎲 Boardgame Everyday</h1>
-      <p>
-        Client scaffold ready. Backend on <code>http://localhost:4000/api</code>.
-      </p>
-      <p>
-        See <code>docs/PLAN.md</code> for API contract. Build UI from here.
-      </p>
-    </main>
+    <BrowserRouter>
+      <Routes>
+        {/* หน้าแรก สมมติให้ Redirect ไปที่หน้า Admin ก่อนชั่วคราว */}
+        <Route path="/" element={<Navigate to="/admin/reservations" replace />} />
+
+        {/* หน้าที่ 4: Admin Reservations */}
+        <Route path="/admin/reservations" element={<AdminReservations />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
+
+export default App;
