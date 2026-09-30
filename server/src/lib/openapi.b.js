@@ -491,6 +491,46 @@ const reservationsPaths = {
 };
 
 const reviewsPaths = {
+  '/reviews': {
+    get: {
+      tags: ['reviews'],
+      summary: 'รีวิวทั้งหมด (admin) — กรองตามเกม / คะแนนต่ำ',
+      security: bearer,
+      parameters: [
+        q('game', { type: 'string' }),
+        q('maxRating', { type: 'integer' }),
+        q('page', { type: 'integer', default: 1 }),
+        q('limit', { type: 'integer', default: 20 }),
+      ],
+      responses: { 200: ok(paged(ref('Review'))) },
+    },
+    post: {
+      tags: ['reviews'],
+      summary: 'เขียน/แก้รีวิวของฉัน (1 คนต่อ 1 เกม)',
+      security: bearer,
+      requestBody: {
+        required: true,
+        content: json({
+          type: 'object',
+          required: ['game', 'rating'],
+          properties: {
+            game: { type: 'string' },
+            rating: { type: 'integer', minimum: 1, maximum: 10 },
+            comment: { type: 'string' },
+          },
+        }),
+      },
+      responses: { 201: ok(ref('Review'), 'saved'), 404: err('game not found') },
+    },
+  },
+  '/reviews/{gameId}': {
+    parameters: [idPath('gameId')],
+    get: {
+      tags: ['reviews'],
+      summary: 'รีวิวทั้งหมดของเกม',
+      responses: { 200: ok({ type: 'array', items: ref('Review') }) },
+    },
+  },
   '/reviews/my': {
     get: {
       tags: ['reviews'],

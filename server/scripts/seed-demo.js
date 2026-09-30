@@ -1,5 +1,5 @@
 // ข้อมูลตัวอย่างสำหรับ demo หน้า dashboard / รายงาน:
-// สมาชิก demo 5 คน + การจองย้อนหลัง 21 วัน (จบแล้ว/ยกเลิก/no-show) + การจองล่วงหน้า + รีวิว
+// สมาชิก demo 5 คน + admin demo 1 คน + การจองย้อนหลัง 21 วัน (จบแล้ว/ยกเลิก/no-show) + การจองล่วงหน้า + รีวิว
 // ต้องรัน seed (เกม) กับ seed:tables ก่อน — รันซ้ำได้ (ลบเฉพาะข้อมูลที่ script นี้สร้าง)
 // usage: npm run --workspace server seed:demo
 import bcrypt from 'bcryptjs';
@@ -47,6 +47,16 @@ for (const username of DEMO_USERS) {
   );
   users.push(u);
 }
+
+// admin สำหรับ demo — ถ้ามีอยู่แล้วจะถูกตั้งเป็น admin ให้ (ไม่เปลี่ยนรหัสผ่านเดิม)
+await User.findOneAndUpdate(
+  { email: 'demo_admin@demo.local' },
+  {
+    $setOnInsert: { username: 'demo_admin', email: 'demo_admin@demo.local', passwordHash },
+    $set: { role: 'admin' },
+  },
+  { upsert: true },
+);
 
 await Reservation.deleteMany({ note: TAG });
 await Review.deleteMany({ user: { $in: users.map((u) => u._id) } });
@@ -165,6 +175,6 @@ for (const u of users) {
 await Review.insertMany(reviews);
 
 logger.info(
-  `demo data: ${users.length} members (password demo1234), ${docs.length} reservations, ${reviews.length} reviews`,
+  `demo data: ${users.length} members + demo_admin@demo.local (password demo1234), ${docs.length} reservations, ${reviews.length} reviews`,
 );
 await disconnectDb();
