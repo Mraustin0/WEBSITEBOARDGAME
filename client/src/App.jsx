@@ -1,13 +1,17 @@
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import Login from './pages/Login';
+import Inventory from './pages/Inventory';
+import AddGame from './pages/AddGame';
+
 export default function App() {
   return (
-    <main style={{ fontFamily: 'system-ui', padding: '2rem', maxWidth: 720, margin: '0 auto' }}>
-      <h1>🎲 Boardgame Everyday</h1>
-      <p>
-        Client scaffold ready. Backend on <code>http://localhost:4000/api</code>.
-      </p>
-      <p>
-        See <code>docs/PLAN.md</code> for API contract. Build UI from here.
-      </p>
-    </main>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/inventory" element={<Inventory />} />
+        <Route path="/add" element={<AddGame />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
