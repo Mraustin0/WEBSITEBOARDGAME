@@ -13,6 +13,7 @@ import {
   computeEnd,
   conflictFilter,
   durationError,
+  extensionCharge,
   operatingHoursError,
   PACKAGES,
   RULES,
@@ -364,6 +365,60 @@ export async function setGame(id, user, gameId) {
   await r.save();
   if (oldGame && String(oldGame) !== String(r.game)) await refreshGameStatus(oldGame);
   if (game) await refreshGameStatus(game._id);
+  return Reservation.findById(r._id).populate(POPULATE);
+}
+
+/**
+ * ขอต่อเวลา (ปุ่ม "ขอต่อเวลา" บนการ์ดโต๊ะที่กำลังเล่น)
+ * ต่อได้ถ้าโต๊ะ / เกม / ผู้ใช้ ไม่ชนกับการจองถัดไป — คิดเงินเพิ่มตามอัตราตอนจอง
+ * สมาชิก: รวมแล้วต้องไม่เกิน MAX_HOURS และอยู่ในเวลาทำการ (ถ้าเปิด enforce), admin ข้ามได้
+ */
+export async function extend(id, user, hours) {
+  await syncLifecycle();
+  const r = await loadOwned(id, user);
+  if (!['booked', 'playing'].includes(r.status)) {
+    throw conflict(`cannot extend a ${r.status} reservation`);
+  }
+  const staff = isAdmin(user);
+  const rules = await getRules();
+  const newDuration = r.durationHours + hours;
+  const newEnd = computeEnd(r.endAt, hours);
+
+  if (!staff) {
+    if (newDuration > rules.MAX_HOURS) {
+      throw badRequest(`total duration cannot exceed ${rules.MAX_HOURS} hours — ask staff`);
+    }
+    const hoursErr = operatingHoursError(r.startAt, newEnd, rules.OPERATING);
+    if (hoursErr) throw badRequest(hoursErr);
+  }
+
+  const now = new Date();
+  const base = {
+    ...conflictFilter({ startAt: r.endAt, endAt: newEnd }, now),
+    _id: { $ne: r._id },
+  };
+  const [tableClash, gameClash, userClash] = await Promise.all([
+    Reservation.exists({ ...base, table: r.table }),
+    r.game ? Reservation.exists({ ...base, game: r.game }) : null,
+    r.user ? Reservation.exists({ ...base, user: r.user }) : null,
+  ]);
+  if (tableClash) throw conflict('the table is booked right after — cannot extend');
+  if (gameClash) throw conflict('the game is booked right after — cannot extend');
+  if (userClash) throw conflict('you have another reservation right after');
+
+  const charge = extensionCharge({
+    hours,
+    players: r.players,
+    perPersonHour: r.price?.perPersonHour,
+    tableExtraPerHour: r.price?.tableExtraPerHour ?? 0,
+    rules,
+  });
+  r.endAt = newEnd;
+  r.durationHours = newDuration;
+  r.price.total += charge;
+  r.price.hours = newDuration;
+  r.extensions.push({ hours, charge, at: now, by: user._id });
+  await r.save();
   return Reservation.findById(r._id).populate(POPULATE);
 }
 

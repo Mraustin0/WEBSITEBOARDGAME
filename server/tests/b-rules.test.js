@@ -7,6 +7,7 @@ import {
   cancelCutoffError,
   computeEnd,
   conflictFilter,
+  extensionCharge,
   openHoursOfDay,
   operatingHoursError,
   overlaps,
@@ -159,5 +160,12 @@ describe('settings-driven rules (unit)', () => {
     expect(cancelCutoffError(at(2), now)).toBeNull(); // พอดี 2 ชม. ยังยกเลิกได้
     expect(cancelCutoffError(at(1.5), now)).toMatch(/2 hours/);
     expect(cancelCutoffError(at(1), now, { ...RULES, CANCEL_CUTOFF_HOURS: 0 })).toBeNull();
+  });
+
+  it('charges extensions at the booking-time hourly rate', () => {
+    expect(extensionCharge({ hours: 1, players: 2 })).toBe(100);
+    expect(
+      extensionCharge({ hours: 0.5, players: 4, perPersonHour: 60, tableExtraPerHour: 20 }),
+    ).toBe(130);
   });
 });

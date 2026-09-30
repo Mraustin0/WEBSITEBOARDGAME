@@ -102,6 +102,18 @@ export function bookingWindowError(startAt, now = new Date(), rules = RULES) {
   return null;
 }
 
+/** ค่าต่อเวลา — คิดอัตรารายชั่วโมงเดียวกับตอนจอง (แพ็กเกจเหมาก็คิดรายชั่วโมงส่วนที่ต่อ) */
+export function extensionCharge({
+  hours,
+  players,
+  perPersonHour,
+  tableExtraPerHour = 0,
+  rules = RULES,
+}) {
+  const perHour = players * (perPersonHour ?? rules.PRICE_PER_PERSON_HOUR) + tableExtraPerHour;
+  return Math.round(hours * perHour);
+}
+
 /** สมาชิกยกเลิกเองได้ไหม — ต้องยกเลิกก่อนเวลาเริ่มอย่างน้อย CANCEL_CUTOFF_HOURS */
 export function cancelCutoffError(startAt, now = new Date(), rules = RULES) {
   const cutoff = rules.CANCEL_CUTOFF_HOURS ?? 0;

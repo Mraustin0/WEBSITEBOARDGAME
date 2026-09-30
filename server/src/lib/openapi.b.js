@@ -185,6 +185,19 @@ export const bSchemas = {
       returnedAt: { type: 'string', format: 'date-time', nullable: true },
       cancelledAt: { type: 'string', format: 'date-time', nullable: true },
       cancelReason: { type: 'string' },
+      extensions: {
+        type: 'array',
+        description: 'ประวัติการต่อเวลา (ราคาส่วนที่ต่อรวมอยู่ใน price.total แล้ว)',
+        items: {
+          type: 'object',
+          properties: {
+            hours: { type: 'number' },
+            charge: { type: 'number' },
+            at: { type: 'string', format: 'date-time' },
+            by: { type: 'string' },
+          },
+        },
+      },
     },
   },
   Review: {
@@ -428,6 +441,29 @@ const reservationsPaths = {
       responses: {
         200: ok(ref('Reservation')),
         409: err('cannot cancel / can cancel at most 2 hours before start'),
+      },
+    },
+  },
+  '/reservations/{id}/extend': {
+    parameters: [idPath()],
+    patch: {
+      tags: ['reservations'],
+      summary: 'ขอต่อเวลา (booked/playing) — คิดเพิ่มตามอัตราตอนจอง, ต้องไม่ชนคิวถัดไป',
+      description:
+        'สมาชิก: รวมแล้วไม่เกิน MAX_HOURS และอยู่ในเวลาทำการ (ถ้าเปิด enforce). admin ข้ามข้อจำกัดนี้ได้',
+      security: bearer,
+      requestBody: {
+        required: true,
+        content: json({
+          type: 'object',
+          required: ['hours'],
+          properties: { hours: { type: 'number', example: 1, description: 'ทีละ 0.5 ชม.' } },
+        }),
+      },
+      responses: {
+        200: ok(ref('Reservation')),
+        400: err('เกินจำนวนชั่วโมงสูงสุด / นอกเวลาทำการ / hours ไม่ถูกต้อง'),
+        409: err('โต๊ะ/เกม/ผู้ใช้ มีคิวต่อ หรือสถานะไม่ใช่ booked/playing'),
       },
     },
   },
@@ -729,6 +765,120 @@ const ticket = {
   },
 };
 
+const assist = {
+  type: 'object',
+  properties: {
+    _id: { type: 'string' },
+    reservation: { type: 'object' },
+    table: { type: 'object', properties: { code: { type: 'string' }, zone: { type: 'string' } } },
+    user: { type: 'object', properties: { username: { type: 'string' } } },
+    topic: { type: 'string', enum: ['tutorial', 'extension', 'game_issue', 'other'] },
+    note: { type: 'string' },
+    status: { type: 'string', enum: ['open', 'acknowledged', 'resolved', 'cancelled'] },
+    acknowledgedAt: { type: 'string', format: 'date-time' },
+    resolvedAt: { type: 'string', format: 'date-time' },
+    resolution: { type: 'string' },
+    createdAt: { type: 'string', format: 'date-time' },
+  },
+};
+
+const assistPaths = {
+  '/assist': {
+    post: {
+      tags: ['assist'],
+      summary: 'เรียกพนักงาน / GM จากโต๊ะที่กำลังเล่น (เจ้าของการจองเท่านั้น)',
+      security: bearer,
+      requestBody: {
+        required: true,
+        content: json({
+          type: 'object',
+          required: ['reservation', 'topic'],
+          properties: {
+            reservation: { type: 'string' },
+            topic: { type: 'string', enum: ['tutorial', 'extension', 'game_issue', 'other'] },
+            note: { type: 'string', example: 'สอนกติกาช่วงจบเทิร์นหน่อย' },
+          },
+        }),
+      },
+      responses: {
+        201: ok(assist, 'created'),
+        404: err('ไม่พบการจอง / ไม่ใช่ของเรา'),
+        409: err('ยังไม่ได้เริ่มเล่น / เรียกหัวข้อนี้ไปแล้วรอพนักงาน'),
+      },
+    },
+    get: {
+      tags: ['assist'],
+      summary: 'คิวคำขอ (admin) — default active = open + acknowledged เรียงเก่าสุดก่อน',
+      security: bearer,
+      parameters: [
+        q('status', {
+          type: 'string',
+          enum: ['active', 'open', 'acknowledged', 'resolved', 'cancelled'],
+          default: 'active',
+        }),
+        q('topic', { type: 'string', enum: ['tutorial', 'extension', 'game_issue', 'other'] }),
+        q('table', { type: 'string' }),
+        q('page', { type: 'integer', default: 1 }),
+        q('limit', { type: 'integer', default: 50 }),
+      ],
+      responses: {
+        200: ok({
+          allOf: [
+            paged(assist),
+            {
+              type: 'object',
+              properties: {
+                counts: {
+                  type: 'object',
+                  properties: { open: { type: 'integer' }, acknowledged: { type: 'integer' } },
+                },
+              },
+            },
+          ],
+        }),
+      },
+    },
+  },
+  '/assist/my': {
+    get: {
+      tags: ['assist'],
+      summary: 'คำขอของฉัน (ใช้แสดง "พนักงานรับเรื่องแล้ว" บนการ์ด)',
+      security: bearer,
+      parameters: [q('reservation', { type: 'string' })],
+      responses: { 200: ok({ type: 'array', items: assist }) },
+    },
+  },
+  '/assist/{id}/cancel': {
+    parameters: [idPath()],
+    patch: {
+      tags: ['assist'],
+      summary: 'สมาชิกยกเลิกคำขอที่ยังไม่เสร็จ',
+      security: bearer,
+      responses: { 200: ok(assist), 409: err('เสร็จ/ยกเลิกไปแล้ว') },
+    },
+  },
+  '/assist/{id}': {
+    parameters: [idPath()],
+    patch: {
+      tags: ['assist'],
+      summary: 'admin รับเรื่อง (acknowledged) / เสร็จแล้ว (resolved)',
+      security: bearer,
+      requestBody: {
+        required: true,
+        content: json({
+          type: 'object',
+          required: ['status'],
+          properties: {
+            status: { type: 'string', enum: ['acknowledged', 'resolved'] },
+            resolution: { type: 'string' },
+          },
+        }),
+      },
+      responses: { 200: ok(assist), 409: err('สถานะไม่ถูกต้อง') },
+    },
+  },
+};
+
 const maintenancePaths = {
   '/maintenance': {
     get: {
@@ -874,4 +1024,5 @@ export const bPaths = {
   ...moreStatsPaths,
   ...settingsPaths,
   ...maintenancePaths,
+  ...assistPaths,
 };

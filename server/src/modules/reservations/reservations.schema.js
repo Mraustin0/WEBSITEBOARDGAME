@@ -90,6 +90,8 @@ export const payBody = z.object({ method: z.enum(PAYMENT_METHODS) });
 
 export const cancelBody = z.object({ reason: note.default('') });
 
+export const extendBody = z.object({ hours });
+
 export const idParam = z.object({ id: objectId });
 
 const pagination = {

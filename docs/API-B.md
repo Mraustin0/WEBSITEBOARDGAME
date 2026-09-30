@@ -1,6 +1,6 @@
 # API คน B — Tables · Reservations · Reviews · Stats
 
-สำหรับทีม frontend. Swagger ดูได้ที่ `http://localhost:4000/api/docs` (tag: tables, reservations, reviews, stats).
+สำหรับทีม frontend. Swagger ดูได้ที่ `http://localhost:4000/api/docs` (tag: tables, reservations, reviews, stats, settings, maintenance, assist).
 ทุก request ที่ต้อง login ใส่ header `Authorization: Bearer <token>`.
 Error ทุกตัวเป็น `{ "error": "ข้อความ", "details": {...} }` — 400 = input ผิด, 401 = ไม่ได้ login, 403 = ไม่ใช่ admin, 404 = ไม่เจอ, 409 = ชนกัน (จองซ้ำ/โต๊ะปิด/เกมซ่อม).
 
@@ -10,7 +10,7 @@ Error ทุกตัวเป็น `{ "error": "ข้อความ", "detai
 
 1. [วิธีใช้งาน (เริ่มต้น)](#วิธีใช้งาน-เริ่มต้น)
 2. [กฎการจอง](#กฎการจอง-get-apireservationsrules) / [สถานะ](#สถานะ)
-3. [ฝั่งผู้ใช้](#ฝั่งผู้ใช้-fe-user-2-คน) / [ฝั่งแอดมิน](#ฝั่งแอดมิน-fe-admin-2-คน)
+3. [ฝั่งผู้ใช้](#ฝั่งผู้ใช้-fe-user-2-คน) / [ฝั่งแอดมิน](#ฝั่งแอดมิน-fe-admin-2-คน) (รวมขอต่อเวลา / เรียก GM)
 4. หน้าจอ admin: Walk-in / เช็คบิล / จัดการการจอง / ตั้งค่าร้าน / ซ่อมบำรุง / รายงาน
 5. [Demo data](#demo-data)
 
@@ -149,6 +149,18 @@ await api(`/reservations/${id}/return`, { method: 'PATCH' }); // เล่นเ
 await api(`/reservations/${id}/cancel`, { method: 'PATCH', body: { reason: 'ติดธุระ' } });
 await api(`/reservations/${id}`, { method: 'PUT', body: { startAt: newStart } }); // แก้เวลา
 await api(`/reservations/${id}/game`, { method: 'PATCH', body: { game: newGameId } }); // เปลี่ยนเกม
+
+// ปุ่ม "ขอต่อเวลา" — ทีละ 0.5 ชม. ถ้าโต๊ะ/เกมมีคิวต่อจะได้ 409
+const extended = await api(`/reservations/${id}/extend`, { method: 'PATCH', body: { hours: 1 } });
+// extended.endAt / durationHours / price.total อัปเดตแล้ว, extended.extensions = ประวัติการต่อ
+
+// ปุ่ม "เรียก GM" — topic: tutorial | extension | game_issue | other (ได้เฉพาะตอนกำลังเล่น)
+await api('/assist', {
+  method: 'POST',
+  body: { reservation: id, topic: 'tutorial', note: 'สอนกติกาหน่อย' },
+});
+const calls = await api('/assist/my', { query: { reservation: id } }); // status: open → acknowledged → resolved
+await api(`/assist/${callId}/cancel`, { method: 'PATCH' }); // ยกเลิกคำขอ
 ```
 
 ### 7. ตัวอย่าง flow: admin เปิดโต๊ะ walk-in → เช็คบิล (หน้า 14–15)
@@ -226,20 +238,22 @@ useEffect(() => {
 
 ## ฝั่งผู้ใช้ (FE user 2 คน)
 
-| หน้า                      | Endpoint                                                                              |
-| ------------------------- | ------------------------------------------------------------------------------------- |
-| เลือกเวลา → ดูว่าอะไรว่าง | `GET /api/reservations/availability?startAt=&durationHours=2&players=4`               |
-| Floor plan                | `GET /api/tables/floor?startAt=&durationHours=2` (ไม่ส่ง = ตอนนี้)                    |
-| คำนวณราคาก่อนยืนยัน       | `POST /api/reservations/quote` (body เดียวกับจอง)                                     |
-| ยืนยันจอง                 | `POST /api/reservations`                                                              |
-| การจองของฉัน (3 แท็บ)     | `GET /api/reservations?scope=active` · `upcoming` · `past` (+ `counts`, ค้นด้วย `q`)  |
-| แก้ไขการจอง               | `PUT /api/reservations/:id` (ได้เฉพาะ `booked`)                                       |
-| ยกเลิก                    | `PATCH /api/reservations/:id/cancel` body `{ "reason": "..." }` (ก่อนเริ่ม ≥ 2 ชม.)   |
-| เล่นเสร็จ / คืนเกม        | `PATCH /api/reservations/:id/return`                                                  |
-| รีวิวเกม                  | `POST /api/reviews` · `GET /api/reviews/:gameId` · `GET /api/reviews/:gameId/summary` |
-| รีวิวของฉัน               | `GET /api/reviews/my`                                                                 |
-| หน้าโปรไฟล์: สถิติ        | `GET /api/stats/me`                                                                   |
-| หน้า Home: เกมยอดนิยม     | `GET /api/stats/popular-games?limit=6`                                                |
+| หน้า                      | Endpoint                                                                                |
+| ------------------------- | --------------------------------------------------------------------------------------- |
+| เลือกเวลา → ดูว่าอะไรว่าง | `GET /api/reservations/availability?startAt=&durationHours=2&players=4`                 |
+| Floor plan                | `GET /api/tables/floor?startAt=&durationHours=2` (ไม่ส่ง = ตอนนี้)                      |
+| คำนวณราคาก่อนยืนยัน       | `POST /api/reservations/quote` (body เดียวกับจอง)                                       |
+| ยืนยันจอง                 | `POST /api/reservations`                                                                |
+| การจองของฉัน (3 แท็บ)     | `GET /api/reservations?scope=active` · `upcoming` · `past` (+ `counts`, ค้นด้วย `q`)    |
+| แก้ไขการจอง               | `PUT /api/reservations/:id` (ได้เฉพาะ `booked`)                                         |
+| ยกเลิก                    | `PATCH /api/reservations/:id/cancel` body `{ "reason": "..." }` (ก่อนเริ่ม ≥ 2 ชม.)     |
+| เล่นเสร็จ / คืนเกม        | `PATCH /api/reservations/:id/return`                                                    |
+| ขอต่อเวลา                 | `PATCH /api/reservations/:id/extend` body `{ "hours": 1 }`                              |
+| เรียก GM / พนักงาน        | `POST /api/assist` · `GET /api/assist/my?reservation=` · `PATCH /api/assist/:id/cancel` |
+| รีวิวเกม                  | `POST /api/reviews` · `GET /api/reviews/:gameId` · `GET /api/reviews/:gameId/summary`   |
+| รีวิวของฉัน               | `GET /api/reviews/my`                                                                   |
+| หน้าโปรไฟล์: สถิติ        | `GET /api/stats/me`                                                                     |
+| หน้า Home: เกมยอดนิยม     | `GET /api/stats/popular-games?limit=6`                                                  |
 
 Body การจอง:
 
@@ -273,21 +287,24 @@ Availability response (ย่อ):
 
 ## ฝั่งแอดมิน (FE admin 2 คน)
 
-| หน้า                              | Endpoint                                                              |
-| --------------------------------- | --------------------------------------------------------------------- |
-| Dashboard การ์ดตัวเลข             | `GET /api/stats/overview?date=2026-10-12`                             |
-| กราฟรายวัน                        | `GET /api/stats/daily?from=&to=` (default 7 วันล่าสุด)                |
-| กราฟช่วงเวลาคนเยอะ                | `GET /api/stats/hourly?from=&to=`                                     |
-| การใช้งานแต่ละโต๊ะ                | `GET /api/stats/tables?from=&to=`                                     |
-| ผังโต๊ะ + ดูว่าโต๊ะไหนเล่นเกมอะไร | `GET /api/tables/floor` → `tables[].current.game`                     |
-| จัดการโต๊ะ                        | `GET/POST /api/tables` · `PUT/DELETE /api/tables/:id`                 |
-| เปิด/ปิดปรับปรุงโต๊ะ              | `PATCH /api/tables/:id/status` body `{ "status": "closed" }`          |
-| รายการจองทั้งหมดของวัน            | `GET /api/reservations/admin?date=2026-10-12&status=playing`          |
-| รับคืนเกมที่เคาน์เตอร์            | `PATCH /api/reservations/:id/return`                                  |
-| ยกเลิกการจองที่ไม่เหมาะสม         | `PATCH /api/reservations/:id/cancel` (admin ยกเลิกได้แม้กำลังเล่น)    |
-| ลบการจอง                          | `DELETE /api/reservations/admin/:id`                                  |
-| ตั้งเกมเป็น maintenance           | `PUT /api/games/:id` body `{ "status": "maintenance" }` (module คน A) |
-| ดูรีวิว / ลบรีวิว                 | `GET /api/reviews?maxRating=3` · `DELETE /api/reviews/:id`            |
+| หน้า                              | Endpoint                                                                                                         |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Dashboard การ์ดตัวเลข             | `GET /api/stats/overview?date=2026-10-12`                                                                        |
+| กราฟรายวัน                        | `GET /api/stats/daily?from=&to=` (default 7 วันล่าสุด)                                                           |
+| กราฟช่วงเวลาคนเยอะ                | `GET /api/stats/hourly?from=&to=`                                                                                |
+| การใช้งานแต่ละโต๊ะ                | `GET /api/stats/tables?from=&to=`                                                                                |
+| ผังโต๊ะ + ดูว่าโต๊ะไหนเล่นเกมอะไร | `GET /api/tables/floor` → `tables[].current.game`                                                                |
+| จัดการโต๊ะ                        | `GET/POST /api/tables` · `PUT/DELETE /api/tables/:id`                                                            |
+| เปิด/ปิดปรับปรุงโต๊ะ              | `PATCH /api/tables/:id/status` body `{ "status": "closed" }`                                                     |
+| รายการจองทั้งหมดของวัน            | `GET /api/reservations/admin?date=2026-10-12&status=playing`                                                     |
+| รับคืนเกมที่เคาน์เตอร์            | `PATCH /api/reservations/:id/return`                                                                             |
+| ยกเลิกการจองที่ไม่เหมาะสม         | `PATCH /api/reservations/:id/cancel` (admin ยกเลิกได้แม้กำลังเล่น)                                               |
+| ลบการจอง                          | `DELETE /api/reservations/admin/:id`                                                                             |
+| คิวเรียกพนักงาน (GM)              | `GET /api/assist` (default = ยังไม่เสร็จ, มี `counts.open`) — poll ทุก 15–30 วิ                                  |
+| รับเรื่อง / เสร็จแล้ว             | `PATCH /api/assist/:id` body `{ "status": "acknowledged" }` หรือ `{ "status": "resolved", "resolution": "..." }` |
+| ต่อเวลาให้ลูกค้า                  | `PATCH /api/reservations/:id/extend` (admin ต่อเกิน max ชม./นอกเวลาได้)                                          |
+| ตั้งเกมเป็น maintenance           | `PUT /api/games/:id` body `{ "status": "maintenance" }` (module คน A)                                            |
+| ดูรีวิว / ลบรีวิว                 | `GET /api/reviews?maxRating=3` · `DELETE /api/reviews/:id`                                                       |
 
 Table body (`position` เป็น % ของพื้นที่ floor plan 0–100 — แก้ position ให้ส่งครบทั้ง x,y,w,h):
 
