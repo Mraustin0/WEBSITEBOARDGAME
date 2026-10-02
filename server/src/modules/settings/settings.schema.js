@@ -30,6 +30,7 @@ export const settingsBody = z
         maxHours: z.coerce.number().min(0.5).max(12),
         overtimeGraceMin: z.coerce.number().int().min(0).max(120),
         extraSeats: z.coerce.number().int().min(0).max(10),
+        cancelCutoffHours: z.coerce.number().min(0).max(72),
       })
       .partial(),
     operatingHours: z

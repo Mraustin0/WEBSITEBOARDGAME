@@ -14,6 +14,9 @@ const MaintenanceTicketSchema = new Schema(
     title: { type: String, required: true, trim: true },
     description: { type: String, default: '' },
     priority: { type: String, enum: ['low', 'medium', 'high'], default: 'medium' },
+    copies: { type: Number, default: 1, min: 1 }, // เกม: เสียกี่กล่อง (กล่องที่เหลือยังจองได้)
+    // ระบบใช้ภายใน: true = เกมเป็น maintenance เพราะใบแจ้งซ่อม (ไม่ใช่ admin ปิดเอง)
+    lockedGame: { type: Boolean, default: false, select: false },
     status: { type: String, enum: TICKET_STATUSES, default: 'pending', index: true },
     reservation: { type: Types.ObjectId, ref: 'Reservation', default: null }, // แจ้งจากตอนคืนเกม
     reportedBy: { type: Types.ObjectId, ref: 'User' },

@@ -11,6 +11,11 @@ export const ACTIVE_STATUSES = ['booked', 'playing'];
 export const SOURCES = ['online', 'walk_in', 'admin'];
 export const PAYMENT_METHODS = ['cash', 'transfer', 'card', 'qr'];
 
+const ExtensionSchema = new Schema(
+  { hours: Number, charge: Number, at: Date, by: { type: Types.ObjectId, ref: 'User' } },
+  { _id: false },
+);
+
 const ReservationSchema = new Schema(
   {
     // สมาชิกที่จอง — null ได้ถ้าเป็นลูกค้า walk-in ที่ไม่มีบัญชี (ใช้ customer แทน)
@@ -44,6 +49,8 @@ const ReservationSchema = new Schema(
     cancelledBy: { type: Types.ObjectId, ref: 'User' },
     cancelReason: { type: String, default: '' },
     noShowAt: Date,
+    // ต่อเวลาระหว่างเล่น (ปุ่ม "ขอต่อเวลา") — ราคาเพิ่มถูกรวมเข้า price.total แล้ว
+    extensions: { type: [ExtensionSchema], default: [] },
     // เช็คบิลตอนคืนเกม
     checkout: {
       actualMinutes: Number,
