@@ -8,6 +8,7 @@ import {
   availabilityQuery,
   bookingBody,
   cancelBody,
+  extendBody,
   idParam,
   listQuery,
   payBody,
@@ -75,6 +76,11 @@ router.patch(
   '/:id/cancel',
   validate({ params: idParam, body: cancelBody }),
   asyncHandler(controller.cancel),
+);
+router.patch(
+  '/:id/extend',
+  validate({ params: idParam, body: extendBody }),
+  asyncHandler(controller.extend),
 );
 router.get(
   '/:id/checkout',

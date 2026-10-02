@@ -90,6 +90,8 @@ export const payBody = z.object({ method: z.enum(PAYMENT_METHODS) });
 
 export const cancelBody = z.object({ reason: note.default('') });
 
+export const extendBody = z.object({ hours });
+
 export const idParam = z.object({ id: objectId });
 
 const pagination = {
@@ -99,6 +101,7 @@ const pagination = {
 
 export const listQuery = z.object({
   scope: z.enum(['active', 'upcoming', 'past', 'all']).default('all'),
+  q: z.string().trim().min(1).max(80).optional(), // ค้นรหัส/ชื่อโต๊ะ หรือชื่อเกม
   ...pagination,
 });
 

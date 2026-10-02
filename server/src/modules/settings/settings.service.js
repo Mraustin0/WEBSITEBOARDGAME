@@ -36,6 +36,7 @@ export function rulesFromSettings(s) {
     MAX_HOURS: s?.booking?.maxHours ?? RULES.MAX_HOURS,
     OVERTIME_GRACE_MIN: s?.booking?.overtimeGraceMin ?? RULES.OVERTIME_GRACE_MIN,
     EXTRA_SEATS: s?.booking?.extraSeats ?? RULES.EXTRA_SEATS,
+    CANCEL_CUTOFF_HOURS: s?.booking?.cancelCutoffHours ?? RULES.CANCEL_CUTOFF_HOURS,
     OPERATING: {
       enforce: s?.operatingHours?.enforce ?? false,
       days: s?.operatingHours?.days?.length ? s.operatingHours.days : DEFAULT_DAYS,

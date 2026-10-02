@@ -13,6 +13,7 @@ export const createBody = z
     description: z.string().trim().max(2000).default(''),
     priority: priority.default('medium'),
     cost: z.coerce.number().min(0).max(1_000_000).default(0),
+    copies: z.coerce.number().int().min(1).max(50).default(1), // เกม: เสียกี่กล่อง
   })
   .refine((o) => (o.itemType === 'game' ? o.game : o.table), {
     message: 'game or table id is required for the itemType',
@@ -26,6 +27,7 @@ export const updateBody = z
     description: z.string().trim().max(2000),
     priority,
     cost: z.coerce.number().min(0).max(1_000_000),
+    copies: z.coerce.number().int().min(1).max(50),
     resolution: z.string().trim().max(2000),
   })
   .partial()
