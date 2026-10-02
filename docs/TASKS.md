@@ -20,22 +20,26 @@ Task id prefix: `A*` = คน A · `B*` = คน B · `S*` = shared/ทำด้
 ### คน A — Auth + Games + BGG + Infra
 
 **A1. Auth polish** (M)
+
 - [ ] เพิ่ม endpoint `POST /api/auth/logout` (optional — JWT stateless แค่ frontend ทิ้ง token)
 - [ ] เพิ่ม endpoint `PUT /api/auth/password` เปลี่ยนรหัสผ่าน (require old + new password)
 - [ ] test: register + login + wrong password + duplicate email
 - ไฟล์: `modules/auth/*`, `tests/auth.test.js`
 
 **A2. Games — search + filter** (M)
+
 - [ ] ตอนนี้ `?q=` ใช้ MongoDB text index. เพิ่ม fallback substring search ถ้า text ไม่เจอ
 - [ ] เพิ่ม query param filters: `?minPlayers=`, `?maxPlayers=`, `?year=`
 - [ ] เพิ่ม pagination `?page=1&limit=20` return `{ items, total, page }`
 - ไฟล์: `modules/games/{schema,service,controller}.js`, `lib/openapi.js`
 
 **A3. Games — sort + top games** (S)
+
 - [ ] เพิ่ม `?sort=name|year|createdAt&order=asc|desc`
 - ไฟล์: `modules/games/service.js`
 
 **A4. Admin — user management** (M)
+
 - [ ] `GET /api/admin/users` list users (admin only)
 - [ ] `PUT /api/admin/users/:id/role` เปลี่ยน role
 - [ ] `DELETE /api/admin/users/:id` ลบ user (soft delete หรือ hard delete)
@@ -43,31 +47,37 @@ Task id prefix: `A*` = คน A · `B*` = คน B · `S*` = shared/ทำด้
 - ไฟล์: `app.js` (register route), `lib/openapi.js`
 
 **A5. BGG — Hot list** (S)
+
 - [ ] `GET /api/bgg/hot` proxy ไปยัง `https://boardgamegeek.com/xmlapi2/hot?type=boardgame`
 - [ ] parse XML → return array of trending games
 - ไฟล์: `modules/bgg/{routes,service,controller}.js`
 
 **A6. BGG — expand fields** (M)
+
 - [ ] ใน `bgg.service.js` `detail()` เพิ่มดึง: `image` (full size), `average`, `usersrated`, `averageweight`, `link` (categories, mechanics, designers)
 - [ ] update `Game` schema เพิ่ม field: `image`, `bggAverage`, `bggWeight`, `categories: [String]`, `mechanics: [String]`, `designers: [String]`
 - ไฟล์: `models/game.model.js`, `modules/bgg/service.js`
 
 **A7. BGG — response cache** (S)
+
 - [ ] เพิ่ม in-memory cache 1 ชั่วโมง สำหรับ BGG responses (Map + timestamp)
 - [ ] BGG API rate limit ยิ่งเยอะยิ่งช้า → cache ช่วยเยอะ
 - ไฟล์: `lib/cache.js` (สร้างใหม่), `modules/bgg/service.js`
 - Note: comment `// ponytail: in-memory Map, ใช้ Redis ถ้า scale`
 
 **A8. Rate limiting** (S)
+
 - [ ] เพิ่ม `express-rate-limit` middleware สำหรับ `/api/auth/*` (10 req/นาที) + `/api/bgg/*` (30 req/นาที)
 - [ ] แก้ `app.js`
 
 **A9. Docker verification** (S)
+
 - [ ] `docker compose up mongo` local Mongo รันได้
 - [ ] `docker compose --profile app up --build` full stack รันได้
 - [ ] เพิ่ม `Dockerfile` health check line
 
 **A10. Tests — auth + games + bgg** (M)
+
 - [ ] test games CRUD (public list, admin create/update/delete, non-admin ห้ามสร้าง)
 - [ ] test BGG search proxy (mock fetch)
 - ไฟล์: `tests/games.test.js`, `tests/bgg.test.js`
@@ -77,48 +87,57 @@ Task id prefix: `A*` = คน A · `B*` = คน B · `S*` = shared/ทำด้
 ### คน B — Collection + Plays + Reviews
 
 **B1. Collection — polish** (M)
+
 - [ ] เพิ่ม `PUT /api/collection/:id` แก้ `condition` + `notes`
 - [ ] เพิ่ม `?condition=` filter ใน list
 - [ ] validate: game must exist before add (ไม่ให้ add game id ที่ไม่มี)
 - ไฟล์: `modules/collection/{schema,service,controller,routes}.js`
 
 **B2. Collection — stats** (M)
+
 - [ ] `GET /api/collection/stats` สรุป: จำนวนเกม, จำนวนตาม condition, ปีที่ collect
 - ไฟล์: `modules/collection/service.js`
 
 **B3. Plays — polish** (M)
+
 - [ ] เพิ่ม `?gameId=` filter ใน list plays (ดูประวัติเล่นเกมนี้)
 - [ ] เพิ่ม `?from=YYYY-MM-DD&to=` date range filter
 - [ ] pagination `?page=1&limit=20`
 - ไฟล์: `modules/plays/{schema,service,controller}.js`
 
 **B4. Plays — stats** (M)
+
 - [ ] `GET /api/plays/stats` สรุป: จำนวน sessions, เกมที่เล่นบ่อยสุด, ผู้ชนะบ่อยสุด, เวลาเล่นรวม
 - [ ] `GET /api/plays/stats/monthly` chart data (grouped by month)
 - ไฟล์: `modules/plays/service.js`
 
 **B5. Reviews — polish** (M)
+
 - [ ] `GET /api/reviews/my` list review ทั้งหมดของ user ปัจจุบัน
 - [ ] `GET /api/games/:id/rating` return average rating + count (aggregation)
 - [ ] admin: report review (ตั้ง flag) — optional
 - ไฟล์: `modules/reviews/{schema,service,controller,routes}.js`, `modules/games/service.js`
 
 **B6. Aggregation — game popularity** (M)
+
 - [ ] `GET /api/games/popular` เกมที่คน collect เยอะสุด (top 10) — join CollectionItem + Game
 - [ ] ใช้ mongoose `.aggregate()` — `$group` count by game
 - ไฟล์: `modules/games/service.js`, `modules/games/routes.js`
 
 **B7. Play log — export** (S)
+
 - [ ] `GET /api/plays/export.csv` return CSV ของ play log ตัวเอง (ไม่ต้อง lib — string builder ธรรมดา)
 - [ ] header: `date,game,players,winner,duration,notes`
 - ไฟล์: `modules/plays/controller.js`
 
 **B8. Search — combined** (M)
+
 - [ ] `GET /api/search?q=` ค้นพร้อมกัน: games (in DB), plays (own), reviews (own). ประกอบผลลัพธ์
 - [ ] สร้าง module ใหม่: `modules/search/{routes,controller,service,schema}.js`
 - ไฟล์: `app.js`, `lib/openapi.js`
 
 **B9. Tests — collection + plays + reviews** (M)
+
 - [ ] test add to collection, prevent duplicate
 - [ ] test log play, edit, delete
 - [ ] test review upsert (upsert แล้วได้ 1 review ต่อ user+game)
@@ -126,6 +145,7 @@ Task id prefix: `A*` = คน A · `B*` = คน B · `S*` = shared/ทำด้
 - ไฟล์: `tests/collection.test.js`, `tests/plays.test.js`, `tests/reviews.test.js`
 
 **B10. OpenAPI docs** (S)
+
 - [ ] update `lib/openapi.js` เพิ่ม spec ของ endpoint ที่ B ทำใหม่
 - [ ] check ที่ `/api/docs` เห็นครบ
 
@@ -134,11 +154,13 @@ Task id prefix: `A*` = คน A · `B*` = คน B · `S*` = shared/ทำด้
 ### Shared (ต้องคุยก่อนแตะ)
 
 **S6. Deploy backend** (M) — คน A ทำ, คน B ช่วย test
+
 - [ ] เลือก 1: Render, Railway, Fly.io (มี free tier)
 - [ ] ผูก GitHub repo → auto-deploy on push
 - [ ] ตั้ง env vars (MONGODB_URI จาก Atlas, JWT_SECRET, CLIENT_ORIGIN)
 
 **S7. Sample data** (M) — คน A/B ทำร่วมกัน
+
 - [ ] ขยาย `seed.js` ให้มี ≥20 games หลากหลาย category
 - [ ] เพิ่ม script `seed-demo.js` สร้าง sample user + collection + plays + reviews สำหรับ demo
 
@@ -219,14 +241,14 @@ Backend ทำจบ 60-70% ค่อยเริ่ม UI (ไม่งั้�
 
 ## Timeline แนะนำ (5 สัปดาห์ก่อน 12 ต.ค.)
 
-| Week | คน A | คน B |
-|---|---|---|
-| **1 (25 ส.ค. - 31 ส.ค.)** | Phase 0 + A1-A3 | Phase 0 + B1-B3 |
-| **2 (1 ก.ย. - 7 ก.ย.)** | A4-A7 + Deploy | B4-B6 + OpenAPI update |
-| **3 (8 ก.ย. - 14 ก.ย.)** | A-UI-1,2,3 | B-UI-1,2,3 |
-| **4 (15 ก.ย. - 21 ก.ย.)** | A-UI-4,5,6,7 + Doc A | B-UI-4,5,6,7 + Doc B |
-| **5 (22 ก.ย. - 5 ต.ค.)** | Report finalize + slide + ซ้อม | Report finalize + slide + ซ้อม |
-| **6 (6-11 ต.ค.)** | Buffer + demo prep | Buffer + demo prep |
+| Week                      | คน A                           | คน B                           |
+| ------------------------- | ------------------------------ | ------------------------------ |
+| **1 (25 ส.ค. - 31 ส.ค.)** | Phase 0 + A1-A3                | Phase 0 + B1-B3                |
+| **2 (1 ก.ย. - 7 ก.ย.)**   | A4-A7 + Deploy                 | B4-B6 + OpenAPI update         |
+| **3 (8 ก.ย. - 14 ก.ย.)**  | A-UI-1,2,3                     | B-UI-1,2,3                     |
+| **4 (15 ก.ย. - 21 ก.ย.)** | A-UI-4,5,6,7 + Doc A           | B-UI-4,5,6,7 + Doc B           |
+| **5 (22 ก.ย. - 5 ต.ค.)**  | Report finalize + slide + ซ้อม | Report finalize + slide + ซ้อม |
+| **6 (6-11 ต.ค.)**         | Buffer + demo prep             | Buffer + demo prep             |
 
 **หลัก:** อย่าให้ frontend ทำก่อน backend ตกลง contract เสร็จ. ทำ backend ให้ Swagger เขียวก่อน แล้ว UI ค่อยเริ่ม.
 
@@ -237,6 +259,7 @@ Backend ทำจบ 60-70% ค่อยเริ่ม UI (ไม่งั้�
 **Golden rule:** ห้ามแตะไฟล์ของโมดูลอีกคนโดยไม่คุย.
 
 **ไฟล์ที่ทั้งคู่ต้องแตะบ่อย:**
+
 - `server/src/app.js` — ใครสร้าง module ใหม่ append 1 บรรทัด commit เดี่ยว push ก่อน
 - `server/src/lib/openapi.js` — append ที่ท้าย paths object แยก path ของตัวเอง
 - `docs/PLAN.md`, `README.md` — แก้แล้ว pull ก่อนเสมอ

@@ -6,6 +6,7 @@ import * as controller from './bgg.controller.js';
 
 const router = Router();
 
+router.get('/hot', asyncHandler(controller.hot));
 router.get('/search', validate({ query: searchQuery }), asyncHandler(controller.search));
 router.get('/game/:bggId', validate({ params: bggIdParam }), asyncHandler(controller.detail));
 

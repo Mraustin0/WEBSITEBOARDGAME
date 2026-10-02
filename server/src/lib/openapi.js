@@ -1,9 +1,13 @@
+import { aPaths, aSchemas } from './openapi.a.js';
+import { bPaths, bSchemas } from './openapi.b.js';
+
 export const openapiSpec = {
   openapi: '3.0.3',
   info: {
     title: 'Boardgame Everyday API',
     version: '0.1.0',
-    description: 'REST API for managing board game collection, play sessions, and reviews.',
+    description:
+      'REST API for a board game café: game catalog, table booking, reviews and reports.',
   },
   servers: [{ url: '/api', description: 'current host' }],
   components: {
@@ -46,8 +50,11 @@ export const openapiSpec = {
           yearPublished: { type: 'integer', nullable: true },
           thumbnail: { type: 'string', nullable: true },
           description: { type: 'string', nullable: true },
+          status: { type: 'string', enum: ['available', 'in_use', 'maintenance'] },
         },
       },
+      ...aSchemas,
+      ...bSchemas,
     },
   },
   security: [],
@@ -136,18 +143,33 @@ export const openapiSpec = {
     '/games': {
       get: {
         tags: ['games'],
-        summary: 'List games',
+        summary: 'List games (paginated + filters + sort)',
         parameters: [
           { name: 'q', in: 'query', schema: { type: 'string' } },
+          { name: 'minPlayers', in: 'query', schema: { type: 'integer' } },
+          { name: 'maxPlayers', in: 'query', schema: { type: 'integer' } },
+          { name: 'year', in: 'query', schema: { type: 'integer' } },
+          {
+            name: 'status',
+            in: 'query',
+            schema: { type: 'string', enum: ['available', 'in_use', 'maintenance'] },
+          },
+          { name: 'category', in: 'query', schema: { type: 'string' } },
+          { name: 'mechanic', in: 'query', schema: { type: 'string' } },
+          {
+            name: 'sort',
+            in: 'query',
+            schema: { type: 'string', enum: ['name', 'year', 'createdAt', 'bggRating'] },
+          },
+          { name: 'order', in: 'query', schema: { type: 'string', enum: ['asc', 'desc'] } },
+          { name: 'page', in: 'query', schema: { type: 'integer', default: 1 } },
           { name: 'limit', in: 'query', schema: { type: 'integer', default: 50 } },
         ],
         responses: {
           200: {
             description: 'ok',
             content: {
-              'application/json': {
-                schema: { type: 'array', items: { $ref: '#/components/schemas/Game' } },
-              },
+              'application/json': { schema: { $ref: '#/components/schemas/Paginated' } },
             },
           },
         },
@@ -183,69 +205,6 @@ export const openapiSpec = {
         responses: { 200: { description: 'ok' } },
       },
     },
-    '/collection': {
-      get: {
-        tags: ['collection'],
-        summary: 'My collection',
-        security: [{ bearerAuth: [] }],
-        responses: { 200: { description: 'ok' } },
-      },
-      post: {
-        tags: ['collection'],
-        summary: 'Add to collection',
-        security: [{ bearerAuth: [] }],
-        responses: { 201: { description: 'created' } },
-      },
-    },
-    '/collection/{id}': {
-      delete: {
-        tags: ['collection'],
-        summary: 'Remove',
-        security: [{ bearerAuth: [] }],
-        responses: { 200: { description: 'ok' } },
-      },
-    },
-    '/plays': {
-      get: {
-        tags: ['plays'],
-        summary: 'My plays',
-        security: [{ bearerAuth: [] }],
-        responses: { 200: { description: 'ok' } },
-      },
-      post: {
-        tags: ['plays'],
-        summary: 'Log play',
-        security: [{ bearerAuth: [] }],
-        responses: { 201: { description: 'created' } },
-      },
-    },
-    '/plays/{id}': {
-      put: {
-        tags: ['plays'],
-        security: [{ bearerAuth: [] }],
-        responses: { 200: { description: 'ok' } },
-      },
-      delete: {
-        tags: ['plays'],
-        security: [{ bearerAuth: [] }],
-        responses: { 200: { description: 'ok' } },
-      },
-    },
-    '/reviews/{gameId}': {
-      get: {
-        tags: ['reviews'],
-        summary: 'Reviews for game',
-        responses: { 200: { description: 'ok' } },
-      },
-    },
-    '/reviews': {
-      post: {
-        tags: ['reviews'],
-        summary: 'Upsert my review',
-        security: [{ bearerAuth: [] }],
-        responses: { 200: { description: 'ok' } },
-      },
-    },
     '/bgg/search': {
       get: {
         tags: ['bgg'],
@@ -262,5 +221,7 @@ export const openapiSpec = {
         responses: { 200: { description: 'ok' }, 404: { description: 'not found' } },
       },
     },
+    ...aPaths,
+    ...bPaths,
   },
 };

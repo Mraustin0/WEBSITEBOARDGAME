@@ -10,3 +10,10 @@ export const upsertBody = z.object({
   rating: z.coerce.number().int().min(1).max(10),
   comment: z.string().max(2000).default(''),
 });
+
+export const adminListQuery = z.object({
+  game: objectId.optional(),
+  maxRating: z.coerce.number().int().min(1).max(10).optional(),
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().positive().max(100).default(20),
+});

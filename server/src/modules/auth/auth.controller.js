@@ -13,3 +13,11 @@ export const login = async (req, res) => {
 export const me = (req, res) => {
   res.json(req.user.toPublic ? req.user.toPublic() : req.user);
 };
+
+export const changePassword = async (req, res) => {
+  await service.changePassword(req.user._id, req.body);
+  res.json({ ok: true });
+};
+
+// stateless JWT — client just discards the token; endpoint exists so client can call it uniformly
+export const logout = (_req, res) => res.status(204).end();
