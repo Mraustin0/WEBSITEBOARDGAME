@@ -9,6 +9,8 @@ export default function AddGame() {
     maxPlayers: 4,
     playtimeMin: 30,
     yearPublished: 2024,
+    quantity: 1, // เพิ่มฟิลด์จำนวนเกม
+    imageUrl: '', // เพิ่มฟิลด์รูปภาพ
     description: '',
   });
   const [saving, setSaving] = useState(false);
@@ -35,9 +37,9 @@ export default function AddGame() {
           maxPlayers: Number(formData.maxPlayers),
           playtimeMin: Number(formData.playtimeMin),
           yearPublished: Number(formData.yearPublished),
+          quantity: Number(formData.quantity), // ส่งค่าจำนวนไปที่ Backend
         }),
       });
-
       if (response.ok) {
         alert('🎉 บันทึกบอร์ดเกมสำเร็จ!');
         navigate('/inventory');
@@ -75,7 +77,14 @@ export default function AddGame() {
       >
         <button
           onClick={() => navigate('/inventory')}
-          style={{ marginBottom: '1rem', cursor: 'pointer' }}
+          style={{
+            marginBottom: '1rem',
+            cursor: 'pointer',
+            background: 'none',
+            border: 'none',
+            color: '#134e35',
+            fontWeight: 'bold',
+          }}
         >
           ← กลับ
         </button>
@@ -93,6 +102,31 @@ export default function AddGame() {
             placeholder="ชื่อเกม *"
             style={{ padding: '0.75rem', borderRadius: '6px', border: '1px solid #ccc' }}
           />
+
+          {/* เพิ่มช่องใส่ลิงก์รูปภาพ */}
+          <input
+            type="text"
+            name="imageUrl"
+            value={formData.imageUrl}
+            onChange={handleChange}
+            placeholder="ลิงก์รูปภาพ (URL)"
+            style={{ padding: '0.75rem', borderRadius: '6px', border: '1px solid #ccc' }}
+          />
+
+          <div style={{ display: 'flex', gap: '1rem' }}>
+            {/* เพิ่มช่องใส่จำนวนเกม */}
+            <input
+              required
+              type="number"
+              name="quantity"
+              value={formData.quantity}
+              onChange={handleChange}
+              placeholder="จำนวน (กล่อง)"
+              min="1"
+              style={{ flex: 1, padding: '0.75rem', borderRadius: '6px', border: '1px solid #ccc' }}
+            />
+          </div>
+
           <div style={{ display: 'flex', gap: '1rem' }}>
             <input
               required
