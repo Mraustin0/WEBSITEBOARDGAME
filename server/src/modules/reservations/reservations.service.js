@@ -12,9 +12,11 @@ import {
   cancelCutoffError,
   computeEnd,
   conflictFilter,
+  copiesOf,
   durationError,
   extensionCharge,
   operatingHoursError,
+  peakUsage,
   PACKAGES,
   RULES,
 } from './reservations.rules.js';
@@ -54,10 +56,25 @@ async function loadTable(id) {
 
 async function loadGame(id) {
   if (!id) return null;
-  const game = await Game.findById(id);
+  const game = await Game.findById(id).lean(); // lean → ได้ field copies แม้ schema ยังไม่มี
   if (!game) throw notFound('game not found');
   if (game.status === 'maintenance') throw conflict(`${game.name} is under maintenance`);
   return game;
+}
+
+/**
+ * เกมนี้เหลือกล่องว่างในช่วงเวลาไหม (เทียบกับการจองอื่นที่ทับช่วงนั้น)
+ * คืน null ถ้าว่าง, ไม่งั้นคืนข้อความ error
+ */
+async function gameFullError(game, { startAt, endAt }, { excludeId, now = new Date() } = {}) {
+  const filter = { ...conflictFilter({ startAt, endAt }, now), game: game._id };
+  if (excludeId) filter._id = { $ne: excludeId };
+  const rows = await Reservation.find(filter).select('startAt endAt status').lean();
+  const copies = copiesOf(game);
+  if (peakUsage(rows, { startAt, endAt }) < copies) return null;
+  return copies > 1
+    ? `all ${copies} copies of ${game.name} are booked for this time`
+    : `${game.name} is already booked for this time`;
 }
 
 /**
@@ -92,13 +109,13 @@ async function validateBooking(
   const base = conflictFilter({ startAt, endAt }, now);
   if (excludeId) base._id = { $ne: excludeId };
 
-  const [tableClash, gameClash, userClash] = await Promise.all([
+  const [tableClash, gameErr, userClash] = await Promise.all([
     Reservation.exists({ ...base, table: table._id }),
-    game ? Reservation.exists({ ...base, game: game._id }) : null,
+    game ? gameFullError(game, { startAt, endAt }, { excludeId, now }) : null,
     userId ? Reservation.exists({ ...base, user: userId }) : null,
   ]);
   if (tableClash) throw conflict(`table ${table.code} is already booked for this time`);
-  if (gameClash) throw conflict(`${game.name} is already booked for this time`);
+  if (gameErr) throw conflict(gameErr);
   if (userClash) throw conflict('you already have a reservation overlapping this time');
 
   const price = calcPrice({
@@ -353,12 +370,13 @@ export async function setGame(id, user, gameId) {
       throw badRequest(`${game.name} needs ${game.minPlayers}-${game.maxPlayers} players`);
     }
     const now = new Date();
-    const clash = await Reservation.exists({
-      ...conflictFilter({ startAt: now, endAt: r.endAt > now ? r.endAt : now }, now),
-      _id: { $ne: r._id },
-      game: game._id,
-    });
-    if (clash) throw conflict(`${game.name} is being played or booked right now`);
+    const until = r.endAt > now ? r.endAt : new Date(now.getTime() + 60 * 1000);
+    const err = await gameFullError(
+      game,
+      { startAt: now, endAt: until },
+      { excludeId: r._id, now },
+    );
+    if (err) throw conflict(`${game.name} has no free copy right now`);
   }
 
   r.game = game?._id ?? null;
@@ -397,13 +415,16 @@ export async function extend(id, user, hours) {
     ...conflictFilter({ startAt: r.endAt, endAt: newEnd }, now),
     _id: { $ne: r._id },
   };
-  const [tableClash, gameClash, userClash] = await Promise.all([
+  const game = r.game ? await Game.findById(r.game).select('name copies').lean() : null;
+  const [tableClash, gameErr, userClash] = await Promise.all([
     Reservation.exists({ ...base, table: r.table }),
-    r.game ? Reservation.exists({ ...base, game: r.game }) : null,
+    game
+      ? gameFullError(game, { startAt: r.endAt, endAt: newEnd }, { excludeId: r._id, now })
+      : null,
     r.user ? Reservation.exists({ ...base, user: r.user }) : null,
   ]);
   if (tableClash) throw conflict('the table is booked right after — cannot extend');
-  if (gameClash) throw conflict('the game is booked right after — cannot extend');
+  if (gameErr) throw conflict('the game is booked right after — cannot extend');
   if (userClash) throw conflict('you have another reservation right after');
 
   const charge = extensionCharge({
@@ -457,13 +478,12 @@ export async function availability({ startAt, durationHours, players }) {
     Table.find().sort({ zone: 1, code: 1 }).lean(),
     Game.find()
       .select(
-        'name thumbnail image minPlayers maxPlayers playtimeMin status bggAverage bggWeight categories designers yearPublished',
+        'name thumbnail image minPlayers maxPlayers playtimeMin status copies bggAverage bggWeight categories designers yearPublished',
       )
       .sort({ name: 1 })
       .lean(),
   ]);
   const busyTables = new Set(busy.map((r) => String(r.table)));
-  const busyGames = new Set(busy.filter((r) => r.game).map((r) => String(r.game._id)));
   // เกมนี้ถูกใช้/จองอยู่ที่โต๊ะไหนในช่วงนั้น (แสดง "In Use (T-04)" ใน modal เลือกเกม)
   const tableCode = new Map(tables.map((t) => [String(t._id), t.code]));
   const gameTables = new Map();
@@ -485,9 +505,14 @@ export async function availability({ startAt, durationHours, players }) {
     if (players && players > t.capacity) return 'too_small';
     return null;
   };
-  const gameReason = (g) => {
+  // กล่องที่เหลือในช่วงนั้น = copies − จำนวนที่ถูกใช้พร้อมกันสูงสุด
+  const copiesLeft = (g) => {
+    const rows = gameTables.get(String(g._id)) ?? [];
+    return Math.max(0, copiesOf(g) - peakUsage(rows, { startAt, endAt }));
+  };
+  const gameReason = (g, left) => {
     if (g.status === 'maintenance') return 'maintenance';
-    if (busyGames.has(String(g._id))) return 'booked';
+    if (left === 0) return 'booked';
     if (players && (players < g.minPlayers || players > g.maxPlayers)) return 'player_count';
     return null;
   };
@@ -503,9 +528,12 @@ export async function availability({ startAt, durationHours, players }) {
       return { ...t, available: !reason && !windowErr, reason };
     }),
     games: games.map((g) => {
-      const reason = gameReason(g);
+      const left = g.status === 'maintenance' ? 0 : copiesLeft(g);
+      const reason = gameReason(g, left);
       return {
         ...g,
+        copies: copiesOf(g),
+        copiesLeft: left,
         available: !reason && !windowErr,
         reason,
         inUseAt: gameTables.get(String(g._id)) ?? [],

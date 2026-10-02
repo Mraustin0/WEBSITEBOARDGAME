@@ -320,10 +320,20 @@ const reservationsPaths = {
             games: {
               type: 'array',
               description:
-                'เกมทั้งหมด + available/reason + bggAverage, bggWeight, categories และ inUseAt = โต๊ะที่ใช้เกมนี้ในช่วงนั้น',
+                'เกมทั้งหมด + available/reason + copies/copiesLeft + bggAverage, bggWeight, categories และ inUseAt = โต๊ะที่ใช้เกมนี้ในช่วงนั้น',
               items: {
                 type: 'object',
                 properties: {
+                  copies: {
+                    type: 'integer',
+                    example: 3,
+                    description: 'จำนวนกล่องทั้งหมด (ไม่มี = 1)',
+                  },
+                  copiesLeft: {
+                    type: 'integer',
+                    example: 1,
+                    description: 'กล่องที่ยังว่างตลอดช่วงเวลานั้น (0 = reason booked)',
+                  },
                   available: { type: 'boolean' },
                   reason: {
                     type: 'string',

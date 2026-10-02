@@ -2,7 +2,7 @@
 import { Reservation } from '../../models/reservation.model.js';
 import { Game } from '../../models/game.model.js';
 import { logger } from '../../lib/logger.js';
-import { conflictFilter } from './reservations.rules.js';
+import { conflictFilter, copiesOf } from './reservations.rules.js';
 
 /** booked ที่ถึงเวลาเริ่มแล้ว → playing และเกมที่ผูกไว้ → in_use. คืนจำนวนที่เปลี่ยน */
 export async function syncLifecycle(now = new Date()) {
@@ -17,22 +17,24 @@ export async function syncLifecycle(now = new Date()) {
   );
 
   const gameIds = [...new Set(due.filter((r) => r.game).map((r) => r.game.toString()))];
-  if (gameIds.length) {
-    await Game.updateMany(
-      { _id: { $in: gameIds }, status: { $ne: 'maintenance' } },
-      { $set: { status: 'in_use' } },
-    );
-  }
+  await Promise.all(gameIds.map((id) => refreshGameStatus(id)));
   return due.length;
 }
 
-/** คำนวณสถานะเกมใหม่หลังคืน/ยกเลิก/ลบ (ไม่แตะเกมที่ maintenance) */
+/**
+ * คำนวณสถานะเกมใหม่ (หลังเริ่มเล่น/คืน/ยกเลิก/ลบ) — ไม่แตะเกมที่ maintenance
+ * in_use = ทุกกล่องกำลังถูกเล่นอยู่ (เกมที่มีหลายกล่องยัง available ถ้าเหลือกล่อง)
+ */
 export async function refreshGameStatus(gameId) {
   if (!gameId) return;
-  const stillPlaying = await Reservation.exists({ game: gameId, status: 'playing' });
+  const [game, playing] = await Promise.all([
+    Game.findById(gameId).select('copies status').lean(),
+    Reservation.countDocuments({ game: gameId, status: 'playing' }),
+  ]);
+  if (!game || game.status === 'maintenance') return;
   await Game.updateOne(
     { _id: gameId, status: { $ne: 'maintenance' } },
-    { $set: { status: stillPlaying ? 'in_use' : 'available' } },
+    { $set: { status: playing >= copiesOf(game) ? 'in_use' : 'available' } },
   );
 }
 

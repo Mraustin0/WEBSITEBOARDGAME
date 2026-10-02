@@ -7,10 +7,12 @@ import {
   cancelCutoffError,
   computeEnd,
   conflictFilter,
+  copiesOf,
   extensionCharge,
   openHoursOfDay,
   operatingHoursError,
   overlaps,
+  peakUsage,
 } from '../src/modules/reservations/reservations.rules.js';
 import { eachLocalDate, localDayRange, toLocalDateString } from '../src/lib/time.js';
 
@@ -167,5 +169,27 @@ describe('settings-driven rules (unit)', () => {
     expect(
       extensionCharge({ hours: 0.5, players: 4, perPersonHour: 60, tableExtraPerHour: 20 }),
     ).toBe(130);
+  });
+
+  it('reads game copies (missing / invalid → 1)', () => {
+    expect(copiesOf({})).toBe(1);
+    expect(copiesOf(null)).toBe(1);
+    expect(copiesOf({ copies: 3 })).toBe(3);
+    expect(copiesOf({ copies: 0 })).toBe(1);
+  });
+
+  it('counts the peak number of copies used at the same time', () => {
+    const t = (h) => new Date(Date.UTC(2026, 9, 1, h));
+    const win = { startAt: t(13), endAt: t(15) };
+    const row = (s, e, status = 'booked') => ({ startAt: t(s), endAt: t(e), status });
+    expect(peakUsage([], win)).toBe(0);
+    // ต่อคิวกัน (13-14 แล้ว 14-15) ใช้กล่องเดียวพอ
+    expect(peakUsage([row(13, 14), row(14, 15)], win)).toBe(1);
+    // ทับกันจริงช่วง 13:30-14
+    expect(peakUsage([row(13, 14), row(13.5, 15)], win)).toBe(2);
+    // อยู่นอกช่วงไม่นับ
+    expect(peakUsage([row(10, 12), row(16, 17)], win)).toBe(0);
+    // เล่นเกินเวลายังไม่คืน → ถือกล่องทั้งช่วง
+    expect(peakUsage([row(10, 12, 'playing'), row(14, 15)], win)).toBe(2);
   });
 });
