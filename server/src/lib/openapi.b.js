@@ -329,6 +329,7 @@ const reservationsPaths = {
                     example: 3,
                     description: 'จำนวนกล่องทั้งหมด (ไม่มี = 1)',
                   },
+                  copiesInRepair: { type: 'integer', example: 0, description: 'กล่องที่ซ่อมอยู่' },
                   copiesLeft: {
                     type: 'integer',
                     example: 1,
@@ -768,6 +769,7 @@ const ticket = {
     description: { type: 'string' },
     priority: { type: 'string', enum: ['low', 'medium', 'high'] },
     status: { type: 'string', enum: ['pending', 'in_progress', 'resolved'] },
+    copies: { type: 'integer', example: 1, description: 'เกม: จำนวนกล่องที่เสีย' },
     cost: { type: 'number' },
     resolution: { type: 'string' },
     reportedBy: { type: 'object' },
@@ -920,6 +922,7 @@ const maintenancePaths = {
             title: { type: 'string' },
             description: { type: 'string' },
             priority: { type: 'string', enum: ['low', 'medium', 'high'] },
+            copies: { type: 'integer', default: 1, description: 'เกม: เสียกี่กล่อง' },
             cost: { type: 'number' },
           },
         }),
@@ -953,6 +956,7 @@ const maintenancePaths = {
           properties: {
             status: { type: 'string', enum: ['pending', 'in_progress', 'resolved'] },
             priority: { type: 'string' },
+            copies: { type: 'integer' },
             cost: { type: 'number' },
             resolution: { type: 'string' },
           },

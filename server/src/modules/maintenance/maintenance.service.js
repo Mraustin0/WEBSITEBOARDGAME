@@ -8,10 +8,11 @@ import {
 import { Game } from '../../models/game.model.js';
 import { Table } from '../../models/table.model.js';
 import { badRequest, notFound } from '../../lib/errors.js';
-import { refreshGameStatus } from '../reservations/reservations.lifecycle.js';
+import { copiesOf } from '../reservations/reservations.rules.js';
+import { brokenCopies, refreshGameStatus } from '../reservations/reservations.lifecycle.js';
 
 const POPULATE = [
-  { path: 'game', select: 'name thumbnail status' },
+  { path: 'game', select: 'name thumbnail status copies' },
   { path: 'table', select: 'code zone status' },
   { path: 'reportedBy', select: 'username' },
   { path: 'resolvedBy', select: 'username' },
@@ -20,10 +21,13 @@ const POPULATE = [
 
 const itemKey = (t) => (t.itemType === 'game' ? { game: t.game } : { table: t.table });
 
-/** ปิดใช้งานของ: เกม → maintenance, โต๊ะ → closed */
+/**
+ * ปิดใช้งานของ: โต๊ะ → closed
+ * เกม → ปิดเฉพาะจำนวนกล่องที่แจ้ง (สถานะเกมเป็น maintenance เมื่อซ่อมครบทุกกล่อง)
+ */
 async function lockItem(t) {
   if (t.itemType === 'game') {
-    await Game.updateOne({ _id: t.game }, { $set: { status: 'maintenance' } });
+    await refreshGameStatus(t.game, { fromMaintenance: true });
   } else {
     await Table.updateOne({ _id: t.table }, { $set: { status: 'closed' } });
   }
@@ -31,17 +35,31 @@ async function lockItem(t) {
 
 /** เปิดใช้งานคืน ถ้าไม่มีใบแจ้งซ่อมอื่นของของชิ้นนี้ค้างอยู่ */
 async function releaseItem(t) {
+  if (t.itemType === 'game') {
+    await refreshGameStatus(t.game, { fromMaintenance: true }); // นับกล่องที่ยังซ่อมอยู่ใหม่
+    return;
+  }
   const stillOpen = await MaintenanceTicket.exists({
     ...itemKey(t),
     _id: { $ne: t._id },
     status: { $in: OPEN_TICKET_STATUSES },
   });
   if (stillOpen) return;
-  if (t.itemType === 'game') {
-    await Game.updateOne({ _id: t.game, status: 'maintenance' }, { $set: { status: 'available' } });
-    await refreshGameStatus(t.game); // ถ้ามีโต๊ะกำลังเล่นอยู่ → in_use
-  } else {
-    await Table.updateOne({ _id: t.table }, { $set: { status: 'active' } });
+  await Table.updateOne({ _id: t.table }, { $set: { status: 'active' } });
+}
+
+/** แจ้งซ่อมเกินจำนวนกล่องที่ยังดีอยู่ไม่ได้ */
+async function assertCopiesAvailable(gameId, copies, excludeTicketId) {
+  const game = await Game.findById(gameId).select('name copies').lean();
+  if (!game) throw notFound('game not found');
+  let broken = (await brokenCopies([gameId])).get(String(gameId)) ?? 0;
+  if (excludeTicketId) {
+    const self = await MaintenanceTicket.findById(excludeTicketId).select('copies status').lean();
+    if (self && OPEN_TICKET_STATUSES.includes(self.status)) broken -= self.copies ?? 1;
+  }
+  const left = copiesOf(game) - broken;
+  if (copies > left) {
+    throw badRequest(`${game.name} has only ${left} of ${copiesOf(game)} copies not under repair`);
   }
 }
 
@@ -89,8 +107,7 @@ export async function create(body, userId) {
   const { itemType } = body;
   if (itemType === 'game') {
     if (!body.game) throw badRequest('game is required for itemType=game');
-    const game = await Game.findById(body.game);
-    if (!game) throw notFound('game not found');
+    await assertCopiesAvailable(body.game, body.copies ?? 1);
   } else {
     if (!body.table) throw badRequest('table is required for itemType=table');
     const table = await Table.findById(body.table);
@@ -100,6 +117,7 @@ export async function create(body, userId) {
     ...body,
     game: itemType === 'game' ? body.game : null,
     table: itemType === 'table' ? body.table : null,
+    copies: itemType === 'game' ? (body.copies ?? 1) : 1,
     reportedBy: userId,
   });
   await lockItem(t);
@@ -126,8 +144,13 @@ export async function update(id, patch, userId) {
   const t = await MaintenanceTicket.findById(id);
   if (!t) throw notFound('ticket not found');
   const prev = t.status;
+  const reopening = prev === 'resolved' && patch.status && patch.status !== 'resolved';
+  if (t.itemType === 'game' && (patch.copies !== undefined || reopening)) {
+    const willBeOpen = patch.status ? patch.status !== 'resolved' : prev !== 'resolved';
+    if (willBeOpen) await assertCopiesAvailable(t.game, patch.copies ?? t.copies ?? 1, t._id);
+  }
 
-  for (const k of ['title', 'description', 'priority', 'cost', 'resolution']) {
+  for (const k of ['title', 'description', 'priority', 'cost', 'resolution', 'copies']) {
     if (patch[k] !== undefined) t[k] = patch[k];
   }
   if (patch.status && patch.status !== prev) {
@@ -145,6 +168,7 @@ export async function update(id, patch, userId) {
 
   if (prev !== 'resolved' && t.status === 'resolved') await releaseItem(t);
   if (prev === 'resolved' && t.status !== 'resolved') await lockItem(t); // เปิดงานซ่อมใหม่
+  if (patch.copies !== undefined && t.status !== 'resolved') await lockItem(t); // จำนวนกล่องเปลี่ยน
   return findById(t._id);
 }
 

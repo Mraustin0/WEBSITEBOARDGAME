@@ -22,7 +22,13 @@ import {
 } from './reservations.rules.js';
 import { getRules } from '../settings/settings.service.js';
 import { openDamageTicket } from '../maintenance/maintenance.service.js';
-import { findBusy, refreshGameStatus, syncLifecycle } from './reservations.lifecycle.js';
+import {
+  brokenCopies,
+  findBusy,
+  refreshGameStatus,
+  syncLifecycle,
+  usableCopies,
+} from './reservations.lifecycle.js';
 
 const POPULATE = [
   { path: 'table', select: 'code name zone capacity status extraPerHour' },
@@ -69,11 +75,14 @@ async function loadGame(id) {
 async function gameFullError(game, { startAt, endAt }, { excludeId, now = new Date() } = {}) {
   const filter = { ...conflictFilter({ startAt, endAt }, now), game: game._id };
   if (excludeId) filter._id = { $ne: excludeId };
-  const rows = await Reservation.find(filter).select('startAt endAt status').lean();
-  const copies = copiesOf(game);
-  if (peakUsage(rows, { startAt, endAt }) < copies) return null;
+  const [rows, { copies, usable }] = await Promise.all([
+    Reservation.find(filter).select('startAt endAt status').lean(),
+    usableCopies(game), // ไม่นับกล่องที่ซ่อมอยู่
+  ]);
+  if (usable <= 0) return `${game.name} is under maintenance`;
+  if (peakUsage(rows, { startAt, endAt }) < usable) return null;
   return copies > 1
-    ? `all ${copies} copies of ${game.name} are booked for this time`
+    ? `all ${usable} available copies of ${game.name} are booked for this time`
     : `${game.name} is already booked for this time`;
 }
 
@@ -473,7 +482,7 @@ export async function availability({ startAt, durationHours, players }) {
     durationError(durationHours, rules) ||
     operatingHoursError(startAt, endAt, rules.OPERATING);
 
-  const [busy, tables, games] = await Promise.all([
+  const [busy, tables, games, broken] = await Promise.all([
     findBusy({ startAt, endAt }, now),
     Table.find().sort({ zone: 1, code: 1 }).lean(),
     Game.find()
@@ -482,6 +491,7 @@ export async function availability({ startAt, durationHours, players }) {
       )
       .sort({ name: 1 })
       .lean(),
+    brokenCopies(),
   ]);
   const busyTables = new Set(busy.map((r) => String(r.table)));
   // เกมนี้ถูกใช้/จองอยู่ที่โต๊ะไหนในช่วงนั้น (แสดง "In Use (T-04)" ใน modal เลือกเกม)
@@ -506,9 +516,10 @@ export async function availability({ startAt, durationHours, players }) {
     return null;
   };
   // กล่องที่เหลือในช่วงนั้น = copies − จำนวนที่ถูกใช้พร้อมกันสูงสุด
+  const inRepair = (g) => Math.min(copiesOf(g), broken.get(String(g._id)) ?? 0);
   const copiesLeft = (g) => {
     const rows = gameTables.get(String(g._id)) ?? [];
-    return Math.max(0, copiesOf(g) - peakUsage(rows, { startAt, endAt }));
+    return Math.max(0, copiesOf(g) - inRepair(g) - peakUsage(rows, { startAt, endAt }));
   };
   const gameReason = (g, left) => {
     if (g.status === 'maintenance') return 'maintenance';
@@ -533,6 +544,7 @@ export async function availability({ startAt, durationHours, players }) {
       return {
         ...g,
         copies: copiesOf(g),
+        copiesInRepair: inRepair(g),
         copiesLeft: left,
         available: !reason && !windowErr,
         reason,

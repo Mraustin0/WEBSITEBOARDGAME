@@ -14,6 +14,7 @@ const MaintenanceTicketSchema = new Schema(
     title: { type: String, required: true, trim: true },
     description: { type: String, default: '' },
     priority: { type: String, enum: ['low', 'medium', 'high'], default: 'medium' },
+    copies: { type: Number, default: 1, min: 1 }, // เกม: เสียกี่กล่อง (กล่องที่เหลือยังจองได้)
     status: { type: String, enum: TICKET_STATUSES, default: 'pending', index: true },
     reservation: { type: Types.ObjectId, ref: 'Reservation', default: null }, // แจ้งจากตอนคืนเกม
     reportedBy: { type: Types.ObjectId, ref: 'User' },

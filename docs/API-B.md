@@ -129,7 +129,7 @@ try {
 ปุ่ม "จองโต๊ะเล่นเกมนี้" บนการ์ดเกม → ส่ง `gameId` ไปหน้าจอง (`navigate('/booking?game=' + id)`) แล้วใช้เป็น `game` ใน body
 
 Game Selector Modal → ใช้ `avail.games.filter((g) => g.available)` และค้นหาชื่อฝั่ง client
-แต่ละเกมมี `copies` (จำนวนกล่อง) และ `copiesLeft` (กล่องที่ว่างตลอดช่วงเวลานั้น) → ป้ายบนการ์ด: `copiesLeft > 1` = "X in Vault", `= 1` = "1 Copy Left", `= 0` = "In Use (A1, B2)" จาก `inUseAt`
+แต่ละเกมมี `copies` (จำนวนกล่อง), `copiesInRepair` (กล่องที่ซ่อมอยู่) และ `copiesLeft` (กล่องที่ว่างตลอดช่วงเวลานั้น) → ป้ายบนการ์ด: `copiesLeft > 1` = "X in Vault", `= 1` = "1 Copy Left", `= 0` = "In Use (A1, B2)" จาก `inUseAt`
 เกมที่ไม่ว่างมี `reason` (`booked` / `maintenance` / `player_count`) และ `inUseAt` บอกว่าถูกใช้ที่โต๊ะไหน เช่น `[{ table: 'A1', status: 'playing', startAt, endAt }]` → แสดง "In Use (A1)"
 แต่ละเกมมี `bggAverage` (เรตติ้ง), `bggWeight`, `categories` ให้แสดงบนการ์ดได้เลย
 
@@ -234,7 +234,7 @@ useEffect(() => {
 ## สถานะ
 
 - **Reservation:** `booked` (จองล่วงหน้า) → `playing` (ถึงเวลาเริ่ม — ระบบเปลี่ยนให้อัตโนมัติ) → `completed` (กดคืนเกม). ยกเลิกได้ → `cancelled`, ลูกค้าไม่มา (admin กด) → `no_show`
-- **Game:** `available` → `in_use` (กำลังเล่นอยู่ครบทุกกล่อง) → `available` หลังคืนเกม. `maintenance` = admin ปิดจอง (ปิดทั้งเกมทุกกล่อง)
+- **Game:** `available` → `in_use` (กำลังเล่นอยู่ครบทุกกล่อง) → `available` หลังคืนเกม. `maintenance` = ซ่อมอยู่ครบทุกกล่อง (หรือ admin ปิดจองเอง)
 - **Table:** `active` / `closed`. บน floor plan มี `state`: `available` · `reserved` · `occupied` · `closed`
 
 ## ฝั่งผู้ใช้ (FE user 2 คน)
@@ -465,12 +465,15 @@ Table body (`position` เป็น % ของพื้นที่ floor plan 
   "game": "<gameId>",
   "title": "การ์ดหาย",
   "description": "...",
-  "priority": "high"
+  "priority": "high",
+  "copies": 1
 }
 ```
 
-- แจ้งซ่อม → เกมเป็น `maintenance` (จองไม่ได้) / โต๊ะเป็น `closed` อัตโนมัติ
-- ปิดงาน (`resolved`) หรือลบใบแจ้ง → เปิดใช้งานคืนอัตโนมัติ (ถ้าไม่มีใบอื่นค้าง)
+- เกม: ใส่ `copies` = เสียกี่กล่อง (default 1) → ปิดเฉพาะกล่องนั้น กล่องที่เหลือยังจองได้. เกมเป็น `maintenance` (จองไม่ได้) เมื่อซ่อมครบทุกกล่อง. แจ้งเกินจำนวนกล่องที่ยังดีได้ 400
+- โต๊ะ: เป็น `closed` อัตโนมัติ
+- ปิดงาน (`resolved`) หรือลบใบแจ้ง → กล่อง/โต๊ะกลับมาใช้ได้อัตโนมัติ (แก้จำนวนกล่องได้ด้วย `PATCH /api/maintenance/:id` body `{ "copies": 2 }`)
+- `/availability` มี `copiesInRepair` = กล่องที่ซ่อมอยู่
 - คืนเกมแบบ `condition: "damaged"` (หน้า 15) → ระบบเปิดใบแจ้งซ่อมให้เอง
 
 ### หน้า 12 — ภาพรวมร้าน

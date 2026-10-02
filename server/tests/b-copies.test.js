@@ -2,6 +2,7 @@
 //  - จองเกมเดียวกันพร้อมกันได้ไม่เกินจำนวนกล่อง (นับการใช้พร้อมกันจริง ไม่ใช่แค่จำนวนที่ทับช่วง)
 //  - /availability ส่ง copies / copiesLeft
 //  - สถานะเกมเป็น in_use เมื่อเล่นอยู่ครบทุกกล่อง
+//  - แจ้งซ่อมระบุจำนวนกล่อง → ปิดเฉพาะกล่องที่เสีย, maintenance เมื่อซ่อมครบทุกกล่อง
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import mongoose from 'mongoose';
@@ -181,5 +182,70 @@ describeIf('game copies (integration)', () => {
       .set(auth(adminT))
       .send({ game: azul });
     expect(full.status).toBe(409);
+  });
+
+  describe('maintenance by number of copies', () => {
+    let first;
+    const gameStatus = async () => (await request(app).get(`/api/games/${catan}`)).body.status;
+    const report = (copies) =>
+      request(app)
+        .post('/api/maintenance')
+        .set(auth(adminT))
+        .send({ itemType: 'game', game: catan, title: 'Missing cards', copies });
+
+    beforeAll(async () => {
+      await mongoose.connection.collection('reservations').deleteMany({});
+      await mongoose.connection.collection('maintenancetickets').deleteMany({});
+    });
+
+    it('reporting 1 of 2 copies keeps the game bookable with 1 copy', async () => {
+      const res = await report(1);
+      expect(res.status).toBe(201);
+      expect(res.body.copies).toBe(1);
+      first = res.body;
+      expect(await gameStatus()).toBe('available');
+
+      const avail = await request(app)
+        .get('/api/reservations/availability')
+        .query({ startAt: at(3), durationHours: 1 });
+      const c = avail.body.games.find((g) => g.name === 'Catan');
+      expect(c.copies).toBe(2);
+      expect(c.copiesInRepair).toBe(1);
+      expect(c.copiesLeft).toBe(1);
+      expect(c.available).toBe(true);
+
+      expect((await book(0, catan, 3)).status).toBe(201);
+      const second = await book(1, catan, 3);
+      expect(second.status).toBe(409);
+    });
+
+    it('cannot report more copies than are still good', async () => {
+      const tooMany = await report(2);
+      expect(tooMany.status).toBe(400);
+      expect(tooMany.body.error).toMatch(/only 1 of 2/);
+    });
+
+    it('all copies under repair → maintenance; resolving one reopens it', async () => {
+      expect((await report(1)).status).toBe(201);
+      expect(await gameStatus()).toBe('maintenance');
+      const blocked = await book(1, catan, 5);
+      expect(blocked.status).toBe(409);
+
+      const avail = await request(app)
+        .get('/api/reservations/availability')
+        .query({ startAt: at(5), durationHours: 1 });
+      const c = avail.body.games.find((g) => g.name === 'Catan');
+      expect(c.copiesInRepair).toBe(2);
+      expect(c.copiesLeft).toBe(0);
+      expect(c.reason).toBe('maintenance');
+
+      const done = await request(app)
+        .patch(`/api/maintenance/${first._id}`)
+        .set(auth(adminT))
+        .send({ status: 'resolved' });
+      expect(done.status).toBe(200);
+      expect(await gameStatus()).toBe('available');
+      expect((await book(1, catan, 5)).status).toBe(201);
+    });
   });
 });
