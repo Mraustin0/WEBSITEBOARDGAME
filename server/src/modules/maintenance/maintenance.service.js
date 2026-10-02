@@ -8,8 +8,14 @@ import {
 import { Game } from '../../models/game.model.js';
 import { Table } from '../../models/table.model.js';
 import { badRequest, notFound } from '../../lib/errors.js';
-import { copiesOf } from '../reservations/reservations.rules.js';
-import { brokenCopies, refreshGameStatus } from '../reservations/reservations.lifecycle.js';
+import { Reservation } from '../../models/reservation.model.js';
+import { copiesOf, overbooked } from '../reservations/reservations.rules.js';
+import {
+  brokenCopies,
+  refreshGameStatus,
+  syncLifecycle,
+  usableCopies,
+} from '../reservations/reservations.lifecycle.js';
 
 const POPULATE = [
   { path: 'game', select: 'name thumbnail status copies' },
@@ -27,16 +33,16 @@ const itemKey = (t) => (t.itemType === 'game' ? { game: t.game } : { table: t.ta
  */
 async function lockItem(t) {
   if (t.itemType === 'game') {
-    await refreshGameStatus(t.game, { fromMaintenance: true });
+    await refreshGameStatus(t.game); // เพิ่มกล่องที่ซ่อม → สถานะเข้มขึ้นได้อย่างเดียว
   } else {
     await Table.updateOne({ _id: t.table }, { $set: { status: 'closed' } });
   }
 }
 
 /** เปิดใช้งานคืน ถ้าไม่มีใบแจ้งซ่อมอื่นของของชิ้นนี้ค้างอยู่ */
-async function releaseItem(t) {
+async function releaseItem(t, releasedCopies = t.copies ?? 1) {
   if (t.itemType === 'game') {
-    await refreshGameStatus(t.game, { fromMaintenance: true }); // นับกล่องที่ยังซ่อมอยู่ใหม่
+    await refreshGameStatus(t.game, { mode: 'release', releasedCopies });
     return;
   }
   const stillOpen = await MaintenanceTicket.exists({
@@ -46,6 +52,45 @@ async function releaseItem(t) {
   });
   if (stillOpen) return;
   await Table.updateOne({ _id: t.table }, { $set: { status: 'active' } });
+}
+
+/**
+ * การจองที่ไม่มีกล่องให้แล้วหลังแจ้งซ่อม — ส่งกลับให้ admin ติดต่อลูกค้า / เปลี่ยนเกม
+ * (ไม่บล็อกการแจ้งซ่อม เพราะของเสียจริงต้องแจ้งได้เสมอ)
+ */
+async function affectedReservations(gameId) {
+  const now = new Date();
+  await syncLifecycle(now);
+  const game = await Game.findById(gameId).select('copies').lean();
+  if (!game) return [];
+  const { usable } = await usableCopies(game);
+  const rows = await Reservation.find({
+    game: gameId,
+    status: { $in: ['booked', 'playing'] },
+    $or: [{ endAt: { $gt: now } }, { status: 'playing' }],
+  })
+    .select('startAt endAt status players customer user table')
+    .populate('table', 'code zone')
+    .populate('user', 'username email')
+    .lean();
+  return overbooked(rows, usable, now).map((r) => ({
+    _id: r._id,
+    status: r.status,
+    startAt: r.startAt,
+    endAt: r.endAt,
+    players: r.players,
+    table: r.table?.code ?? null,
+    member: r.user ? { username: r.user.username, email: r.user.email } : null,
+    customer: r.customer ?? null,
+  }));
+}
+
+/** ใบแจ้งซ่อม + รายการจองที่ได้รับผลกระทบ (เฉพาะเกม) */
+async function withAffected(t) {
+  const doc = (await findById(t._id)).toObject();
+  doc.affectedReservations =
+    t.itemType === 'game' && t.status !== 'resolved' ? await affectedReservations(t.game) : [];
+  return doc;
 }
 
 /** แจ้งซ่อมเกินจำนวนกล่องที่ยังดีอยู่ไม่ได้ */
@@ -121,7 +166,7 @@ export async function create(body, userId) {
     reportedBy: userId,
   });
   await lockItem(t);
-  return findById(t._id);
+  return withAffected(t);
 }
 
 /** เรียกจาก reservations: คืนเกมแล้วเลือกสภาพ "ชำรุด" */
@@ -144,6 +189,7 @@ export async function update(id, patch, userId) {
   const t = await MaintenanceTicket.findById(id);
   if (!t) throw notFound('ticket not found');
   const prev = t.status;
+  const prevCopies = t.copies ?? 1;
   const reopening = prev === 'resolved' && patch.status && patch.status !== 'resolved';
   if (t.itemType === 'game' && (patch.copies !== undefined || reopening)) {
     const willBeOpen = patch.status ? patch.status !== 'resolved' : prev !== 'resolved';
@@ -166,10 +212,16 @@ export async function update(id, patch, userId) {
   }
   await t.save();
 
-  if (prev !== 'resolved' && t.status === 'resolved') await releaseItem(t);
-  if (prev === 'resolved' && t.status !== 'resolved') await lockItem(t); // เปิดงานซ่อมใหม่
-  if (patch.copies !== undefined && t.status !== 'resolved') await lockItem(t); // จำนวนกล่องเปลี่ยน
-  return findById(t._id);
+  const nowOpen = t.status !== 'resolved';
+  if (prev !== 'resolved' && !nowOpen) {
+    await releaseItem(t, prevCopies); // ซ่อมเสร็จ
+  } else if (prev === 'resolved' && nowOpen) {
+    await lockItem(t); // เปิดงานซ่อมใหม่
+  } else if (nowOpen && t.itemType === 'game' && t.copies !== prevCopies) {
+    if (t.copies > prevCopies) await lockItem(t);
+    else await releaseItem(t, prevCopies - t.copies); // ลดจำนวนกล่องที่เสีย
+  }
+  return withAffected(t);
 }
 
 export async function remove(id) {

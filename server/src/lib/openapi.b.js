@@ -343,6 +343,8 @@ const reservationsPaths = {
                   },
                   inUseAt: {
                     type: 'array',
+                    description:
+                      'โต๊ะที่ใช้เกมนี้ในช่วงเวลานั้น — status playing = กำลังเล่นอยู่, booked = จองไว้ในช่วงนั้น',
                     items: {
                       type: 'object',
                       properties: {
@@ -777,6 +779,34 @@ const ticket = {
   },
 };
 
+const ticketWithAffected = {
+  allOf: [
+    ticket,
+    {
+      type: 'object',
+      properties: {
+        affectedReservations: {
+          type: 'array',
+          description:
+            'การจองที่ไม่มีกล่องให้แล้วหลังแจ้งซ่อม (เกมเท่านั้น) — ให้ admin ติดต่อลูกค้า/เปลี่ยนเกม',
+          items: {
+            type: 'object',
+            properties: {
+              _id: { type: 'string' },
+              status: { type: 'string', enum: ['booked', 'playing'] },
+              startAt: { type: 'string', format: 'date-time' },
+              endAt: { type: 'string', format: 'date-time' },
+              table: { type: 'string', example: 'A2' },
+              member: { type: 'object', nullable: true },
+              customer: { type: 'object', nullable: true },
+            },
+          },
+        },
+      },
+    },
+  ],
+};
+
 const assist = {
   type: 'object',
   properties: {
@@ -927,7 +957,10 @@ const maintenancePaths = {
           },
         }),
       },
-      responses: { 201: ok(ticket, 'created') },
+      responses: {
+        201: ok(ticketWithAffected, 'created'),
+        400: err('แจ้งเกินจำนวนกล่องที่ยังดี'),
+      },
     },
   },
   '/maintenance/summary': {
@@ -962,7 +995,7 @@ const maintenancePaths = {
           },
         }),
       },
-      responses: { 200: ok(ticket) },
+      responses: { 200: ok(ticketWithAffected), 400: err('แจ้งเกินจำนวนกล่องที่ยังดี') },
     },
     delete: {
       tags: ['maintenance'],

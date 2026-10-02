@@ -135,6 +135,32 @@ export function peakUsage(rows, { startAt, endAt }) {
   return peak;
 }
 
+/**
+ * การจองที่ "ไม่มีกล่องให้" เมื่อกล่องที่ใช้ได้ลดลงเหลือ usable (เช่น หลังแจ้งซ่อม)
+ * จัดกล่องให้ตามลำดับเวลาเริ่ม (กำลังเล่นได้ก่อน) — คนที่มาทีหลังตอนกล่องเต็มคือคนที่ได้รับผลกระทบ
+ * rows: { _id, startAt, endAt, status } ของการจอง booked/playing ที่ยังไม่จบ
+ */
+export function overbooked(rows, usable, now = new Date(), rules = RULES) {
+  const holdUntil = now.getTime() + rules.OVERDUE_BLOCK_MIN * MINUTE_MS;
+  const items = rows
+    .map((r) => {
+      const start = new Date(r.startAt).getTime();
+      let end = new Date(r.endAt).getTime();
+      if (r.status === 'playing') end = Math.max(end, holdUntil); // ยังไม่คืน → ถือกล่องไว้ก่อน
+      return { r, start, end, playing: r.status === 'playing' };
+    })
+    .sort((a, b) => a.start - b.start || b.playing - a.playing);
+  const holding = []; // end time ของกล่องที่ถูกใช้อยู่
+  const affected = [];
+  for (const it of items) {
+    for (let i = holding.length - 1; i >= 0; i -= 1)
+      if (holding[i] <= it.start) holding.splice(i, 1);
+    if (holding.length < Math.max(0, usable)) holding.push(it.end);
+    else affected.push(it.r);
+  }
+  return affected;
+}
+
 /** ค่าต่อเวลา — คิดอัตรารายชั่วโมงเดียวกับตอนจอง (แพ็กเกจเหมาก็คิดรายชั่วโมงส่วนที่ต่อ) */
 export function extensionCharge({
   hours,

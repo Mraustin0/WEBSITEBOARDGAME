@@ -11,6 +11,7 @@ import {
   extensionCharge,
   openHoursOfDay,
   operatingHoursError,
+  overbooked,
   overlaps,
   peakUsage,
 } from '../src/modules/reservations/reservations.rules.js';
@@ -191,5 +192,19 @@ describe('settings-driven rules (unit)', () => {
     expect(peakUsage([row(10, 12), row(16, 17)], win)).toBe(0);
     // เล่นเกินเวลายังไม่คืน → ถือกล่องทั้งช่วง
     expect(peakUsage([row(10, 12, 'playing'), row(14, 15)], win)).toBe(2);
+  });
+
+  it('finds bookings left without a copy when usable copies drop', () => {
+    const now = new Date(Date.UTC(2026, 9, 1, 12));
+    const t = (h) => new Date(Date.UTC(2026, 9, 1, h));
+    const row = (id, s, e, status = 'booked') => ({ _id: id, startAt: t(s), endAt: t(e), status });
+    const rows = [row('a', 13, 14), row('b', 13.5, 14.5), row('c', 14, 15), row('d', 16, 17)];
+    // เหลือ 1 กล่อง: a ได้ก่อน, b ทับ a → ไม่มีกล่อง, c เริ่มตอน a จบ → ได้, d ได้
+    expect(overbooked(rows, 1, now).map((r) => r._id)).toEqual(['b']);
+    expect(overbooked(rows, 2, now)).toEqual([]);
+    expect(overbooked(rows, 0, now).map((r) => r._id)).toEqual(['a', 'b', 'c', 'd']);
+    // กำลังเล่น (เกินเวลา ยังไม่คืน) ได้กล่องก่อนเสมอ
+    const late = [row('p', 10, 11, 'playing'), row('x', 12, 13)];
+    expect(overbooked(late, 1, now).map((r) => r._id)).toEqual(['x']);
   });
 });

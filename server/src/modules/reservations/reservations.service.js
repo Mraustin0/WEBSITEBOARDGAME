@@ -433,7 +433,7 @@ export async function extend(id, user, hours) {
     r.user ? Reservation.exists({ ...base, user: r.user }) : null,
   ]);
   if (tableClash) throw conflict('the table is booked right after — cannot extend');
-  if (gameErr) throw conflict('the game is booked right after — cannot extend');
+  if (gameErr) throw conflict(`cannot extend — ${gameErr}`);
   if (userClash) throw conflict('you have another reservation right after');
 
   const charge = extensionCharge({

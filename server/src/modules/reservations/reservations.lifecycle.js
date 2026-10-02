@@ -44,24 +44,49 @@ export async function usableCopies(game) {
 
 /**
  * คำนวณสถานะเกมใหม่ (หลังเริ่มเล่น/คืน/ยกเลิก/ลบ/แจ้งซ่อม)
- * - maintenance = ซ่อมอยู่ครบทุกกล่อง
+ * - maintenance = ซ่อมอยู่ครบทุกกล่อง (หรือ admin ปิดเอง)
  * - in_use      = กล่องที่ใช้ได้ถูกเล่นอยู่ครบ
  * - available   = ยังมีกล่องว่าง
- * เกมที่ admin ตั้ง maintenance เอง (ไม่มีใบแจ้งซ่อม) จะไม่ถูกแตะ ยกเว้นเรียกจาก module ซ่อมบำรุง
+ *
+ * สถานะ maintenance จะถูก "ลด" กลับเป็น available/in_use เฉพาะตอนปลดใบแจ้งซ่อม
+ * (mode 'release') และเฉพาะกรณีที่ maintenance นั้นเกิดจากใบแจ้งซ่อมจริง
+ * — ถ้า admin ตั้ง maintenance เอง (ปิดทั้งเกม) ระบบจะไม่เปิดคืนให้
+ *
+ * @param {object} [opts]
+ * @param {'auto'|'release'} [opts.mode]   release = เพิ่งปิด/ลบใบแจ้งซ่อม หรือลดจำนวนกล่องในใบ
+ * @param {number} [opts.releasedCopies]   จำนวนกล่องที่เพิ่งปลดจากการซ่อม (ใช้กับ release)
+ * @param {number} [opts.copiesBefore]     จำนวนกล่องของเกมก่อนแก้ (ใช้ตอน module games แก้ copies)
  */
-export async function refreshGameStatus(gameId, { fromMaintenance = false } = {}) {
+export async function refreshGameStatus(
+  gameId,
+  { mode = 'auto', releasedCopies = 0, copiesBefore } = {},
+) {
   if (!gameId) return;
   const [game, playing] = await Promise.all([
     Game.findById(gameId).select('copies status').lean(),
     Reservation.countDocuments({ game: gameId, status: 'playing' }),
   ]);
   if (!game) return;
-  const { broken, usable } = await usableCopies(game);
-  if (game.status === 'maintenance' && broken === 0 && !fromMaintenance) return;
+  const { copies, broken, usable } = await usableCopies(game);
+
+  if (game.status === 'maintenance') {
+    if (mode !== 'release') return; // ไม่ลดสถานะเอง
+    const brokenBefore = broken + releasedCopies;
+    if (brokenBefore < (copiesBefore ?? copies)) return; // maintenance เดิมไม่ได้มาจากใบแจ้งซ่อม → admin ปิดเอง
+  }
+
   let status = 'available';
   if (usable <= 0) status = 'maintenance';
   else if (playing >= usable) status = 'in_use';
-  await Game.updateOne({ _id: gameId }, { $set: { status } });
+  if (status !== game.status) await Game.updateOne({ _id: gameId }, { $set: { status } });
+}
+
+/**
+ * ให้ module games (คน A) เรียกหลังแก้จำนวนกล่อง (copies) ของเกม
+ * เช่น `await onGameCopiesChanged(game._id, oldCopies)` — สถานะเกมจะถูกคำนวณใหม่ตามจำนวนกล่องใหม่
+ */
+export function onGameCopiesChanged(gameId, copiesBefore) {
+  return refreshGameStatus(gameId, { mode: 'release', copiesBefore: copiesBefore ?? 1 });
 }
 
 /** reservation ทั้งหมดที่ชนกับช่วงเวลา (ใช้ทำ availability / floor plan) */

@@ -130,7 +130,8 @@ try {
 
 Game Selector Modal → ใช้ `avail.games.filter((g) => g.available)` และค้นหาชื่อฝั่ง client
 แต่ละเกมมี `copies` (จำนวนกล่อง), `copiesInRepair` (กล่องที่ซ่อมอยู่) และ `copiesLeft` (กล่องที่ว่างตลอดช่วงเวลานั้น) → ป้ายบนการ์ด: `copiesLeft > 1` = "X in Vault", `= 1` = "1 Copy Left", `= 0` = "In Use (A1, B2)" จาก `inUseAt`
-เกมที่ไม่ว่างมี `reason` (`booked` / `maintenance` / `player_count`) และ `inUseAt` บอกว่าถูกใช้ที่โต๊ะไหน เช่น `[{ table: 'A1', status: 'playing', startAt, endAt }]` → แสดง "In Use (A1)"
+เกมที่ไม่ว่างมี `reason` (`booked` / `maintenance` / `player_count`) และ `inUseAt` บอกว่าถูกใช้ที่โต๊ะไหนในช่วงนั้น เช่น `[{ table: 'A1', status: 'playing', startAt, endAt }]`
+⚠️ `inUseAt` มีทั้ง `status: 'playing'` (กำลังเล่นอยู่ → "In Use (A1)") และ `status: 'booked'` (จองไว้ในช่วงนั้น → "Reserved (A1)") — อย่าแสดงเป็น In Use ทั้งหมด
 แต่ละเกมมี `bggAverage` (เรตติ้ง), `bggWeight`, `categories` ให้แสดงบนการ์ดได้เลย
 
 ### 6. ตัวอย่าง flow: ประวัติการจอง + คืนเกม (หน้า 5 ฝั่ง user)
@@ -474,6 +475,8 @@ Table body (`position` เป็น % ของพื้นที่ floor plan 
 - โต๊ะ: เป็น `closed` อัตโนมัติ
 - ปิดงาน (`resolved`) หรือลบใบแจ้ง → กล่อง/โต๊ะกลับมาใช้ได้อัตโนมัติ (แก้จำนวนกล่องได้ด้วย `PATCH /api/maintenance/:id` body `{ "copies": 2 }`)
 - `/availability` มี `copiesInRepair` = กล่องที่ซ่อมอยู่
+- ผลของ `POST` / `PATCH /api/maintenance` (เกม) มี `affectedReservations` = การจองที่ไม่มีกล่องให้แล้วหลังแจ้งซ่อม (คนที่เริ่มทีหลังตอนกล่องเต็ม) → แสดงเตือน admin ให้ติดต่อลูกค้าหรือเปลี่ยนเกม (ระบบไม่ยกเลิกให้เอง)
+- เกมที่ admin ปิดเอง (ตั้ง `status: maintenance` ที่หน้าแก้เกม) จะไม่ถูกเปิดคืนโดยการปิดใบแจ้งซ่อม — ต้องเปิดเองที่หน้าแก้เกม
 - คืนเกมแบบ `condition: "damaged"` (หน้า 15) → ระบบเปิดใบแจ้งซ่อมให้เอง
 
 ### หน้า 12 — ภาพรวมร้าน

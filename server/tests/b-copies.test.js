@@ -3,7 +3,10 @@
 //  - /availability ส่ง copies / copiesLeft
 //  - สถานะเกมเป็น in_use เมื่อเล่นอยู่ครบทุกกล่อง
 //  - แจ้งซ่อมระบุจำนวนกล่อง → ปิดเฉพาะกล่องที่เสีย, maintenance เมื่อซ่อมครบทุกกล่อง
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+//  - แจ้งซ่อมแล้วบอกรายการจองที่ไม่มีกล่องให้, แก้จำนวนกล่อง / เปิดใบซ่อมใหม่
+//  - เกมที่ admin ปิดเอง (maintenance) ไม่ถูกเปิดคืนโดยใบแจ้งซ่อม
+//  - ต่อเวลาเกมหลายกล่อง
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import mongoose from 'mongoose';
 import { createApp } from '../src/app.js';
@@ -246,6 +249,94 @@ describeIf('game copies (integration)', () => {
       expect(done.status).toBe(200);
       expect(await gameStatus()).toBe('available');
       expect((await book(1, catan, 5)).status).toBe(201);
+    });
+  });
+
+  describe('repair follow-ups', () => {
+    const games = () => mongoose.connection.collection('games');
+    const gameStatus = async (id) => (await request(app).get(`/api/games/${id}`)).body.status;
+    const report = (game, copies) =>
+      request(app)
+        .post('/api/maintenance')
+        .set(auth(adminT))
+        .send({ itemType: 'game', game, title: 'Broken', copies });
+    const patchTicket = (id, body) =>
+      request(app).patch(`/api/maintenance/${id}`).set(auth(adminT)).send(body);
+
+    beforeEach(async () => {
+      await mongoose.connection.collection('reservations').deleteMany({});
+      await mongoose.connection.collection('maintenancetickets').deleteMany({});
+      await games().updateMany({}, { $set: { status: 'available' } });
+    });
+
+    it('reports which bookings no longer have a copy', async () => {
+      expect((await book(0, catan, 3)).status).toBe(201);
+      expect((await book(1, catan, 3.5)).status).toBe(201);
+
+      const res = await report(catan, 1);
+      expect(res.status).toBe(201);
+      expect(res.body.affectedReservations).toHaveLength(1);
+      expect(res.body.affectedReservations[0].table).toBe('K2'); // คนที่เริ่มทีหลัง
+      expect(res.body.affectedReservations[0].member.username).toBe('bk_m1');
+    });
+
+    it('changing ticket copies and reopening recompute the game status', async () => {
+      const t = (await report(catan, 1)).body;
+      expect(await gameStatus(catan)).toBe('available');
+
+      const more = await patchTicket(t._id, { copies: 2 });
+      expect(more.status).toBe(200);
+      expect(more.body.copies).toBe(2);
+      expect(await gameStatus(catan)).toBe('maintenance');
+
+      const tooMany = await patchTicket(t._id, { copies: 3 });
+      expect(tooMany.status).toBe(400);
+
+      const less = await patchTicket(t._id, { copies: 1 });
+      expect(less.status).toBe(200);
+      expect(await gameStatus(catan)).toBe('available');
+
+      expect((await patchTicket(t._id, { status: 'resolved' })).status).toBe(200);
+      const second = (await report(catan, 2)).body;
+      expect(await gameStatus(catan)).toBe('maintenance');
+      // เปิดใบเก่ากลับมาไม่ได้ เพราะกล่องเสียครบแล้ว
+      expect((await patchTicket(t._id, { status: 'pending' })).status).toBe(400);
+      expect((await patchTicket(second._id, { status: 'resolved' })).status).toBe(200);
+      expect((await patchTicket(t._id, { status: 'pending' })).status).toBe(200);
+      expect(await gameStatus(catan)).toBe('available');
+    });
+
+    it('a game closed by admin stays closed after a partial repair ticket', async () => {
+      await games().updateOne(
+        { _id: new mongoose.Types.ObjectId(catan) },
+        { $set: { status: 'maintenance' } },
+      );
+      const t = (await report(catan, 1)).body;
+      expect(await gameStatus(catan)).toBe('maintenance');
+      expect((await patchTicket(t._id, { status: 'resolved' })).status).toBe(200);
+      expect(await gameStatus(catan)).toBe('maintenance');
+    });
+
+    it('extending counts copies too', async () => {
+      // Azul 2 กล่อง: m0 +3→+4, m1 +4→+5, m2 +4→+5 → m0 ต่อเวลาไม่ได้ (ช่วง +4→+5 เต็ม)
+      const r0 = (await book(0, azul, 3)).body;
+      expect((await book(1, azul, 4)).status).toBe(201);
+      const r2 = (await book(2, azul, 4)).body;
+
+      const full = await request(app)
+        .patch(`/api/reservations/${r0._id}/extend`)
+        .set(auth(members[0].token))
+        .send({ hours: 1 });
+      expect(full.status).toBe(409);
+      expect(full.body.error).toMatch(/cannot extend — all 2 available copies/);
+
+      await request(app).patch(`/api/reservations/${r2._id}/cancel`).set(auth(members[2].token));
+      const ok = await request(app)
+        .patch(`/api/reservations/${r0._id}/extend`)
+        .set(auth(members[0].token))
+        .send({ hours: 1 });
+      expect(ok.status).toBe(200);
+      expect(ok.body.durationHours).toBe(2);
     });
   });
 });
