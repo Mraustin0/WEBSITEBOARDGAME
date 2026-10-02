@@ -1,13 +1,64 @@
+import { useState } from 'react';
+import GameCatalog from './pages/GameCatalog';
+import FloorPlan from './pages/FloorPlan'; 
+
 export default function App() {
+  const [currentPage, setCurrentPage] = useState('floorplan'); 
+  const [selectedGame, setSelectedGame] = useState(null);
+
+  const goToFloorPlan = () => setCurrentPage('floorplan');
+
   return (
-    <main style={{ fontFamily: 'system-ui', padding: '2rem', maxWidth: 720, margin: '0 auto' }}>
-      <h1>🎲 Boardgame Everyday</h1>
-      <p>
-        Client scaffold ready. Backend on <code>http://localhost:4000/api</code>.
-      </p>
-      <p>
-        See <code>docs/PLAN.md</code> for API contract. Build UI from here.
-      </p>
-    </main>
+    <div className="w-full min-h-screen bg-slate-50 flex flex-col relative text-slate-800 antialiased font-sans">
+      
+      {/* Header */}
+      <header className="h-16 bg-white border-b border-slate-200 shadow-sm px-6 flex items-center justify-between shrink-0 z-50 sticky top-0">
+        <div className="flex items-center gap-3.5">
+          <div className="w-10 h-10 rounded-2xl bg-[#064e3b] text-white flex items-center justify-center text-lg shadow-sm shrink-0">
+            <i className="fa-solid fa-dice-d20"></i>
+          </div>
+          <span className="font-heading font-bold text-lg tracking-tight text-slate-900 hidden sm:block">BoardGame SomeDay</span>
+        </div>
+
+        <nav className="hidden md:flex bg-slate-100 rounded-full px-1.5 py-1 items-center gap-1 text-sm font-sans border border-slate-200">
+          <button onClick={() => setCurrentPage('floorplan')} className={`px-4 py-1.5 rounded-full font-bold flex items-center gap-2 transition-all ${currentPage === 'floorplan' ? 'bg-[#064e3b] text-white shadow-sm' : 'text-slate-600 hover:bg-white hover:text-slate-900'}`}>
+            <i className="fa-solid fa-layer-group text-sm"></i> Floor Plan
+          </button>
+          <button onClick={() => setCurrentPage('catalog')} className={`px-4 py-1.5 rounded-full font-bold flex items-center gap-2 transition-all ${currentPage === 'catalog' ? 'bg-[#064e3b] text-white shadow-sm' : 'text-slate-600 hover:bg-white hover:text-slate-900'}`}>
+            <i className="fa-solid fa-chess-knight text-sm"></i> Games Catalog
+          </button>
+          <button className="px-4 py-1.5 rounded-full text-slate-600 hover:bg-white font-bold transition flex items-center gap-2">
+            <i className="fa-solid fa-bookmark text-sm text-slate-400"></i> My Reservations
+          </button>
+        </nav>
+
+        <div className="flex items-center gap-3">
+          <button className="w-10 h-10 rounded-2xl bg-slate-100 border border-slate-200 hover:bg-white text-slate-600 flex items-center justify-center text-sm shadow-sm transition">
+            <i className="fa-solid fa-bell"></i>
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white absolute top-2 right-2.5"></span>
+          </button>
+          <div className="h-6 w-px bg-slate-200 mx-1"></div>
+          <div className="flex items-center gap-2.5 cursor-pointer">
+            <div className="w-9 h-9 rounded-full bg-[#064e3b] text-white font-bold text-xs flex items-center justify-center shadow-sm shrink-0">JD</div>
+            <span className="text-sm font-bold text-slate-700 hidden sm:inline-block">Guildmaster Alex</span>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content Router */}
+      {currentPage === 'catalog' ? (
+        <GameCatalog 
+          selectedGame={selectedGame} 
+          setSelectedGame={setSelectedGame} 
+          onGoToFloorPlan={goToFloorPlan} 
+        />
+      ) : (
+        <FloorPlan 
+          initialGame={selectedGame} 
+          clearInitialGame={() => setSelectedGame(null)} 
+        />
+      )}
+
+    </div>
   );
 }
