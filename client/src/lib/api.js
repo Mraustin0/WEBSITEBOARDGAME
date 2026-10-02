@@ -19,6 +19,12 @@ export async function api(path, { method = 'GET', body, query } = {}) {
   if (res.status === 204) return null;
   const data = await res.json().catch(() => null);
   if (!res.ok) {
+    // 401 (ยกเว้นตอน login ผิด) = token หมดอายุ/ใช้ไม่ได้ -> ลบ token แล้วพาไปหน้า login ตามเอกสาร API
+    if (res.status === 401 && path !== '/auth/login') {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      if (window.location.pathname !== '/login') window.location.assign('/login');
+    }
     const err = new Error(data?.error || res.statusText);
     err.status = res.status;
     err.details = data?.details;

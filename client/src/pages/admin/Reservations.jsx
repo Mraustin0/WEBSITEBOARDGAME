@@ -6,6 +6,8 @@ import StatCards from '../../components/admin/reservations/StatCards.jsx';
 import TodayList from '../../components/admin/reservations/TodayList.jsx';
 import ScheduleGrid from '../../components/admin/reservations/ScheduleGrid.jsx';
 import NewBookingModal from '../../components/admin/reservations/NewBookingModal.jsx';
+import WalkInModal from '../../components/admin/reservations/WalkInModal.jsx';
+import CheckoutModal from '../../components/admin/reservations/CheckoutModal.jsx';
 import './reservations.css';
 
 const RANGES = [
@@ -24,6 +26,8 @@ export default function Reservations() {
   const [error, setError] = useState('');
   const [busyId, setBusyId] = useState(null);
   const [showNew, setShowNew] = useState(false);
+  const [showWalkIn, setShowWalkIn] = useState(false);
+  const [checkoutReservation, setCheckoutReservation] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
   const load = useCallback(async () => {
@@ -97,9 +101,14 @@ export default function Reservations() {
           <h1>จัดการการจองล่วงหน้า</h1>
           <p className="muted">ดูและจัดการการจองทั้งหมดตามวัน สัปดาห์ หรือเดือน</p>
         </div>
-        <button type="button" className="btn-primary" onClick={() => setShowNew(true)}>
-          + เพิ่มการจองใหม่
-        </button>
+        <div className="head-actions">
+          <button type="button" className="btn-ghost" onClick={() => setShowWalkIn(true)}>
+            + เปิดโต๊ะ Walk-in
+          </button>
+          <button type="button" className="btn-primary" onClick={() => setShowNew(true)}>
+            + เพิ่มการจองใหม่
+          </button>
+        </div>
       </div>
 
       <div className="toolbar">
@@ -148,6 +157,7 @@ export default function Reservations() {
           onSearch={setQ}
           onCancel={onCancel}
           onNoShow={onNoShow}
+          onCheckout={(r) => setCheckoutReservation(r)} /* <-- เพิ่มบรรทัดนี้ลงไปครับ */
         />
       </div>
 
@@ -161,6 +171,24 @@ export default function Reservations() {
           }}
         />
       )}
+
+      {showWalkIn && (
+        <WalkInModal
+          onClose={() => setShowWalkIn(false)}
+          onCreated={() => {
+            setShowWalkIn(false);
+            reloadAll();
+          }}
+        />
+      )}
+
+      {/* <-- เพิ่ม CheckoutModal ตรงนี้ --> */}
+      <CheckoutModal
+        isOpen={!!checkoutReservation}
+        reservation={checkoutReservation}
+        onClose={() => setCheckoutReservation(null)}
+        onSuccess={reloadAll}
+      />
     </div>
   );
 }

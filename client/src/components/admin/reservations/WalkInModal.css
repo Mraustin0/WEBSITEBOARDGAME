@@ -1,0 +1,159 @@
+/* สไตล์ของ WalkInModal (ใช้ตัวแปรสีจาก index.css) */
+.head-actions {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: center;
+}
+.modal.walkin {
+  width: min(680px, 100%);
+}
+.walkin-head {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+.walkin-head p {
+  margin: 4px 0 0;
+}
+.walkin-x {
+  border: 0;
+  background: none;
+  font-size: 18px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+.pax-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  align-items: center;
+}
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 4px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+.stepper button {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--color-bg);
+  font-size: 18px;
+  cursor: pointer;
+}
+.stepper strong {
+  min-width: 56px;
+  text-align: center;
+  font-family: var(--font-heading);
+}
+.chip-btn {
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: #fff;
+  cursor: pointer;
+}
+.chip-btn.on {
+  border-color: var(--state-available);
+  background: var(--state-available-bg);
+  color: var(--color-primary);
+  font-weight: 600;
+}
+.pkg-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-md);
+}
+.pkg {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-md);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+.pkg input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.pkg.on {
+  border-color: var(--state-available);
+  background: #f0fdf7;
+}
+.pkg em {
+  font-style: normal;
+  color: var(--color-primary);
+  font-weight: 600;
+}
+.pkg small {
+  color: var(--color-text-muted);
+}
+.pill-hot {
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: var(--radius-full);
+  background: var(--state-reserved-bg);
+  color: var(--state-reserved);
+  font-size: 11px;
+}
+.walkin-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--color-border);
+}
+.walkin-actions .grow {
+  flex: 1;
+}
+.btn-link {
+  border: 0;
+  background: none;
+  color: var(--color-primary);
+  cursor: pointer;
+}
+.btn-link:disabled,
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.form-note {
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  background: var(--state-reserved-bg);
+  color: #92400e;
+}
+.game-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+.game-item {
+  text-align: left;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: #fff;
+  cursor: pointer;
+}
+.game-item:hover {
+  border-color: var(--state-available);
+  background: #f0fdf7;
+}
+@media (max-width: 640px) {
+  .pkg-row {
+    grid-template-columns: 1fr;
+  }
+  .walkin-actions {
+    flex-wrap: wrap;
+  }
+}

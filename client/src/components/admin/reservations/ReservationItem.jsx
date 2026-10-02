@@ -9,10 +9,12 @@ import {
 } from '../../../lib/reservationStatus.js';
 
 // การ์ดหนึ่งรายการในรายการจอง
-export default function ReservationItem({ r, busy, onCancel, onNoShow }) {
+// 1. เพิ่ม onCheckout เข้ามาใน Props
+export default function ReservationItem({ r, busy, onCancel, onNoShow, onCheckout }) {
   const st = statusOf(r.status);
   const canCancel = r.status === 'booked' || r.status === 'playing';
   const canNoShow = r.status === 'booked';
+  const canCheckout = r.status === 'playing'; // 2. เพิ่มเงื่อนไขให้เช็คบิลได้เฉพาะโต๊ะที่กำลังเล่น
   const dim = r.status === 'cancelled' || r.status === 'no_show';
 
   return (
@@ -32,13 +34,27 @@ export default function ReservationItem({ r, busy, onCancel, onNoShow }) {
         {gameName(r) && <span> • {gameName(r)}</span>}
       </div>
 
-      {(canCancel || canNoShow) && (
+      {/* 3. อัปเดตให้แสดงกล่องปุ่มเมื่อมีสิทธิเช็คบิล */}
+      {(canCancel || canNoShow || canCheckout) && (
         <div className="res-actions">
+          {/* ปุ่มเช็คบิล (แสดงเฉพาะตอนกำลังเล่น) */}
+          {canCheckout && (
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={busy}
+              onClick={() => onCheckout(r)}
+            >
+              เช็คบิล / คืนเกม
+            </button>
+          )}
+
           {canNoShow && (
             <button type="button" className="btn-ghost" disabled={busy} onClick={() => onNoShow(r)}>
               ลูกค้าไม่มา
             </button>
           )}
+
           {canCancel && (
             <button
               type="button"

@@ -8,7 +8,16 @@ const TABS = [
 ];
 
 // รายการจองด้านขวา: ค้นหา (ส่ง ?q= ไป server) + แท็บกรองสถานะ (กรองฝั่ง client)
-export default function TodayList({ items, loading, busyId, onSearch, onCancel, onNoShow }) {
+// 1. รับ onCheckout เข้ามาตรงนี้
+export default function TodayList({
+  items,
+  loading,
+  busyId,
+  onSearch,
+  onCancel,
+  onNoShow,
+  onCheckout,
+}) {
   const [tab, setTab] = useState('all');
   const [text, setText] = useState('');
 
@@ -63,6 +72,7 @@ export default function TodayList({ items, loading, busyId, onSearch, onCancel, 
             busy={busyId === r._id}
             onCancel={onCancel}
             onNoShow={onNoShow}
+            onCheckout={onCheckout} /* <-- 2. ส่งคำสั่งต่อไปให้ปุ่มใน ReservationItem */
           />
         ))}
       </ul>

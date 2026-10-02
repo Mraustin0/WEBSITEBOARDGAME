@@ -1,0 +1,56 @@
+.admin-sidebar {
+  display: flex;
+  flex-direction: column;
+}
+.admin-nav {
+  flex: 1;
+  gap: var(--space-md);
+}
+.nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+.nav-label {
+  padding: 0 12px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+}
+.admin-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.nav-ico {
+  width: 20px;
+  text-align: center;
+}
+.session-box {
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: var(--color-bg);
+  color: var(--state-available);
+  font-size: 12px;
+}
+.admin-user {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+.admin-user > div {
+  display: flex;
+  flex-direction: column;
+  text-align: right;
+  line-height: 1.2;
+}
+.admin-user small {
+  color: var(--color-text-muted);
+}
+.admin-user .btn-ghost {
+  height: 34px;
+  padding: 0 12px;
+  border-radius: var(--radius);
+  background: #fff;
+  cursor: pointer;
+}

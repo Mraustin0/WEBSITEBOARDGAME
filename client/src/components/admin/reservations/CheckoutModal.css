@@ -1,0 +1,207 @@
+/* สไตล์ CheckoutModal (ใช้ตัวแปรจาก index.css) */
+.modal.checkout {
+  width: min(900px, 100%);
+}
+.co-head {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+.co-head h2 small {
+  font-weight: 400;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+.co-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+.co-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-lg);
+}
+.co-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+.co-col h3 {
+  margin: 0;
+  font-size: 15px;
+}
+.co-bill {
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+}
+.co-game {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+}
+.co-game small {
+  color: var(--color-text-muted);
+}
+.co-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--radius);
+  background: var(--color-bg);
+}
+.co-toggle button {
+  height: 40px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  cursor: pointer;
+}
+.co-toggle button.on {
+  background: var(--color-primary);
+  color: #fff;
+  font-weight: 600;
+}
+.co-toggle button.on.bad {
+  background: var(--state-occupied);
+}
+.co-note {
+  height: auto;
+  padding: 10px 12px;
+  resize: vertical;
+}
+.co-times {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-sm);
+}
+.co-times > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: #fff;
+}
+.co-times small {
+  color: var(--color-text-muted);
+}
+.co-times strong {
+  font-size: 18px;
+  font-family: var(--font-heading);
+}
+.co-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px dashed var(--color-border);
+}
+.co-row.warn {
+  color: var(--state-reserved);
+}
+.co-total {
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
+  color: #fff;
+}
+.co-total-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: 12px;
+  opacity: 0.95;
+}
+.co-total strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 34px;
+  font-family: var(--font-heading);
+}
+.co-pay {
+  display: flex;
+  gap: 6px;
+}
+.co-pay button {
+  padding: 3px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: #fff;
+  font-size: 11px;
+  cursor: pointer;
+}
+.co-pay button.on {
+  background: #fff;
+  color: var(--color-primary);
+  font-weight: 700;
+}
+.co-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--color-border);
+}
+.co-foot .btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+@media (max-width: 720px) {
+  .co-body {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---- ปรับให้ใกล้ design: พื้นหลังมืด, ไอคอนหัว, การ์ดเกม ---- */
+.modal-backdrop:has(> .modal.checkout) {
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(2px);
+}
+.modal.checkout {
+  box-shadow: var(--shadow-2);
+}
+.co-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+.co-title h2 {
+  margin: 0;
+}
+.co-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
+  font-size: 20px;
+}
+.modal.checkout .co-game {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-md);
+}
+.co-game > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.co-cover {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius);
+  background: var(--state-available-bg);
+  font-size: 26px;
+}
