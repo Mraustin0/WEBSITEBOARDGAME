@@ -99,7 +99,7 @@ describeIf('game copies (integration)', () => {
     // m3: +3.5→+4.5 → ช่วง +3.5→+4 จะใช้ 3 กล่อง → ไม่ได้
     const full = await book(3, catan, 3.5);
     expect(full.status).toBe(409);
-    expect(full.body.error).toMatch(/all 2 copies/);
+    expect(full.body.error).toMatch(/all 2 available copies/);
     // แต่ +5 เป็นต้นไปว่าง
     expect((await book(3, catan, 5)).status).toBe(201);
   });
@@ -118,7 +118,7 @@ describeIf('game copies (integration)', () => {
 
     const half = await request(app)
       .get('/api/reservations/availability')
-      .query({ startAt: at(3), durationHours: 0.5 });
+      .query({ startAt: at(2.5), durationHours: 1 }); // ทับแค่ m0 (+3→+4)
     const c2 = half.body.games.find((g) => g.name === 'Catan');
     expect(c2.copiesLeft).toBe(1);
     expect(c2.available).toBe(true);
