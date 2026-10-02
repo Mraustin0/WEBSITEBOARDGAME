@@ -40,9 +40,10 @@ async function lockItem(t) {
 }
 
 /** เปิดใช้งานคืน ถ้าไม่มีใบแจ้งซ่อมอื่นของของชิ้นนี้ค้างอยู่ */
-async function releaseItem(t, releasedCopies = t.copies ?? 1) {
+async function releaseItem(t, { deleted = false } = {}) {
   if (t.itemType === 'game') {
-    await refreshGameStatus(t.game, { mode: 'release', releasedCopies });
+    // ใบที่ถูกลบไปแล้วหาป้ายใน DB ไม่เจอ → ส่งป้ายของใบนั้นไปเอง
+    await refreshGameStatus(t.game, { release: true, ticketDriven: deleted && t.lockedGame });
     return;
   }
   const stillOpen = await MaintenanceTicket.exists({
@@ -196,9 +197,10 @@ export async function update(id, patch, userId) {
     if (willBeOpen) await assertCopiesAvailable(t.game, patch.copies ?? t.copies ?? 1, t._id);
   }
 
-  for (const k of ['title', 'description', 'priority', 'cost', 'resolution', 'copies']) {
+  for (const k of ['title', 'description', 'priority', 'cost', 'resolution']) {
     if (patch[k] !== undefined) t[k] = patch[k];
   }
+  if (patch.copies !== undefined && t.itemType === 'game') t.copies = patch.copies; // โต๊ะไม่มีจำนวนกล่อง
   if (patch.status && patch.status !== prev) {
     t.status = patch.status;
     if (patch.status === 'in_progress' && !t.startedAt) t.startedAt = new Date();
@@ -214,19 +216,20 @@ export async function update(id, patch, userId) {
 
   const nowOpen = t.status !== 'resolved';
   if (prev !== 'resolved' && !nowOpen) {
-    await releaseItem(t, prevCopies); // ซ่อมเสร็จ
+    await releaseItem(t); // ซ่อมเสร็จ
   } else if (prev === 'resolved' && nowOpen) {
     await lockItem(t); // เปิดงานซ่อมใหม่
   } else if (nowOpen && t.itemType === 'game' && t.copies !== prevCopies) {
     if (t.copies > prevCopies) await lockItem(t);
-    else await releaseItem(t, prevCopies - t.copies); // ลดจำนวนกล่องที่เสีย
+    else await releaseItem(t); // ลดจำนวนกล่องที่เสีย
   }
   return withAffected(t);
 }
 
 export async function remove(id) {
-  const t = await MaintenanceTicket.findByIdAndDelete(id);
+  const t = await MaintenanceTicket.findByIdAndDelete(id).select('+lockedGame');
   if (!t) throw notFound('ticket not found');
-  if (t.status !== 'resolved') await releaseItem(t);
+  if (t.status !== 'resolved') await releaseItem(t, { deleted: true });
+  t.lockedGame = undefined;
   return t;
 }

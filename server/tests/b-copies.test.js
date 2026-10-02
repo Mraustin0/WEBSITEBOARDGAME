@@ -12,6 +12,7 @@ import mongoose from 'mongoose';
 import { createApp } from '../src/app.js';
 import { connectDb, disconnectDb } from '../src/lib/db.js';
 import { User } from '../src/models/user.model.js';
+import { onGameCopiesChanged } from '../src/modules/reservations/reservations.lifecycle.js';
 
 const MONGO = process.env.MONGODB_URI;
 const describeIf = MONGO ? describe : describe.skip;
@@ -315,6 +316,53 @@ describeIf('game copies (integration)', () => {
       expect(await gameStatus(catan)).toBe('maintenance');
       expect((await patchTicket(t._id, { status: 'resolved' })).status).toBe(200);
       expect(await gameStatus(catan)).toBe('maintenance');
+    });
+
+    it('a game closed by admin stays closed even after a full repair ticket', async () => {
+      await games().updateOne(
+        { _id: new mongoose.Types.ObjectId(catan) },
+        { $set: { status: 'maintenance' } },
+      );
+      const t = (await report(catan, 2)).body;
+      expect((await patchTicket(t._id, { status: 'resolved' })).status).toBe(200);
+      expect(await gameStatus(catan)).toBe('maintenance');
+    });
+
+    it('does not get stuck in maintenance when copies change during a repair', async () => {
+      // Catan 2 กล่อง เสียครบ 2 → maintenance
+      const t = (await report(catan, 2)).body;
+      expect(await gameStatus(catan)).toBe('maintenance');
+      // ระหว่างซ่อม มีการเพิ่มเป็น 3 กล่อง (ไม่ได้เรียก hook) แล้วซ่อมเสร็จ → ต้องกลับมาจองได้
+      const id = new mongoose.Types.ObjectId(catan);
+      await games().updateOne({ _id: id }, { $set: { copies: 3 } });
+      expect((await patchTicket(t._id, { status: 'resolved' })).status).toBe(200);
+      expect(await gameStatus(catan)).toBe('available');
+      await games().updateOne({ _id: id }, { $set: { copies: 2 } });
+    });
+
+    it('onGameCopiesChanged recomputes the status for the games module', async () => {
+      const id = new mongoose.Types.ObjectId(catan);
+      await report(catan, 1); // เสีย 1 จาก 2 → ยังว่าง
+      expect(await gameStatus(catan)).toBe('available');
+      await games().updateOne({ _id: id }, { $set: { copies: 1 } }); // ลดเหลือ 1 กล่อง
+      expect(await onGameCopiesChanged(catan)).toBe('maintenance');
+      await games().updateOne({ _id: id }, { $set: { copies: 2 } }); // เพิ่มคืน
+      expect(await onGameCopiesChanged(catan)).toBe('available');
+    });
+
+    it('table tickets ignore copies', async () => {
+      const t = (
+        await request(app)
+          .post('/api/maintenance')
+          .set(auth(adminT))
+          .send({ itemType: 'table', table: tables[3]._id, title: 'Wobbly', copies: 3 })
+      ).body;
+      expect(t.copies).toBe(1);
+      const res = await patchTicket(t._id, { copies: 5 });
+      expect(res.status).toBe(200);
+      expect(res.body.copies).toBe(1);
+      expect(res.body.lockedGame).toBeUndefined();
+      await patchTicket(t._id, { status: 'resolved' });
     });
 
     it('extending counts copies too', async () => {
