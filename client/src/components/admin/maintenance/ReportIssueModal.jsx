@@ -1,16 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { api } from '../../../lib/api.js';
 import { fmtDetails } from './helpers.js';
 
 // + แจ้งปัญหาใหม่ -> POST /api/maintenance
-// แจ้งซ่อมแล้ว: เกมจะเป็น maintenance / โต๊ะจะเป็น closed อัตโนมัติ (จองไม่ได้)
+// แจ้งซ่อมแล้ว: ปิดเฉพาะจำนวนกล่องที่แจ้ง (status = maintenance เมื่อซ่อมครบทุกกล่อง)
 export default function ReportIssueModal({ onClose, onCreated }) {
   const [itemType, setItemType] = useState('game');
   const [tables, setTables] = useState([]);
   const [tableId, setTableId] = useState('');
-  const [gameQuery, setGameQuery] = useState('');
-  const [gameResults, setGameResults] = useState([]);
-  const [game, setGame] = useState(null);
+  const [games, setGames] = useState([]);
+  const [gameId, setGameId] = useState('');
+  const [copies, setCopies] = useState(1); // จำนวนกล่องที่เสีย
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState('medium');
@@ -23,29 +23,33 @@ export default function ReportIssueModal({ onClose, onCreated }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  // โหลดรายชื่อโต๊ะ (GET /tables คืน array)
+  // โหลดโต๊ะ + เกม
   useEffect(() => {
     api('/tables')
       .then((d) => setTables(Array.isArray(d) ? d : (d?.items ?? [])))
       .catch(() => setError('โหลดรายชื่อโต๊ะไม่สำเร็จ'));
+
+    api('/games', { query: { limit: 200, sort: 'name', order: 'asc' } })
+      .then((d) => setGames(d?.items ?? []))
+      .catch(() => setError('โหลดรายชื่อเกมไม่สำเร็จ'));
   }, []);
 
-  // ค้นหาเกม (หน่วง 300ms)
-  useEffect(() => {
-    const q = gameQuery.trim();
-    if (!q || game) return setGameResults([]);
-    const id = setTimeout(() => {
-      api('/games', { query: { q, limit: 8 } })
-        .then((d) => setGameResults(d?.items ?? []))
-        .catch(() => setGameResults([]));
-    }, 300);
-    return () => clearTimeout(id);
-  }, [gameQuery, game]);
+  // เกมที่เลือกอยู่ → ใช้ copies เป็น max
+  const selectedGame = useMemo(() => games.find((g) => g._id === gameId) ?? null, [games, gameId]);
+  const maxCopies = Math.max(1, Number(selectedGame?.copies) || 1);
+
+  // เปลี่ยนเกม → reset copies ให้ไม่เกิน max
+  function onGameChange(id) {
+    setGameId(id);
+    const g = games.find((x) => x._id === id);
+    const max = Math.max(1, Number(g?.copies) || 1);
+    setCopies((c) => Math.min(c, max));
+  }
 
   async function submit(e) {
     e.preventDefault();
     setError('');
-    if (itemType === 'game' && !game) return setError('เลือกเกมที่ต้องการแจ้งซ่อม');
+    if (itemType === 'game' && !gameId) return setError('เลือกเกมที่ต้องการแจ้งซ่อม');
     if (itemType === 'table' && !tableId) return setError('เลือกโต๊ะที่ต้องการแจ้งซ่อม');
     if (!title.trim()) return setError('กรอกหัวข้อปัญหา');
 
@@ -55,7 +59,9 @@ export default function ReportIssueModal({ onClose, onCreated }) {
         method: 'POST',
         body: {
           itemType,
-          ...(itemType === 'game' ? { game: game._id } : { table: tableId }),
+          ...(itemType === 'game'
+            ? { game: gameId, copies: Math.min(copies, maxCopies) }
+            : { table: tableId }),
           title: title.trim(),
           description: description.trim(),
           priority,
@@ -73,74 +79,94 @@ export default function ReportIssueModal({ onClose, onCreated }) {
   return (
     <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <form
-        className="modal"
+        className="modal mt-report-modal"
         role="dialog"
         aria-modal="true"
         aria-labelledby="mt-report-title"
         onSubmit={submit}
       >
-        <h2 id="mt-report-title">แจ้งปัญหาใหม่ (Report New Issue)</h2>
-        {error && <div className="form-error">{error}</div>}
-
-        <div className="tabs">
-          <button
-            type="button"
-            className={'tab' + (itemType === 'game' ? ' active' : '')}
-            onClick={() => setItemType('game')}
-          >
-            บอร์ดเกม
-          </button>
-          <button
-            type="button"
-            className={'tab' + (itemType === 'table' ? ' active' : '')}
-            onClick={() => setItemType('table')}
-          >
-            โต๊ะ / อุปกรณ์
+        <div className="mt-report-head">
+          <h2 id="mt-report-title">แจ้งปัญหาใหม่ (Report New Issue)</h2>
+          <button type="button" className="mt-report-x" onClick={onClose} aria-label="ปิด">
+            ✕
           </button>
         </div>
 
-        {itemType === 'game' ? (
-          <div className="field">
-            <span>เกม</span>
-            {game ? (
-              <div className="mt-picked">
-                <strong>{game.name}</strong>
-                <button
-                  type="button"
-                  className="btn-link"
-                  onClick={() => {
-                    setGame(null);
-                    setGameQuery('');
-                  }}
-                >
-                  เปลี่ยน
-                </button>
-              </div>
-            ) : (
-              <>
-                <input
-                  className="input"
-                  placeholder="พิมพ์ชื่อเกมเพื่อค้นหา"
-                  value={gameQuery}
-                  onChange={(e) => setGameQuery(e.target.value)}
-                />
-                {gameResults.length > 0 && (
-                  <div className="mt-pick-list">
-                    {gameResults.map((g) => (
-                      <button
-                        key={g._id}
-                        type="button"
-                        className="mt-pick-item"
-                        onClick={() => setGame(g)}
-                      >
-                        {g.name}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </>
-            )}
+        {error && <div className="form-error">{error}</div>}
+
+        {/* ประเภท */}
+        <div className="field">
+          <span>ประเภท</span>
+          <div className="mt-seg" role="group" aria-label="ประเภทที่แจ้งซ่อม">
+            <button
+              type="button"
+              className={'mt-seg-btn' + (itemType === 'game' ? ' active' : '')}
+              onClick={() => {
+                setItemType('game');
+                setTableId('');
+              }}
+            >
+              บอร์ดเกม
+            </button>
+            <button
+              type="button"
+              className={'mt-seg-btn' + (itemType === 'table' ? ' active' : '')}
+              onClick={() => {
+                setItemType('table');
+                setGameId('');
+                setCopies(1);
+              }}
+            >
+              โต๊ะ / อุปกรณ์
+            </button>
           </div>
+        </div>
+
+        {/* เลือกเกม + จำนวนกล่องที่เสีย */}
+        {itemType === 'game' ? (
+          <>
+            <label className="field">
+              <span>เกม</span>
+              <select
+                className="input"
+                value={gameId}
+                onChange={(e) => onGameChange(e.target.value)}
+              >
+                <option value="">เลือกเกม</option>
+                {games.map((g) => (
+                  <option key={g._id} value={g._id}>
+                    {g.name}
+                    {Number(g.copies) > 1 ? ` (${g.copies} กล่อง)` : ''}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="field">
+              <span>เสียกี่กล่อง</span>
+              <select
+                className="input"
+                value={copies}
+                onChange={(e) => setCopies(Number(e.target.value))}
+                disabled={!gameId}
+              >
+                {Array.from({ length: maxCopies }, (_, i) => i + 1).map((n) => (
+                  <option key={n} value={n}>
+                    {n} กล่อง
+                    {n === maxCopies && maxCopies > 1 ? ' (ทั้งหมด)' : ''}
+                  </option>
+                ))}
+              </select>
+              {selectedGame && (
+                <small className="muted" style={{ marginTop: 4, display: 'block' }}>
+                  มีในร้าน {maxCopies} กล่อง — แจ้งซ่อม {copies} กล่อง
+                  {copies >= maxCopies
+                    ? ' (จะปิดการจองเกมนี้ทั้งหมด)'
+                    : ` (เหลือใช้ได้ ${maxCopies - copies})`}
+                </small>
+              )}
+            </label>
+          </>
         ) : (
           <label className="field">
             <span>โต๊ะ</span>
@@ -186,8 +212,9 @@ export default function ReportIssueModal({ onClose, onCreated }) {
         </label>
 
         <p className="muted">
-          เมื่อแจ้งซ่อม ระบบจะปิดการใช้งาน{itemType === 'game' ? 'เกม' : 'โต๊ะ'}
-          นี้ทันทีจนกว่างานซ่อมจะเสร็จสิ้น
+          เมื่อแจ้งซ่อม ระบบจะปิดการใช้งาน
+          {itemType === 'game' ? `เกมนี้ ${copies} กล่อง` : 'โต๊ะนี้'}
+          ทันทีจนกว่างานซ่อมจะเสร็จสิ้น
         </p>
 
         <div className="modal-actions">

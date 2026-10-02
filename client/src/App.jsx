@@ -5,6 +5,7 @@ import Dashboard from './pages/admin/Dashboard.jsx';
 import Reservations from './pages/admin/Reservations.jsx';
 import Settings from './pages/admin/Settings.jsx';
 import Maintenance from './pages/admin/Maintenance.jsx';
+import Reports from './pages/admin/Reports.jsx';
 
 // ต้องมี token ถึงเข้า /admin ได้ (ถ้า token หมดอายุ api.js จะพากลับ /login เอง)
 function RequireAuth({ children }) {
@@ -37,6 +38,7 @@ export default function App() {
         <Route path="reservations" element={<Reservations />} />
         <Route path="settings" element={<Settings />} />
         <Route path="maintenance" element={<Maintenance />} />
+        <Route path="reports" element={<Reports />} />
         <Route path="*" element={<ComingSoon />} />
       </Route>
       <Route path="*" element={<Navigate to="/admin" replace />} />

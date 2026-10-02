@@ -249,3 +249,61 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ===== Report Issue Modal ===== */
+.mt-report-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-md);
+  margin-bottom: var(--space-sm);
+}
+.mt-report-head h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.mt-report-x {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+.mt-report-x:hover {
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.mt-seg {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  gap: 2px;
+}
+.mt-seg-btn {
+  height: 34px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-family: var(--font-body);
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.mt-seg-btn:hover {
+  color: var(--color-text);
+}
+.mt-seg-btn.active {
+  background: var(--color-primary);
+  color: #fff;
+  font-weight: 600;
+}
