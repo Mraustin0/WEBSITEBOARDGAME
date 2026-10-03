@@ -1,0 +1,115 @@
+/* Login.css */
+
+/* --- Layout หลัก --- */
+.login-container {
+  display: flex;
+  min-height: 100vh;
+  font-family: 'Kanit', sans-serif; /* เปลี่ยนมาใช้ Kanit ให้ตรงกับหน้าอื่น */
+}
+
+/* --- แผงด้านซ้าย (แบรนดิ้ง) --- */
+.login-left-panel {
+  flex: 1;
+  background-color: #134e35;
+  color: white;
+  padding: 3rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.login-badge {
+  display: inline-block;
+  background-color: #166534;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: bold;
+  margin-bottom: 2rem;
+}
+
+.login-brand-title {
+  margin: 0;
+  font-size: 2rem;
+}
+
+.login-brand-subtitle {
+  color: #86efac;
+  font-size: 0.875rem;
+  font-weight: bold;
+}
+
+/* --- แผงด้านขวา (ฟอร์มล็อกอิน) --- */
+.login-right-panel {
+  flex: 1;
+  background-color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.login-form-container {
+  width: 100%;
+  max-width: 420px;
+}
+
+.login-title {
+  margin-bottom: 1.5rem;
+  font-size: 1.5rem;
+  color: #111827;
+}
+
+.login-error {
+  color: #dc2626; /* สีแดงที่ดูซอฟต์ขึ้นนิดหน่อย */
+  background-color: #fef2f2;
+  border: 1px solid #f87171;
+  padding: 10px;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.login-input {
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  outline: none;
+  font-family: inherit;
+  font-size: 0.95rem;
+}
+
+.login-input:focus {
+  border-color: #134e35;
+  box-shadow: 0 0 0 2px rgba(19, 78, 53, 0.2);
+}
+
+.login-btn {
+  background-color: #134e35;
+  color: white;
+  padding: 0.75rem;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 1rem;
+  font-family: inherit;
+  transition: background-color 0.2s;
+}
+
+.login-btn:hover {
+  background-color: #166534;
+}
+
+.login-btn:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+  opacity: 0.7;
+}

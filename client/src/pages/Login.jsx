@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import './Login.css';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -41,63 +42,37 @@ export default function Login() {
   };
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', fontFamily: 'system-ui, sans-serif' }}>
-      <div
-        style={{
-          flex: 1,
-          backgroundColor: '#134e35',
-          color: 'white',
-          padding: '3rem',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
-        }}
-      >
+    <div className="login-container">
+      {/* ฝั่งซ้าย (แบรนดิ้ง) */}
+      <div className="login-left-panel">
         <div>
-          <div
-            style={{
-              display: 'inline-block',
-              backgroundColor: '#166534',
-              padding: '0.25rem 0.75rem',
-              borderRadius: '999px',
-              fontSize: '0.75rem',
-              fontWeight: 'bold',
-              marginBottom: '2rem',
-            }}
-          >
-            ● INTERNAL OPERATIONS NODE
-          </div>
-          <h1 style={{ margin: 0, fontSize: '2rem' }}>BoardGame SomeDay</h1>
-          <p style={{ color: '#86efac', fontSize: '0.875rem', fontWeight: 'bold' }}>
-            ENTERPRISE ADMIN HUB
-          </p>
+          <div className="login-badge">● INTERNAL OPERATIONS NODE</div>
+          <h1 className="login-brand-title">BoardGame SomeDay</h1>
+          <p className="login-brand-subtitle">ENTERPRISE ADMIN HUB</p>
         </div>
       </div>
-      <div
-        style={{
-          flex: 1,
-          backgroundColor: '#ffffff',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '2rem',
-        }}
-      >
-        <div style={{ width: '100%', maxWidth: '420px' }}>
-          <h2>ยินดีต้อนรับกลับมา demo_admin@demo.local demo1234</h2>
-          {errorMsg && <div style={{ color: 'red', marginBottom: '1rem' }}>{errorMsg}</div>}
-          <form
-            onSubmit={handleLogin}
-            style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
-          >
+
+      {/* ฝั่งขวา (ฟอร์มล็อกอิน) */}
+      <div className="login-right-panel">
+        <div className="login-form-container">
+          <h2 className="login-title">
+            ยินดีต้อนรับกลับมา
+            <br />
+            <span style={{ fontSize: '0.9rem', color: '#6b7280', fontWeight: 'normal' }}>
+              demo_admin@demo.local / demo1234
+            </span>
+          </h2>
+
+          {errorMsg && <div className="login-error">{errorMsg}</div>}
+
+          <form onSubmit={handleLogin} className="login-form">
             <input
               required
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="อีเมล"
-              style={{ padding: '0.75rem', borderRadius: '6px', border: '1px solid #ccc' }}
+              className="login-input"
             />
             <input
               required
@@ -105,20 +80,9 @@ export default function Login() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="รหัสผ่าน"
-              style={{ padding: '0.75rem', borderRadius: '6px', border: '1px solid #ccc' }}
+              className="login-input"
             />
-            <button
-              type="submit"
-              disabled={loading}
-              style={{
-                backgroundColor: '#134e35',
-                color: 'white',
-                padding: '0.75rem',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer',
-              }}
-            >
+            <button type="submit" disabled={loading} className="login-btn">
               {loading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
             </button>
           </form>

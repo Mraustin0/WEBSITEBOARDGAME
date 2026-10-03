@@ -1,0 +1,622 @@
+/* --- Layout หลัก --- */
+.game-detail-container {
+  display: flex;
+  min-height: 100vh;
+  background-color: #f8fafc;
+  font-family: 'Kanit', sans-serif;
+}
+
+.center-screen {
+  display: flex;
+  min-height: 100vh;
+  justify-content: center;
+  align-items: center;
+  background-color: #f4f6f8;
+}
+
+.center-screen-col {
+  display: flex;
+  min-height: 100vh;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  background-color: #f4f6f8;
+}
+
+/* --- Sidebar --- */
+.sidebar {
+  width: 260px;
+  background-color: #134e35;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 1.5rem;
+  flex-shrink: 0;
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 2.5rem;
+}
+
+.sidebar-logo-icon {
+  width: 36px;
+  height: 36px;
+  background-color: #22c55e;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  color: #134e35;
+}
+
+.sidebar-logo-text h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.sidebar-logo-text span {
+  font-size: 0.7rem;
+  color: #86efac;
+}
+
+.sidebar-badge {
+  margin-left: auto;
+  background-color: #166534;
+  font-size: 0.65rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.sidebar-menu-title {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  margin-bottom: 0.75rem;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+}
+
+.sidebar-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.menu-item {
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: #d1d5db;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  text-decoration: none;
+}
+
+.menu-item.active {
+  background-color: #166534;
+  font-weight: 500;
+  color: white;
+}
+
+/* --- Main Content --- */
+.main-content {
+  flex: 1;
+  padding: 2rem 3rem;
+  overflow-y: auto;
+}
+
+/* --- Header & Quick Actions --- */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+}
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: #6b7280;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.breadcrumb-link {
+  color: #4b5563;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.breadcrumb-current {
+  color: #111827;
+}
+
+.quick-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.btn {
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+}
+
+.btn-outline-gray {
+  background-color: white;
+  color: #374151;
+  border: 1px solid #d1d5db;
+}
+
+.btn-outline-red {
+  background-color: white;
+  color: #dc2626;
+  border: 1px solid #fca5a5;
+}
+
+.btn-solid-green {
+  background-color: #134e35;
+  color: white;
+}
+
+.btn-large {
+  padding: 10px 24px;
+}
+
+/* --- Hero Section (Game Summary) --- */
+.hero-card {
+  display: flex;
+  background: white;
+  border-radius: 16px;
+  padding: 2rem;
+  gap: 2rem;
+  border: 1px solid #e5e7eb;
+  margin-bottom: 2rem;
+}
+
+.hero-image-wrapper {
+  width: 280px;
+  height: 280px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  background-color: #f3f4f6;
+  position: relative;
+}
+
+.hero-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.hero-no-image {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9ca3af;
+}
+
+.badge-year {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  background-color: #166534;
+  color: white;
+  font-size: 0.75rem;
+  font-weight: bold;
+  padding: 4px 10px;
+  border-radius: 12px;
+}
+
+.badge-sku-img {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  background-color: rgba(0, 0, 0, 0.6);
+  color: white;
+  font-size: 0.7rem;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.hero-details {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.hero-badges-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.hero-badges-left {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.badge-condition {
+  background-color: #def7ec;
+  color: #03543f;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dot-green {
+  width: 8px;
+  height: 8px;
+  background-color: #059669;
+  border-radius: 50%;
+}
+
+.badge-bgg-score {
+  background-color: #fef3c7;
+  color: #92400e;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: bold;
+}
+
+.game-title {
+  margin: 0 0 4px 0;
+  font-size: 2.2rem;
+  color: #111827;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.game-subtitle {
+  margin: 0 0 1rem 0;
+  font-size: 1.1rem;
+  color: #4b5563;
+  font-weight: 500;
+}
+
+.game-credits {
+  display: flex;
+  gap: 1.5rem;
+  font-size: 0.85rem;
+  color: #6b7280;
+  margin-bottom: 1.5rem;
+}
+
+.credit-highlight {
+  color: #374151;
+  font-weight: 600;
+}
+
+/* Stats Grid (4 columns) */
+.stats-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-top: auto;
+}
+
+.stat-box {
+  background-color: #f8fafc;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.stat-icon {
+  font-size: 1.5rem;
+}
+
+.stat-label {
+  font-size: 0.7rem;
+  color: #64748b;
+  font-weight: bold;
+}
+
+.stat-value {
+  font-size: 1rem;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.stat-unit {
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.stat-unit-small {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: #64748b;
+}
+
+/* --- Tabs --- */
+.tabs-container {
+  display: flex;
+  gap: 2rem;
+  border-bottom: 2px solid #e5e7eb;
+  margin-bottom: 2rem;
+}
+
+.tab-item {
+  padding-bottom: 12px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 0.9rem;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-bottom: 3px solid transparent;
+}
+
+.tab-item.active {
+  color: #134e35;
+  border-bottom: 3px solid #134e35;
+}
+
+.tab-count-badge {
+  background-color: #e2e8f0;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.7rem;
+}
+
+/* --- 2 Columns Layout --- */
+.layout-2-cols {
+  display: flex;
+  gap: 2rem;
+  align-items: flex-start;
+}
+
+.col-main {
+  flex: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.col-side {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  min-width: 320px;
+}
+
+/* --- Content Cards --- */
+.content-card {
+  background-color: white;
+  border-radius: 16px;
+  padding: 2rem;
+  border: 1px solid #e5e7eb;
+}
+
+.card-title {
+  margin: 0 0 1rem 0;
+  font-size: 1.2rem;
+  color: #111827;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-paragraph {
+  font-size: 0.95rem;
+  color: #4b5563;
+  line-height: 1.6;
+  margin-bottom: 1.5rem;
+}
+
+/* Metadata Grid */
+.metadata-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+.metadata-box {
+  background-color: #f8fafc;
+  padding: 1rem;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.metadata-label {
+  font-size: 0.7rem;
+  color: #64748b;
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.metadata-value {
+  font-size: 0.95rem;
+  color: #111827;
+  font-weight: 700;
+}
+
+/* Review Side Card */
+.side-card {
+  background-color: white;
+  border-radius: 16px;
+  padding: 1.5rem;
+  border: 1px solid #e5e7eb;
+}
+
+.side-card-title {
+  margin: 0 0 1rem 0;
+  font-size: 1rem;
+  color: #111827;
+}
+
+.bgg-score-container {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.bgg-score-box {
+  width: 64px;
+  height: 64px;
+  background-color: #78350f;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+}
+
+.bgg-score-number {
+  font-size: 1.5rem;
+  font-weight: bold;
+  line-height: 1;
+}
+
+.bgg-score-max {
+  font-size: 0.65rem;
+}
+
+.bgg-ref-text {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+/* Checklist Side Card */
+.checklist-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.checklist-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  font-size: 0.85rem;
+  color: #374151;
+  margin-bottom: 1.5rem;
+}
+
+.checklist-item {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px solid #f3f4f6;
+  padding-bottom: 4px;
+}
+
+.check-icon {
+  color: #10b981;
+  margin-right: 6px;
+}
+
+.empty-checklist {
+  color: #9ca3af;
+  font-style: italic;
+  text-align: center;
+}
+
+/* --- Edit Modal --- */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  padding: 2rem;
+  border-radius: 16px;
+  width: 450px;
+  max-width: 90%;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-title {
+  margin: 0 0 1.5rem 0;
+  color: #111827;
+  font-size: 1.25rem;
+}
+
+.edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.form-group-flex {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.flex-2 {
+  flex: 2;
+}
+
+.flex-1 {
+  flex: 1;
+}
+
+.form-label {
+  font-size: 0.85rem;
+  font-weight: bold;
+  color: #374151;
+}
+
+.form-input {
+  width: 100%;
+  padding: 0.6rem;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  margin-top: 4px;
+  box-sizing: border-box;
+  outline: none;
+}
+
+.form-input:focus {
+  border-color: #134e35;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
