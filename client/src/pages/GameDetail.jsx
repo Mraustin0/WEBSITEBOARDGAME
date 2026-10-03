@@ -430,7 +430,7 @@ export default function GameDetail() {
                   จำนวนกล่องในคลัง
                 </p>
                 <p style={{ margin: 0, fontSize: '1.1rem', fontWeight: '600', color: '#166534' }}>
-                  📦 {game.quantity || 1} กล่อง
+                  📦 {game.copies || game.quantity || 1} กล่อง
                 </p>
               </div>
               <div>
@@ -532,8 +532,14 @@ export default function GameDetail() {
                   </label>
                   <input
                     type="number"
-                    value={editData.quantity || 1}
-                    onChange={(e) => setEditData({ ...editData, quantity: e.target.value })}
+                    value={editData.copies || 1}
+                    onChange={(e) =>
+                      setEditData({
+                        ...editData,
+                        copies: Number(e.target.value),
+                        quantity: Number(e.target.value),
+                      })
+                    }
                     style={{
                       width: '100%',
                       padding: '0.5rem',

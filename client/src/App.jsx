@@ -3,6 +3,7 @@ import Login from './pages/Login';
 import Inventory from './pages/Inventory';
 import AddGame from './pages/AddGame';
 import GameDetail from './pages/GameDetail';
+import Users from './pages/Users';
 
 export default function App() {
   return (
@@ -13,6 +14,7 @@ export default function App() {
         <Route path="/inventory" element={<Inventory />} />
         <Route path="/add" element={<AddGame />} />
         <Route path="/inventory/:id" element={<GameDetail />} />
+        <Route path="/users" element={<Users />} />
       </Routes>
     </BrowserRouter>
   );

@@ -9,7 +9,7 @@ export default function AddGame() {
     maxPlayers: 4,
     playtimeMin: 30,
     yearPublished: 2024,
-    quantity: 1, // เพิ่มฟิลด์จำนวนเกม
+    copies: 1, // เพิ่มฟิลด์จำนวนเกม
     imageUrl: '', // เพิ่มฟิลด์รูปภาพ
     description: '',
   });
@@ -37,7 +37,7 @@ export default function AddGame() {
           maxPlayers: Number(formData.maxPlayers),
           playtimeMin: Number(formData.playtimeMin),
           yearPublished: Number(formData.yearPublished),
-          quantity: Number(formData.quantity), // ส่งค่าจำนวนไปที่ Backend
+          copies: Number(formData.copies), // ส่งค่าจำนวนไปที่ Backend
         }),
       });
       if (response.ok) {
@@ -118,8 +118,8 @@ export default function AddGame() {
             <input
               required
               type="number"
-              name="quantity"
-              value={formData.quantity}
+              name="copies"
+              value={formData.copies}
               onChange={handleChange}
               placeholder="จำนวน (กล่อง)"
               min="1"

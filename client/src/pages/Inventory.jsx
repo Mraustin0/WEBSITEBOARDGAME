@@ -6,39 +6,40 @@ export default function Inventory() {
   const [games, setGames] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedGame, setSelectedGame] = useState(null);
-
-  // ฟังก์ชันดึงข้อมูลเกม
-  const fetchGames = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('/api/games', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await response.json();
-      if (Array.isArray(data)) {
-        setGames(data);
-      } else if (data && Array.isArray(data.items)) {
-        setGames(data.items);
-      } else if (data && Array.isArray(data.data)) {
-        setGames(data.data);
-      } else if (data && Array.isArray(data.games)) {
-        setGames(data.games);
-      } else {
-        setGames([]);
-      }
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   useEffect(() => {
     if (!localStorage.getItem('token')) {
       navigate('/login');
       return;
     }
+
+    const fetchGames = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch('/api/games', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await response.json();
+        console.log('API Response:', data);
+
+        // รองรับคีย์ items ที่หลังบ้านส่งกลับมา
+        if (Array.isArray(data)) {
+          setGames(data);
+        } else if (data && Array.isArray(data.items)) {
+          setGames(data.items);
+        } else if (data && Array.isArray(data.data)) {
+          setGames(data.data);
+        } else if (data && Array.isArray(data.games)) {
+          setGames(data.games);
+        } else {
+          setGames([]);
+        }
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
+    };
     fetchGames();
   }, [navigate]);
 
@@ -47,62 +48,9 @@ export default function Inventory() {
     navigate('/login');
   };
 
-  // ฟังก์ชันส่งข้อมูลที่แก้ไขไปอัปเดตที่หลังบ้าน
-  const handleUpdateGame = async (e) => {
-    e.preventDefault();
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`/api/games/${selectedGame._id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(selectedGame),
-      });
-
-      if (response.ok) {
-        alert('🎉 บันทึกการแก้ไขสำเร็จ!');
-        setSelectedGame(null);
-        fetchGames();
-      } else {
-        const errData = await response.json().catch(() => ({}));
-        alert(`❌ แก้ไขไม่สำเร็จ: ${errData.error || 'Unknown error'}`);
-      }
-    } catch (error) {
-      console.error(error);
-      alert('❌ เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
-    }
-  };
-
-  // ฟังก์ชันลบเกม
-  const handleDeleteGame = async () => {
-    if (!window.confirm(`⚠️ คุณต้องการลบเกม "${selectedGame.name}"ออกจากระบบใช่หรือไม่?`)) {
-      return;
-    }
-
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`/api/games/${selectedGame._id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (response.ok) {
-        alert('🗑️ ลบเกมออกจากระบบเรียบร้อยแล้ว');
-        setSelectedGame(null);
-        fetchGames();
-      } else {
-        const errData = await response.json().catch(() => ({}));
-        alert(`❌ ลบไม่สำเร็จ: ${errData.error || 'Unknown error'}`);
-      }
-    } catch (error) {
-      console.error(error);
-      alert('❌ เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
-    }
-  };
-
   const safeGames = Array.isArray(games) ? games : [];
+
+  // กรองรายชื่อเกมตามช่องค้นหา
   const filteredGames = safeGames.filter((game) =>
     game.name.toLowerCase().includes(searchQuery.toLowerCase()),
   );
@@ -232,6 +180,7 @@ export default function Inventory() {
 
       {/* 2. พื้นที่เนื้อหาหลักด้านขวา */}
       <main style={{ flex: 1, padding: '2rem', overflowY: 'auto' }}>
+        {/* Header Bar ด้านบน */}
         <header
           style={{
             display: 'flex',
@@ -288,7 +237,7 @@ export default function Inventory() {
           </div>
         </header>
 
-        {/* Metric Cards */}
+        {/* Metric Cards สรุปตัวเลข */}
         <div
           style={{
             display: 'grid',
@@ -430,24 +379,6 @@ export default function Inventory() {
                 }}
               >
                 <div style={{ padding: '1.25rem' }}>
-                  {/* แสดงรูปภาพถ้ามี */}
-                  {game.imageUrl && (
-                    <div
-                      style={{
-                        width: '100%',
-                        height: '160px',
-                        overflow: 'hidden',
-                        marginBottom: '1rem',
-                        borderRadius: '8px',
-                      }}
-                    >
-                      <img
-                        src={game.imageUrl}
-                        alt={game.name}
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                      />
-                    </div>
-                  )}
                   <div
                     style={{
                       display: 'flex',
@@ -466,7 +397,7 @@ export default function Inventory() {
                         fontWeight: 'bold',
                       }}
                     >
-                      พร้อมใช้งาน {game.quantity ? `(${game.quantity} กล่อง)` : ''}
+                      พร้อมใช้งาน
                     </span>
                     <span style={{ fontSize: '0.75rem', color: '#6b7280', fontWeight: 'bold' }}>
                       {game.yearPublished || '2024'}
@@ -504,7 +435,7 @@ export default function Inventory() {
                     ID: {game._id ? game._id.slice(-6) : 'N/A'}
                   </span>
                   <button
-                    onClick={() => navigate(`/inventory/${game._id}`)}
+                    onClick={() => navigate(`/inventory/${game._id || game.id}`)}
                     style={{
                       backgroundColor: 'white',
                       border: '1px solid #d1d5db',
@@ -524,263 +455,6 @@ export default function Inventory() {
           </div>
         )}
       </main>
-
-      {/* POP-UP MODAL (แก้ไขและลบเกม) */}
-      {selectedGame && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            zIndex: 1000,
-          }}
-        >
-          <div
-            style={{
-              background: 'white',
-              padding: '2rem',
-              borderRadius: '12px',
-              width: '450px',
-              maxWidth: '90%',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-              maxHeight: '90vh',
-              overflowY: 'auto',
-            }}
-          >
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: '1rem',
-              }}
-            >
-              <h2 style={{ margin: 0, color: '#134e35', fontSize: '1.25rem' }}>
-                ⚙️ จัดการและแก้ไขข้อมูลเกม
-              </h2>
-              <button
-                type="button"
-                onClick={handleDeleteGame}
-                title="ลบเกมนี้ออกจากระบบ"
-                style={{
-                  background: '#fee2e2',
-                  border: '1px solid #fecaca',
-                  color: '#dc2626',
-                  padding: '6px 10px',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontSize: '0.9rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  fontWeight: 'bold',
-                }}
-              >
-                🗑️ ลบเกม
-              </button>
-            </div>
-
-            <form
-              onSubmit={handleUpdateGame}
-              style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}
-            >
-              <div>
-                <label style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#374151' }}>
-                  รูปภาพ (URL):
-                </label>
-                <input
-                  type="text"
-                  value={selectedGame.imageUrl || ''}
-                  onChange={(e) => setSelectedGame({ ...selectedGame, imageUrl: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '0.5rem',
-                    borderRadius: '6px',
-                    border: '1px solid #d1d5db',
-                    marginTop: '4px',
-                    boxSizing: 'border-box',
-                  }}
-                  placeholder="ลิงก์รูปภาพตัวอย่าง"
-                />
-              </div>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <div style={{ flex: 2 }}>
-                  <label style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#374151' }}>
-                    ชื่อเกม:
-                  </label>
-                  <input
-                    type="text"
-                    value={selectedGame.name}
-                    onChange={(e) => setSelectedGame({ ...selectedGame, name: e.target.value })}
-                    style={{
-                      width: '100%',
-                      padding: '0.5rem',
-                      borderRadius: '6px',
-                      border: '1px solid #d1d5db',
-                      marginTop: '4px',
-                      boxSizing: 'border-box',
-                    }}
-                    required
-                  />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <label style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#374151' }}>
-                    จำนวน (กล่อง):
-                  </label>
-                  <input
-                    type="number"
-                    value={selectedGame.quantity || 1}
-                    onChange={(e) => setSelectedGame({ ...selectedGame, quantity: e.target.value })}
-                    style={{
-                      width: '100%',
-                      padding: '0.5rem',
-                      borderRadius: '6px',
-                      border: '1px solid #d1d5db',
-                      marginTop: '4px',
-                      boxSizing: 'border-box',
-                    }}
-                    required
-                    min="1"
-                  />
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <div style={{ flex: 1 }}>
-                  <label style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#374151' }}>
-                    ผู้เล่นต่ำสุด:
-                  </label>
-                  <input
-                    type="number"
-                    value={selectedGame.minPlayers}
-                    onChange={(e) =>
-                      setSelectedGame({ ...selectedGame, minPlayers: e.target.value })
-                    }
-                    style={{
-                      width: '100%',
-                      padding: '0.5rem',
-                      borderRadius: '6px',
-                      border: '1px solid #d1d5db',
-                      marginTop: '4px',
-                      boxSizing: 'border-box',
-                    }}
-                    required
-                  />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <label style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#374151' }}>
-                    ผู้เล่นสูงสุด:
-                  </label>
-                  <input
-                    type="number"
-                    value={selectedGame.maxPlayers}
-                    onChange={(e) =>
-                      setSelectedGame({ ...selectedGame, maxPlayers: e.target.value })
-                    }
-                    style={{
-                      width: '100%',
-                      padding: '0.5rem',
-                      borderRadius: '6px',
-                      border: '1px solid #d1d5db',
-                      marginTop: '4px',
-                      boxSizing: 'border-box',
-                    }}
-                    required
-                  />
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <div style={{ flex: 1 }}>
-                  <label style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#374151' }}>
-                    เวลาเล่น (นาที):
-                  </label>
-                  <input
-                    type="number"
-                    value={selectedGame.playtimeMin}
-                    onChange={(e) =>
-                      setSelectedGame({ ...selectedGame, playtimeMin: e.target.value })
-                    }
-                    style={{
-                      width: '100%',
-                      padding: '0.5rem',
-                      borderRadius: '6px',
-                      border: '1px solid #d1d5db',
-                      marginTop: '4px',
-                      boxSizing: 'border-box',
-                    }}
-                    required
-                  />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <label style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#374151' }}>
-                    ปีที่พิมพ์:
-                  </label>
-                  <input
-                    type="number"
-                    value={selectedGame.yearPublished || ''}
-                    onChange={(e) =>
-                      setSelectedGame({ ...selectedGame, yearPublished: e.target.value })
-                    }
-                    style={{
-                      width: '100%',
-                      padding: '0.5rem',
-                      borderRadius: '6px',
-                      border: '1px solid #d1d5db',
-                      marginTop: '4px',
-                      boxSizing: 'border-box',
-                    }}
-                  />
-                </div>
-              </div>
-              <p style={{ fontSize: '0.75rem', color: '#6b7280', margin: '4px 0 0 0' }}>
-                รหัส ID: {selectedGame._id}
-              </p>
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'flex-end',
-                  gap: '0.75rem',
-                  marginTop: '1rem',
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={() => setSelectedGame(null)}
-                  style={{
-                    padding: '0.5rem 1rem',
-                    borderRadius: '6px',
-                    border: '1px solid #d1d5db',
-                    backgroundColor: 'white',
-                    cursor: 'pointer',
-                    fontWeight: '600',
-                  }}
-                >
-                  ยกเลิก
-                </button>
-                <button
-                  type="submit"
-                  style={{
-                    padding: '0.5rem 1rem',
-                    borderRadius: '6px',
-                    border: 'none',
-                    backgroundColor: '#134e35',
-                    color: 'white',
-                    cursor: 'pointer',
-                    fontWeight: '600',
-                  }}
-                >
-                  บันทึกการแก้ไข
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
