@@ -1,5 +1,8 @@
-import { useEffect, useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
+// นำเข้า Notification component ตามที่คุณระบุไว้
+import NotificationPanel, { NotificationBell } from './NotificationPanel.jsx';
+import { api } from '../../lib/api.js';
 import './adminLayout.css';
 
 // เมนูแบ่งกลุ่มตามภาพ design
@@ -36,8 +39,94 @@ function Clock() {
   );
 }
 
+function UserMenu({ user, onLogout }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  // ปิดเมนูเมื่อคลิกข้างนอก หรือกด Esc
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDown = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    const onKey = (e) => e.key === 'Escape' && setOpen(false);
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  const name = user?.username ?? user?.email ?? 'Admin';
+
+  return (
+    <div className="user-menu" ref={ref}>
+      <button
+        type="button"
+        className="user-menu-trigger"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+      >
+        <span className="user-avatar" aria-hidden="true">
+          {name.charAt(0).toUpperCase()}
+        </span>
+        <span className="user-info">
+          <strong>{name}</strong>
+          <small>{user?.role ?? 'admin'}</small>
+        </span>
+        <span className={'user-caret' + (open ? ' open' : '')} aria-hidden="true">
+          ▾
+        </span>
+      </button>
+
+      {open && (
+        <div className="user-dropdown" role="menu">
+          <Link
+            to="/admin/profile"
+            role="menuitem"
+            className="user-dropdown-item"
+            onClick={() => setOpen(false)}
+          >
+            👤 โปรไฟล์ของฉัน
+          </Link>
+          <button
+            type="button"
+            role="menuitem"
+            className="user-dropdown-item danger"
+            onClick={onLogout}
+          >
+            ⎋ ออกจากระบบ
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AdminLayout() {
   const navigate = useNavigate();
+
+  // 1. เพิ่ม state สำหรับเปิด/ปิด NotificationPanel ไว้ต้น Component
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [unread, setUnread] = useState(0);
+
+  // ตัวเลขบนกระดิ่ง: ถาม /notifications/unread-count ทุก 30 วินาที
+  const refreshUnread = useCallback(async () => {
+    try {
+      const r = await api('/notifications/unread-count');
+      setUnread(r.unread ?? 0);
+    } catch {
+      /* เงียบไว้ ไม่ให้ topbar พังเพราะแจ้งเตือน */
+    }
+  }, []);
+  useEffect(() => {
+    refreshUnread();
+    const id = setInterval(refreshUnread, 30000);
+    return () => clearInterval(id);
+  }, [refreshUnread]);
+
   let user = null;
   try {
     user = JSON.parse(localStorage.getItem('user') || 'null');
@@ -85,19 +174,23 @@ export default function AdminLayout() {
         <header className="admin-topbar">
           <span className="badge-live">● Live Store System</span>
           <Clock />
-          <div className="admin-user">
-            <div>
-              <strong>{user?.username ?? user?.email ?? 'Admin'}</strong>
-              <small>{user?.role ?? 'admin'}</small>
-            </div>
-            <button type="button" className="btn-ghost" onClick={logout}>
-              ออกจากระบบ
-            </button>
+
+          <div className="admin-topbar-right">
+            <NotificationBell count={unread} onClick={() => setNotifOpen(true)} />
+            <UserMenu user={user} onLogout={logout} />
           </div>
         </header>
+
         <main className="admin-content">
           <Outlet />
         </main>
+
+        {/* 3. ใส่ NotificationPanel ไว้หลัง main (อยู่ระดับเดียวกับ main) */}
+        <NotificationPanel
+          open={notifOpen}
+          onClose={() => setNotifOpen(false)}
+          onCountChange={setUnread}
+        />
       </div>
     </div>
   );

@@ -13,7 +13,7 @@
 }
 .page-head h1 {
   margin: 0 0 4px;
-  font-size: 28px;
+  font-size: var(--fs-main);
 }
 .muted {
   color: var(--color-text-muted);
@@ -97,7 +97,7 @@ button:disabled {
   height: 24px;
   padding: 0 10px;
   border-radius: var(--radius-full);
-  font-size: 12px;
+  font-size: var(--fs-detail);
   font-weight: 600;
   white-space: nowrap;
 }
@@ -144,19 +144,19 @@ button:disabled {
 }
 .stat-value {
   font-family: var(--font-heading);
-  font-size: 40px;
+  font-size: var(--fs-main);
   font-weight: 700;
   color: var(--color-primary);
   line-height: 1.2;
 }
 .stat-unit {
-  font-size: 16px;
+  font-size: var(--fs-body);
   font-weight: 500;
   color: var(--color-text-muted);
 }
 .stat-note {
   color: var(--color-text-muted);
-  font-size: 12px;
+  font-size: var(--fs-detail);
 }
 
 /* พื้นที่หลัก */
@@ -185,7 +185,7 @@ button:disabled {
 }
 .panel-head h2 {
   margin: 0;
-  font-size: 20px;
+  font-size: var(--fs-sub-lg);
 }
 .legend {
   display: flex;
@@ -214,7 +214,7 @@ button:disabled {
 }
 .grid-label small {
   color: var(--color-text-muted);
-  font-size: 11px;
+  font-size: var(--fs-detail);
 }
 .grid-track {
   position: relative;
@@ -236,7 +236,7 @@ button:disabled {
   position: absolute;
   top: 6px;
   transform: translateX(-50%);
-  font-size: 11px;
+  font-size: var(--fs-detail);
   color: var(--color-text-muted);
 }
 .sched-block {
@@ -247,7 +247,7 @@ button:disabled {
   border-radius: var(--radius);
   display: flex;
   align-items: center;
-  font-size: 12px;
+  font-size: var(--fs-detail);
   font-weight: 600;
   overflow: hidden;
   white-space: nowrap;
@@ -322,7 +322,7 @@ button:disabled {
   border-radius: var(--radius-sm);
   background: var(--state-available-bg);
   color: #065f46;
-  font-size: 12px;
+  font-size: var(--fs-detail);
 }
 .res-name {
   font-weight: 600;
@@ -330,7 +330,7 @@ button:disabled {
 }
 .res-meta {
   color: var(--color-text-muted);
-  font-size: 12px;
+  font-size: var(--fs-detail);
 }
 .res-actions {
   display: flex;
@@ -355,7 +355,7 @@ button:disabled {
 .field > span {
   font-family: var(--font-heading);
   font-weight: 600;
-  font-size: 12px;
+  font-size: var(--fs-detail);
 }
 .field-row {
   display: flex;
@@ -363,7 +363,7 @@ button:disabled {
 }
 .field-error {
   color: var(--color-error);
-  font-size: 12px;
+  font-size: var(--fs-detail);
 }
 .modal-backdrop {
   position: fixed;

@@ -1,0 +1,124 @@
+/* หน้าจัดการผู้ใช้ — ใช้ตัวแปรสี/ขนาดตัวอักษรจาก index.css */
+.us {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+.us-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+.us-search {
+  flex: 1;
+  min-width: 220px;
+}
+.us-role-filter {
+  width: 200px;
+}
+.us-error {
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  background: var(--color-error-bg);
+  color: var(--color-error);
+  font-size: var(--fs-body);
+}
+.us-table-wrap {
+  overflow-x: auto;
+}
+.us-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-body);
+}
+.us-table th {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: var(--fs-detail);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-align: left;
+  white-space: nowrap;
+}
+.us-table td {
+  padding: 12px;
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: middle;
+}
+.us-table tbody tr:hover {
+  background: var(--color-bg);
+}
+.us-empty {
+  padding: var(--space-xl) !important;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+.us-person {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.us-avatar {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: #fff;
+  font-weight: 700;
+}
+.us-email,
+.us-date {
+  color: var(--color-text-muted);
+}
+.us-date {
+  white-space: nowrap;
+}
+.us-role-select {
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: #fff;
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+}
+.us-role-select:disabled,
+.us-delete:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.us-actions {
+  text-align: right;
+}
+.us-delete {
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--color-error-bg);
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--color-error);
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+  cursor: pointer;
+}
+.us-delete:hover:not(:disabled) {
+  background: var(--color-error-bg);
+}
+.us-pager {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-md);
+}
+.us-pager-btns {
+  display: flex;
+  gap: var(--space-sm);
+}
+.us-pager .btn-ghost:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

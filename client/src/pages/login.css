@@ -14,7 +14,7 @@
 }
 .login-hero h1 {
   margin: 0;
-  font-size: 36px;
+  font-size: var(--fs-main);
 }
 .login-hero p,
 .login-hero small {
@@ -34,7 +34,7 @@
 }
 .login-form h2 {
   margin: 0;
-  font-size: 26px;
+  font-size: var(--fs-title-lg);
 }
 .login-form .muted {
   margin: 0;

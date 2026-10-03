@@ -548,7 +548,7 @@ export default function GameDetail() {
                 <div className="rp-bar">
                   <i style={{ width: `${(Number(game.bggWeight) / 5) * 100}%` }} />
                 </div>
-                <p className="muted" style={{ margin: '6px 0 0', fontSize: 12 }}>
+                <p className="muted" style={{ margin: '6px 0 0', fontSize: 'var(--fs-detail)' }}>
                   ความซับซ้อน {Number(game.bggWeight).toFixed(2)} / 5.0
                 </p>
               </div>
@@ -568,7 +568,7 @@ export default function GameDetail() {
               </li>
               <li>
                 <span>เล่นล่าสุด</span>
-                <strong style={{ fontSize: 12 }}>
+                <strong style={{ fontSize: 'var(--fs-detail)' }}>
                   {stats?.lastPlayedAt
                     ? new Date(stats.lastPlayedAt).toLocaleDateString('th-TH', {
                         timeZone: 'Asia/Bangkok',
