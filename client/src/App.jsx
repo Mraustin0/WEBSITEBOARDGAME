@@ -6,7 +6,8 @@ import Reservations from './pages/admin/Reservations.jsx';
 import Settings from './pages/admin/Settings.jsx';
 import Maintenance from './pages/admin/Maintenance.jsx';
 import Reports from './pages/admin/Reports.jsx';
-
+import Inventory from './pages/admin/Inventory.jsx';
+import GameDetail from './pages/admin/GameDetail.jsx';
 // ต้องมี token ถึงเข้า /admin ได้ (ถ้า token หมดอายุ api.js จะพากลับ /login เอง)
 function RequireAuth({ children }) {
   return localStorage.getItem('token') ? children : <Navigate to="/login" replace />;
@@ -39,6 +40,9 @@ export default function App() {
         <Route path="settings" element={<Settings />} />
         <Route path="maintenance" element={<Maintenance />} />
         <Route path="reports" element={<Reports />} />
+        // ใน routes ของ /admin:
+        <Route path="inventory" element={<Inventory />} />
+        <Route path="inventory/:id" element={<GameDetail />} />
         <Route path="*" element={<ComingSoon />} />
       </Route>
       <Route path="*" element={<Navigate to="/admin" replace />} />
