@@ -827,6 +827,19 @@
   cursor: pointer;
 }
 
+/* ปุ่มในหน้าคลังเกม/รายละเอียดเกมต้องหน้าตาเหมือนกันทั้ง <button> และ <Link>
+ * (<a> มีขีดเส้นใต้และฟอนต์ 16px ส่วน <button> ใช้ 13px ถ้าไม่กำหนดเอง) */
+.inv .btn-ghost,
+.inv .btn-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  font-size: var(--fs-body); /* Body */
+  text-decoration: none;
+  white-space: nowrap;
+}
+
 @media (max-width: 1100px) {
   .inv-grid {
     grid-template-columns: repeat(2, 1fr);

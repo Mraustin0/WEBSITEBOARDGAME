@@ -1,0 +1,210 @@
+/* หน้าบัญชีของฉัน — ใช้ตัวแปรจาก index.css เท่านั้น (คลาสขึ้นต้น pf-) */
+.pf {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+.pf-state {
+  padding: var(--space-xl);
+  color: var(--color-text-muted);
+  font-size: var(--fs-body);
+  text-align: center;
+}
+.pf-muted {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--fs-detail);
+}
+.pf-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+}
+.pf-head h1 {
+  margin: 0 0 var(--space-xs);
+}
+.pf-online {
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  background: var(--state-available-bg);
+  color: var(--state-available);
+  font-size: var(--fs-detail);
+  font-weight: 600;
+}
+
+.pf-grid {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: var(--space-lg);
+  align-items: start;
+}
+.pf-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+.pf-card {
+  padding: var(--space-lg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-1);
+}
+.pf-card h2 {
+  margin: 0 0 var(--space-xs);
+}
+
+/* การ์ดซ้าย */
+.pf-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-xs);
+  text-align: center;
+}
+.pf-side h2 {
+  margin: var(--space-sm) 0 0;
+}
+.pf-avatar {
+  display: grid;
+  place-items: center;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: var(--state-maintenance-bg);
+  color: var(--state-maintenance);
+  font-size: var(--fs-title-lg);
+  font-weight: 600;
+}
+.pf-avatar.admin {
+  background: var(--color-primary);
+  color: #fff;
+}
+.pf-role {
+  margin-top: var(--space-xs);
+  padding: 4px 14px;
+  border-radius: var(--radius-full);
+  background: var(--state-maintenance-bg);
+  color: var(--state-maintenance);
+  font-size: var(--fs-detail);
+  font-weight: 600;
+}
+.pf-role.admin {
+  background: var(--color-primary);
+  color: #fff;
+}
+.pf-facts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  width: 100%;
+  margin: var(--space-md) 0 0;
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--color-border);
+}
+.pf-facts div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+.pf-facts dt {
+  color: var(--color-text-muted);
+  font-size: var(--fs-detail);
+}
+.pf-facts dd {
+  margin: 0;
+  font-size: var(--fs-detail);
+  font-weight: 600;
+  text-align: right;
+}
+
+/* ฟอร์ม */
+.pf-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-md);
+  margin-top: var(--space-md);
+}
+.pf-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pf-field > span {
+  font-size: var(--fs-detail);
+  font-weight: 600;
+}
+.pf-field .input[readonly] {
+  background: var(--color-bg);
+}
+.pf-field .input:disabled {
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}
+.pf-hint {
+  color: var(--color-text-muted);
+  font-size: var(--fs-detail);
+}
+.pf-note {
+  margin: var(--space-md) 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--fs-detail);
+}
+.pf-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  max-width: 560px;
+  margin-top: var(--space-md);
+}
+.pf-pass {
+  position: relative;
+}
+.pf-pass .input {
+  padding-right: 64px;
+}
+.pf-eye {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  padding: 4px 8px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-primary);
+  font-family: var(--font-body);
+  font-size: var(--fs-detail);
+  cursor: pointer;
+}
+.pf-eye:hover {
+  background: var(--color-bg);
+}
+.pf-alert {
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  font-size: var(--fs-body);
+}
+.pf-alert.err {
+  background: var(--color-error-bg);
+  color: var(--color-error);
+}
+.pf-alert.ok {
+  background: var(--state-available-bg);
+  color: var(--state-available);
+}
+.pf-form .btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 900px) {
+  .pf-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .pf-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

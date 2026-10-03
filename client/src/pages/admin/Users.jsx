@@ -2,8 +2,17 @@ import { useCallback, useEffect, useState } from 'react';
 import { api } from '../../lib/api.js';
 import './users.css';
 
-const LIMIT = 20;
-const ROLE_TH = { admin: 'ผู้ดูแล (admin)', user: 'สมาชิก (user)' };
+const LIMIT = 10;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const ROLES = {
+  admin: {
+    label: 'ผู้ดูแลระบบ',
+    en: 'Admin',
+    desc: 'จัดการร้านได้ทุกเมนู รวมถึงผู้ใช้และการตั้งค่า',
+  },
+  user: { label: 'สมาชิก', en: 'Member', desc: 'ใช้งานทั่วไป จองโต๊ะและดูการจองของตัวเอง' },
+};
 
 function formatDate(iso) {
   return new Date(iso).toLocaleDateString('th-TH', {
@@ -12,6 +21,15 @@ function formatDate(iso) {
     month: 'short',
     year: 'numeric',
   });
+}
+
+function relativeDay(iso) {
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / DAY_MS);
+  if (days <= 0) return 'วันนี้';
+  if (days === 1) return 'เมื่อวาน';
+  if (days < 30) return `${days} วันที่แล้ว`;
+  if (days < 365) return `${Math.floor(days / 30)} เดือนที่แล้ว`;
+  return `${Math.floor(days / 365)} ปีที่แล้ว`;
 }
 
 function currentUserId() {
@@ -23,16 +41,264 @@ function currentUserId() {
   }
 }
 
-/** หน้าจัดการผู้ใช้ — ใช้ GET /admin/users, PUT /admin/users/:id/role, DELETE /admin/users/:id */
+// รายการเลขหน้า: 1 … current-1 current current+1 … last
+function pageList(page, pages) {
+  const set = new Set([1, pages, page - 1, page, page + 1]);
+  const nums = [...set].filter((n) => n >= 1 && n <= pages).sort((a, b) => a - b);
+  const out = [];
+  nums.forEach((n, i) => {
+    if (i > 0 && n - nums[i - 1] > 1) out.push('gap-' + n);
+    out.push(n);
+  });
+  return out;
+}
+
+function errorText(err, fallback) {
+  if (err.status === 409) return 'ชื่อผู้ใช้หรืออีเมลนี้ถูกใช้แล้ว';
+  if (err.status === 400)
+    return 'ข้อมูลไม่ถูกต้อง (ชื่อผู้ใช้อย่างน้อย 3 ตัวอักษร, รหัสผ่านอย่างน้อย 6 ตัวอักษร)';
+  return err.message || fallback;
+}
+
+function Modal({ title, subtitle, onClose, children }) {
+  useEffect(() => {
+    const onKey = (e) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      className="us-overlay"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="us-modal" role="dialog" aria-modal="true" aria-label={title}>
+        <header className="us-modal-head">
+          <div>
+            <h2>{title}</h2>
+            {subtitle && <p className="us-muted">{subtitle}</p>}
+          </div>
+          <button type="button" className="us-x" aria-label="ปิด" onClick={onClose}>
+            ✕
+          </button>
+        </header>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function RoleOptions({ value, onChange }) {
+  return (
+    <div className="us-role-opts">
+      {Object.entries(ROLES).map(([key, r]) => (
+        <label key={key} className={'us-role-opt' + (value === key ? ' on' : '')}>
+          <input
+            type="radio"
+            name="role"
+            value={key}
+            checked={value === key}
+            onChange={() => onChange(key)}
+          />
+          <span className="us-role-opt-title">
+            {r.label} ({r.en})
+          </span>
+          <span className="us-muted">{r.desc}</span>
+        </label>
+      ))}
+    </div>
+  );
+}
+
+function AddUserModal({ onClose, onDone }) {
+  const [form, setForm] = useState({ username: '', email: '', password: '', role: 'user' });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  async function submit(e) {
+    e.preventDefault();
+    setBusy(true);
+    setError('');
+    try {
+      const { username, email, password } = form;
+      const res = await api('/auth/register', {
+        method: 'POST',
+        body: { username, email, password },
+      });
+      const id = res?.user?.id ?? res?.user?._id;
+      if (form.role === 'admin' && id) {
+        try {
+          await api(`/admin/users/${id}/role`, { method: 'PUT', body: { role: 'admin' } });
+        } catch {
+          onDone({
+            tone: 'err',
+            text: `สร้างบัญชี "${username}" แล้ว แต่ตั้งเป็นผู้ดูแลไม่สำเร็จ กรุณาแก้สิทธิ์อีกครั้ง`,
+          });
+          return;
+        }
+      }
+      onDone({ tone: 'ok', text: `เพิ่มผู้ใช้ "${username}" เรียบร้อย` });
+    } catch (err) {
+      setError(errorText(err, 'เพิ่มผู้ใช้ไม่สำเร็จ'));
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal title="เพิ่มผู้ใช้งานใหม่" subtitle="สร้างบัญชีและกำหนดสิทธิ์เริ่มต้น" onClose={onClose}>
+      <form className="us-form" onSubmit={submit}>
+        <label>
+          <span>ชื่อผู้ใช้ (Username)</span>
+          <input
+            className="input"
+            required
+            minLength={3}
+            maxLength={32}
+            value={form.username}
+            onChange={set('username')}
+            autoFocus
+          />
+        </label>
+        <label>
+          <span>อีเมล (Email)</span>
+          <input
+            className="input"
+            type="email"
+            required
+            value={form.email}
+            onChange={set('email')}
+          />
+        </label>
+        <label>
+          <span>รหัสผ่าน (Password)</span>
+          <input
+            className="input"
+            type="password"
+            required
+            minLength={6}
+            maxLength={128}
+            value={form.password}
+            onChange={set('password')}
+            autoComplete="new-password"
+          />
+        </label>
+        <div>
+          <span className="us-label">สิทธิ์การใช้งาน</span>
+          <RoleOptions value={form.role} onChange={(role) => setForm((f) => ({ ...f, role }))} />
+        </div>
+        {error && <div className="us-error">{error}</div>}
+        <footer className="us-modal-foot">
+          <button type="button" className="us-btn" onClick={onClose} disabled={busy}>
+            ยกเลิก
+          </button>
+          <button type="submit" className="btn-primary" disabled={busy}>
+            {busy ? 'กำลังบันทึก...' : 'เพิ่มผู้ใช้'}
+          </button>
+        </footer>
+      </form>
+    </Modal>
+  );
+}
+
+function EditRoleModal({ user, onClose, onDone }) {
+  const [role, setRole] = useState(user.role);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  async function save() {
+    setBusy(true);
+    setError('');
+    try {
+      await api(`/admin/users/${user._id}/role`, { method: 'PUT', body: { role } });
+      onDone({
+        tone: 'ok',
+        text: `เปลี่ยนสิทธิ์ของ "${user.username}" เป็น ${ROLES[role].label} แล้ว`,
+      });
+    } catch (err) {
+      setError(err.message || 'เปลี่ยนสิทธิ์ไม่สำเร็จ');
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal title="แก้ไขสิทธิ์" subtitle={`${user.username} · ${user.email}`} onClose={onClose}>
+      <div className="us-form">
+        <RoleOptions value={role} onChange={setRole} />
+        {error && <div className="us-error">{error}</div>}
+        <footer className="us-modal-foot">
+          <button type="button" className="us-btn" onClick={onClose} disabled={busy}>
+            ยกเลิก
+          </button>
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={save}
+            disabled={busy || role === user.role}
+          >
+            {busy ? 'กำลังบันทึก...' : 'บันทึกสิทธิ์'}
+          </button>
+        </footer>
+      </div>
+    </Modal>
+  );
+}
+
+function DeleteModal({ user, onClose, onDone }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  async function confirm() {
+    setBusy(true);
+    setError('');
+    try {
+      await api(`/admin/users/${user._id}`, { method: 'DELETE' });
+      onDone({ tone: 'ok', text: `ลบผู้ใช้ "${user.username}" แล้ว` });
+    } catch (err) {
+      setError(err.message || 'ลบผู้ใช้ไม่สำเร็จ');
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal title="ลบผู้ใช้" subtitle="การกระทำนี้ย้อนกลับไม่ได้" onClose={onClose}>
+      <div className="us-form">
+        <p>
+          ต้องการลบบัญชี <strong>{user.username}</strong> ({user.email}) ถาวรใช่หรือไม่
+        </p>
+        {error && <div className="us-error">{error}</div>}
+        <footer className="us-modal-foot">
+          <button type="button" className="us-btn" onClick={onClose} disabled={busy}>
+            ยกเลิก
+          </button>
+          <button type="button" className="us-btn us-btn-danger" onClick={confirm} disabled={busy}>
+            {busy ? 'กำลังลบ...' : 'ลบถาวร'}
+          </button>
+        </footer>
+      </div>
+    </Modal>
+  );
+}
+
+/**
+ * หน้าจัดการผู้ใช้งานและสิทธิ์ (ดีไซน์หน้า 5)
+ * ใช้ GET /admin/users, PUT /admin/users/:id/role, DELETE /admin/users/:id, POST /auth/register
+ * หมายเหตุ: backend ยังไม่มี field สถานะ/ระงับ, เบอร์โทร, LINE, เข้าใช้ล่าสุด, ประวัติการจอง
+ * จึงไม่แสดงคอลัมน์เหล่านั้น (ไม่ทำข้อมูลปลอม)
+ */
 export default function Users() {
   const [q, setQ] = useState('');
   const [search, setSearch] = useState(''); // ค่า q ที่ debounce แล้ว
   const [role, setRole] = useState('');
   const [page, setPage] = useState(1);
   const [data, setData] = useState({ items: [], total: 0 });
+  const [stats, setStats] = useState({ total: 0, admins: 0, recent: 0, recentCapped: false });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [busyId, setBusyId] = useState('');
+  const [notice, setNotice] = useState(null);
+  const [modal, setModal] = useState(null); // { type: 'add' | 'role' | 'delete', user? }
   const me = currentUserId();
 
   // หน่วงการพิมพ์ค้นหา 300ms
@@ -44,13 +310,17 @@ export default function Users() {
     return () => clearTimeout(id);
   }, [q]);
 
+  useEffect(() => {
+    if (!notice) return undefined;
+    const id = setTimeout(() => setNotice(null), 4000);
+    return () => clearTimeout(id);
+  }, [notice]);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const res = await api('/admin/users', {
-        query: { q: search, role, page, limit: LIMIT },
-      });
+      const res = await api('/admin/users', { query: { q: search, role, page, limit: LIMIT } });
       setData({ items: res.items ?? [], total: res.total ?? 0 });
     } catch (err) {
       setError(err.message || 'โหลดรายชื่อผู้ใช้ไม่สำเร็จ');
@@ -59,84 +329,124 @@ export default function Users() {
     }
   }, [search, role, page]);
 
+  // ตัวเลขสรุป: ผู้ใช้ทั้งหมด / ผู้ดูแล / สมัครใหม่ 7 วัน (นับจาก 200 รายล่าสุด)
+  const loadStats = useCallback(async () => {
+    try {
+      const [all, admins] = await Promise.all([
+        api('/admin/users', { query: { limit: 200 } }),
+        api('/admin/users', { query: { role: 'admin', limit: 1 } }),
+      ]);
+      const since = Date.now() - 7 * DAY_MS;
+      const recent = (all.items ?? []).filter(
+        (u) => new Date(u.createdAt).getTime() >= since,
+      ).length;
+      setStats({
+        total: all.total ?? 0,
+        admins: admins.total ?? 0,
+        recent,
+        recentCapped: (all.total ?? 0) > 200 && recent >= 200,
+      });
+    } catch {
+      /* การ์ดสรุปไม่สำคัญเท่าตาราง: ปล่อยค่าเดิมไว้ */
+    }
+  }, []);
+
   useEffect(() => {
     load();
   }, [load]);
 
+  useEffect(() => {
+    loadStats();
+  }, [loadStats]);
+
   const pages = Math.max(1, Math.ceil(data.total / LIMIT));
+  const members = Math.max(0, stats.total - stats.admins);
+  const from = data.total === 0 ? 0 : (page - 1) * LIMIT + 1;
+  const to = Math.min(page * LIMIT, data.total);
 
-  async function changeRole(u, next) {
-    if (next === u.role) return;
-    const msg =
-      next === 'admin'
-        ? `ให้สิทธิ์ผู้ดูแลระบบแก่ "${u.username}"?`
-        : `ถอดสิทธิ์ผู้ดูแลระบบของ "${u.username}"?`;
-    if (!window.confirm(msg)) return;
-    setBusyId(u._id);
-    setError('');
-    try {
-      const updated = await api(`/admin/users/${u._id}/role`, {
-        method: 'PUT',
-        body: { role: next },
-      });
-      setData((d) => ({
-        ...d,
-        items: d.items.map((x) => (x._id === u._id ? { ...x, role: updated.role } : x)),
-      }));
-    } catch (err) {
-      setError(err.message || 'เปลี่ยนสิทธิ์ไม่สำเร็จ');
-    } finally {
-      setBusyId('');
-    }
+  function done(result, { afterDelete = false } = {}) {
+    setModal(null);
+    setNotice(result);
+    if (afterDelete && data.items.length === 1 && page > 1) setPage(page - 1);
+    else load();
+    loadStats();
   }
 
-  async function remove(u) {
-    if (!window.confirm(`ลบผู้ใช้ "${u.username}" ถาวร? การกระทำนี้ย้อนกลับไม่ได้`)) return;
-    setBusyId(u._id);
-    setError('');
-    try {
-      await api(`/admin/users/${u._id}`, { method: 'DELETE' });
-      // ลบรายการสุดท้ายของหน้า → ถอยกลับหน้าก่อนหน้า
-      if (data.items.length === 1 && page > 1) setPage(page - 1);
-      else await load();
-    } catch (err) {
-      setError(err.message || 'ลบผู้ใช้ไม่สำเร็จ');
-    } finally {
-      setBusyId('');
-    }
+  function pickRole(next) {
+    setRole(next);
+    setPage(1);
   }
+
+  const tabs = [
+    { key: '', label: 'ทั้งหมด', count: stats.total },
+    { key: 'user', label: 'สมาชิก', count: members },
+    { key: 'admin', label: 'ผู้ดูแล', count: stats.admins },
+  ];
+
+  const cards = [
+    { label: 'TOTAL ACCOUNTS', title: 'บัญชีผู้ใช้ทั้งหมด', value: stats.total, unit: 'บัญชี' },
+    { label: 'MEMBERS', title: 'สมาชิกทั่วไป', value: members, unit: 'คน' },
+    { label: 'PRIVILEGED ACCESS', title: 'สิทธิ์ผู้ดูแลระบบ', value: stats.admins, unit: 'คน' },
+    {
+      label: 'NEW THIS WEEK',
+      title: 'สมัครใหม่ 7 วันล่าสุด',
+      value: stats.recentCapped ? `${stats.recent}+` : stats.recent,
+      unit: 'บัญชี',
+    },
+  ];
 
   return (
     <div className="us">
-      <div className="page-head">
+      <div className="us-head">
         <div>
-          <h1>จัดการผู้ใช้ (Users)</h1>
-          <p className="muted">ค้นหา กำหนดสิทธิ์ และลบบัญชีสมาชิกของร้าน</p>
+          <h1>จัดการผู้ใช้งานและสิทธิ์ (User &amp; Member Management)</h1>
+          <p className="us-muted">
+            ผู้ใช้ทั้งหมด {stats.total} คน • ผู้ดูแลระบบ {stats.admins} คน • สมัครใหม่สัปดาห์นี้ +
+            {stats.recent} คน
+          </p>
         </div>
-        <span className="chip tone-available">ทั้งหมด {data.total} บัญชี</span>
+        <button type="button" className="btn-primary" onClick={() => setModal({ type: 'add' })}>
+          + เพิ่มผู้ใช้งานใหม่ (Add User)
+        </button>
       </div>
 
-      <section className="panel">
+      {notice && <div className={'us-notice ' + notice.tone}>{notice.text}</div>}
+
+      <section className="us-cards">
+        {cards.map((c) => (
+          <article key={c.label} className="us-card">
+            <span className="us-card-label">{c.label}</span>
+            <span className="us-card-title">{c.title}</span>
+            <strong className="us-card-value">
+              {c.value} <small>{c.unit}</small>
+            </strong>
+          </article>
+        ))}
+      </section>
+
+      <section className="us-panel">
         <div className="us-filters">
           <input
             className="input us-search"
             type="search"
-            placeholder="ค้นหาชื่อผู้ใช้หรืออีเมล"
+            placeholder="ค้นหาด้วยชื่อหรืออีเมล..."
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
-          <select
-            className="input us-role-filter"
-            value={role}
-            onChange={(e) => {
-              setRole(e.target.value);
-              setPage(1);
-            }}
-          >
-            <option value="">ทุกสิทธิ์</option>
-            <option value="admin">ผู้ดูแล (admin)</option>
-            <option value="user">สมาชิก (user)</option>
-          </select>
+          <div className="us-tabs" role="tablist">
+            {tabs.map((t) => (
+              <button
+                key={t.key || 'all'}
+                type="button"
+                role="tab"
+                aria-selected={role === t.key}
+                className={'us-tab' + (role === t.key ? ' on' : '')}
+                onClick={() => pickRole(t.key)}
+              >
+                {t.label} ({t.count})
+              </button>
+            ))}
+          </div>
         </div>
 
         {error && <div className="us-error">{error}</div>}
@@ -145,10 +455,10 @@ export default function Users() {
           <table className="us-table">
             <thead>
               <tr>
-                <th>ผู้ใช้</th>
-                <th>อีเมล</th>
-                <th>สิทธิ์</th>
-                <th>สมัครเมื่อ</th>
+                <th>ข้อมูลสมาชิก (MEMBER INFO)</th>
+                <th>อีเมล (EMAIL)</th>
+                <th>วันที่สมัคร (JOINED)</th>
+                <th>ระดับสิทธิ์ (ROLE)</th>
                 <th aria-label="จัดการ" />
               </tr>
             </thead>
@@ -174,37 +484,48 @@ export default function Users() {
                     <tr key={u._id}>
                       <td>
                         <div className="us-person">
-                          <span className="us-avatar" aria-hidden="true">
+                          <span className={'us-avatar ' + u.role} aria-hidden="true">
                             {u.username.charAt(0).toUpperCase()}
                           </span>
-                          <strong>{u.username}</strong>
-                          {isMe && <span className="chip tone-available">คุณ</span>}
+                          <div className="us-person-text">
+                            <strong>
+                              {u.username}
+                              {isMe && <span className="us-me">คุณ</span>}
+                            </strong>
+                            <small className="us-muted">
+                              ID: #{String(u._id).slice(-6).toUpperCase()}
+                            </small>
+                          </div>
                         </div>
                       </td>
                       <td className="us-email">{u.email}</td>
                       <td>
-                        <select
-                          className="us-role-select"
-                          value={u.role}
-                          disabled={isMe || busyId === u._id}
-                          title={isMe ? 'ไม่สามารถเปลี่ยนสิทธิ์ของตัวเองได้' : undefined}
-                          onChange={(e) => changeRole(u, e.target.value)}
-                        >
-                          {Object.entries(ROLE_TH).map(([v, label]) => (
-                            <option key={v} value={v}>
-                              {label}
-                            </option>
-                          ))}
-                        </select>
+                        <div className="us-person-text">
+                          <span>{formatDate(u.createdAt)}</span>
+                          <small className="us-muted">{relativeDay(u.createdAt)}</small>
+                        </div>
                       </td>
-                      <td className="us-date">{formatDate(u.createdAt)}</td>
+                      <td>
+                        <span className={'us-role ' + u.role}>
+                          {ROLES[u.role]?.label ?? u.role}
+                        </span>
+                      </td>
                       <td className="us-actions">
                         <button
                           type="button"
-                          className="us-delete"
-                          disabled={isMe || busyId === u._id}
-                          title={isMe ? 'ไม่สามารถลบบัญชีตัวเองได้' : 'ลบผู้ใช้'}
-                          onClick={() => remove(u)}
+                          className="us-btn"
+                          disabled={isMe}
+                          title={isMe ? 'ไม่สามารถเปลี่ยนสิทธิ์ของตัวเองได้' : undefined}
+                          onClick={() => setModal({ type: 'role', user: u })}
+                        >
+                          แก้ไขสิทธิ์
+                        </button>
+                        <button
+                          type="button"
+                          className="us-btn us-btn-danger"
+                          disabled={isMe}
+                          title={isMe ? 'ไม่สามารถลบบัญชีตัวเองได้' : undefined}
+                          onClick={() => setModal({ type: 'delete', user: u })}
                         >
                           ลบ
                         </button>
@@ -217,29 +538,60 @@ export default function Users() {
         </div>
 
         <div className="us-pager">
-          <span className="muted">
-            หน้า {page} / {pages}
+          <span className="us-muted">
+            แสดงรายการที่ {from} - {to} จากทั้งหมด {data.total} บัญชี
           </span>
           <div className="us-pager-btns">
             <button
               type="button"
-              className="btn-ghost"
+              className="us-pg"
+              aria-label="หน้าก่อนหน้า"
               disabled={page <= 1}
               onClick={() => setPage(page - 1)}
             >
-              ← ก่อนหน้า
+              ‹
             </button>
+            {pageList(page, pages).map((n) =>
+              typeof n === 'string' ? (
+                <span key={n} className="us-gap">
+                  …
+                </span>
+              ) : (
+                <button
+                  key={n}
+                  type="button"
+                  className={'us-pg' + (n === page ? ' on' : '')}
+                  aria-current={n === page ? 'page' : undefined}
+                  onClick={() => setPage(n)}
+                >
+                  {n}
+                </button>
+              ),
+            )}
             <button
               type="button"
-              className="btn-ghost"
+              className="us-pg"
+              aria-label="หน้าถัดไป"
               disabled={page >= pages}
               onClick={() => setPage(page + 1)}
             >
-              ถัดไป →
+              ›
             </button>
           </div>
         </div>
       </section>
+
+      {modal?.type === 'add' && <AddUserModal onClose={() => setModal(null)} onDone={done} />}
+      {modal?.type === 'role' && (
+        <EditRoleModal user={modal.user} onClose={() => setModal(null)} onDone={done} />
+      )}
+      {modal?.type === 'delete' && (
+        <DeleteModal
+          user={modal.user}
+          onClose={() => setModal(null)}
+          onDone={(r) => done(r, { afterDelete: true })}
+        />
+      )}
     </div>
   );
 }
