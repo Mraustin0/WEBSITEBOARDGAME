@@ -61,7 +61,7 @@ export default function Inventory() {
         display: 'flex',
         minHeight: '100vh',
         backgroundColor: '#f4f6f8',
-        fontFamily: 'system-ui, sans-serif',
+        fontFamily: "'Kanit', sans-serif",
       }}
     >
       {/* 1. Sidebar ด้านซ้าย */}

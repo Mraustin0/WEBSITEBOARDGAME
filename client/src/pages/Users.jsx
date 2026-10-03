@@ -171,7 +171,7 @@ export default function Users() {
         display: 'flex',
         minHeight: '100vh',
         backgroundColor: '#f8fafc',
-        fontFamily: 'system-ui, -apple-system, sans-serif',
+        fontFamily: "'Kanit', sans-serif",
       }}
     >
       {/* Sidebar */}
