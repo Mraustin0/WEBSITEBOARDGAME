@@ -44,3 +44,6 @@ export const adminRemove = async (req, res) => {
   await service.adminRemove(req.params.id);
   res.json({ ok: true });
 };
+
+export const extend = async (req, res) =>
+  res.json(await service.extend(req.params.id, req.user, req.body.hours));

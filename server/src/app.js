@@ -19,6 +19,8 @@ import reservationsRoutes from './modules/reservations/reservations.routes.js';
 import statsRoutes from './modules/stats/stats.routes.js';
 import settingsRoutes from './modules/settings/settings.routes.js';
 import maintenanceRoutes from './modules/maintenance/maintenance.routes.js';
+import assistRoutes from './modules/assist/assist.routes.js';
+import notificationRoutes from './modules/notifications/notifications.routes.js';
 import adminRoutes from './modules/admin/admin.routes.js';
 
 export function createApp() {
@@ -48,6 +50,8 @@ export function createApp() {
   app.use('/api/stats', statsRoutes);
   app.use('/api/settings', settingsRoutes);
   app.use('/api/maintenance', maintenanceRoutes);
+  app.use('/api/assist', assistRoutes);
+  app.use('/api/notifications', notificationRoutes);
   app.use('/api/admin', adminRoutes);
 
   app.use('/api', notFoundHandler);

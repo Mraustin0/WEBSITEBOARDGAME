@@ -1,6 +1,6 @@
 # API คน B — Tables · Reservations · Reviews · Stats
 
-สำหรับทีม frontend. Swagger ดูได้ที่ `http://localhost:4000/api/docs` (tag: tables, reservations, reviews, stats).
+สำหรับทีม frontend. Swagger ดูได้ที่ `http://localhost:4000/api/docs` (tag: tables, reservations, reviews, stats, settings, maintenance, assist, notifications).
 ทุก request ที่ต้อง login ใส่ header `Authorization: Bearer <token>`.
 Error ทุกตัวเป็น `{ "error": "ข้อความ", "details": {...} }` — 400 = input ผิด, 401 = ไม่ได้ login, 403 = ไม่ใช่ admin, 404 = ไม่เจอ, 409 = ชนกัน (จองซ้ำ/โต๊ะปิด/เกมซ่อม).
 
@@ -10,7 +10,7 @@ Error ทุกตัวเป็น `{ "error": "ข้อความ", "detai
 
 1. [วิธีใช้งาน (เริ่มต้น)](#วิธีใช้งาน-เริ่มต้น)
 2. [กฎการจอง](#กฎการจอง-get-apireservationsrules) / [สถานะ](#สถานะ)
-3. [ฝั่งผู้ใช้](#ฝั่งผู้ใช้-fe-user-2-คน) / [ฝั่งแอดมิน](#ฝั่งแอดมิน-fe-admin-2-คน)
+3. [ฝั่งผู้ใช้](#ฝั่งผู้ใช้-fe-user-2-คน) / [ฝั่งแอดมิน](#ฝั่งแอดมิน-fe-admin-2-คน) (รวมขอต่อเวลา / เรียก GM)
 4. หน้าจอ admin: Walk-in / เช็คบิล / จัดการการจอง / ตั้งค่าร้าน / ซ่อมบำรุง / รายงาน
 5. [Demo data](#demo-data)
 
@@ -129,6 +129,10 @@ try {
 ปุ่ม "จองโต๊ะเล่นเกมนี้" บนการ์ดเกม → ส่ง `gameId` ไปหน้าจอง (`navigate('/booking?game=' + id)`) แล้วใช้เป็น `game` ใน body
 
 Game Selector Modal → ใช้ `avail.games.filter((g) => g.available)` และค้นหาชื่อฝั่ง client
+แต่ละเกมมี `copies` (จำนวนกล่อง), `copiesInRepair` (กล่องที่ซ่อมอยู่) และ `copiesLeft` (กล่องที่ว่างตลอดช่วงเวลานั้น) → ป้ายบนการ์ด: `copiesLeft > 1` = "X in Vault", `= 1` = "1 Copy Left", `= 0` = "In Use (A1, B2)" จาก `inUseAt`
+เกมที่ไม่ว่างมี `reason` (`booked` / `maintenance` / `player_count`) และ `inUseAt` บอกว่าถูกใช้ที่โต๊ะไหนในช่วงนั้น เช่น `[{ table: 'A1', status: 'playing', startAt, endAt }]`
+⚠️ `inUseAt` มีทั้ง `status: 'playing'` (กำลังเล่นอยู่ → "In Use (A1)") และ `status: 'booked'` (จองไว้ในช่วงนั้น → "Reserved (A1)") — อย่าแสดงเป็น In Use ทั้งหมด
+แต่ละเกมมี `bggAverage` (เรตติ้ง), `bggWeight`, `categories` ให้แสดงบนการ์ดได้เลย
 
 ### 6. ตัวอย่าง flow: ประวัติการจอง + คืนเกม (หน้า 5 ฝั่ง user)
 
@@ -136,12 +140,29 @@ Game Selector Modal → ใช้ `avail.games.filter((g) => g.available)` แ�
 const active = await api('/reservations', { query: { scope: 'active' } }); // กำลังเล่น
 const upcoming = await api('/reservations', { query: { scope: 'upcoming' } }); // ล่วงหน้า
 const past = await api('/reservations', { query: { scope: 'past', page: 1, limit: 20 } });
-// ผลเป็น { items, total, page, limit }
+// ผลเป็น { items, total, page, limit, counts: { active, upcoming, past } }
+// counts ใช้เป็นตัวเลขบนแท็บได้เลย (เรียกครั้งเดียวก็ได้ทั้ง 3 ตัว)
+
+// ช่องค้นหา "ค้นหาห้อง หรือชื่อบอร์ดเกม" → ส่ง q (ค้นรหัส/ชื่อ/โซนโต๊ะ หรือชื่อเกม)
+const found = await api('/reservations', { query: { scope: 'all', q: 'catan' } });
 
 await api(`/reservations/${id}/return`, { method: 'PATCH' }); // เล่นเสร็จแล้ว / คืนเกม
+// ยกเลิกเองได้ถึงก่อนเริ่ม 2 ชม. (rules.CANCEL_CUTOFF_HOURS) — ช้ากว่านั้นได้ 409 ให้ติดต่อพนักงาน
 await api(`/reservations/${id}/cancel`, { method: 'PATCH', body: { reason: 'ติดธุระ' } });
 await api(`/reservations/${id}`, { method: 'PUT', body: { startAt: newStart } }); // แก้เวลา
 await api(`/reservations/${id}/game`, { method: 'PATCH', body: { game: newGameId } }); // เปลี่ยนเกม
+
+// ปุ่ม "ขอต่อเวลา" — ทีละ 0.5 ชม. ถ้าโต๊ะ/เกมมีคิวต่อจะได้ 409
+const extended = await api(`/reservations/${id}/extend`, { method: 'PATCH', body: { hours: 1 } });
+// extended.endAt / durationHours / price.total อัปเดตแล้ว, extended.extensions = ประวัติการต่อ
+
+// ปุ่ม "เรียก GM" — topic: tutorial | extension | game_issue | other (ได้เฉพาะตอนกำลังเล่น)
+await api('/assist', {
+  method: 'POST',
+  body: { reservation: id, topic: 'tutorial', note: 'สอนกติกาหน่อย' },
+});
+const calls = await api('/assist/my', { query: { reservation: id } }); // status: open → acknowledged → resolved
+await api(`/assist/${callId}/cancel`, { method: 'PATCH' }); // ยกเลิกคำขอ
 ```
 
 ### 7. ตัวอย่าง flow: admin เปิดโต๊ะ walk-in → เช็คบิล (หน้า 14–15)
@@ -200,38 +221,41 @@ useEffect(() => {
 
 > ค่าทั้งหมดในตารางนี้คือค่าเริ่มต้น admin แก้ได้ที่หน้า "ตั้งค่าร้าน" (`PUT /api/settings`) — frontend ควรอ่านค่าจริงจาก `GET /api/reservations/rules` หรือ `GET /api/settings`
 
-| กฎ          | ค่า                                                                              |
-| ----------- | -------------------------------------------------------------------------------- |
-| ราคา        | `ชั่วโมง × (ผู้เล่น × 50 + extraPerHour ของโต๊ะ)` บาท                            |
-| จองล่วงหน้า | ไม่เกิน 3 วัน, เริ่มย้อนหลังได้ไม่เกิน 15 นาที (walk-in)                         |
-| ระยะเวลา    | 1–6 ชม. ทีละ 0.5                                                                 |
-| แพ็กเกจ     | `hourly` (รายชั่วโมง) หรือ `flat3h` เหมา 3 ชม. = ผู้เล่น × 130 + 3 × ค่าโต๊ะ     |
-| เกินเวลา    | เกินไม่เกิน 10 นาทีไม่คิด เกินกว่านั้นคิดเพิ่มทีละครึ่งชั่วโมง (อัตรารายชั่วโมง) |
-| ผู้เล่น     | ≤ capacity ของโต๊ะ และอยู่ในช่วง min–max ของเกม                                  |
-| ชนกัน       | โต๊ะเดียวกัน / เกมเดียวกัน / ผู้ใช้คนเดียวกัน ห้ามเวลาทับกัน                     |
+| กฎ          | ค่า                                                                                             |
+| ----------- | ----------------------------------------------------------------------------------------------- |
+| ราคา        | `ชั่วโมง × (ผู้เล่น × 50 + extraPerHour ของโต๊ะ)` บาท                                           |
+| จองล่วงหน้า | ไม่เกิน 3 วัน, เริ่มย้อนหลังได้ไม่เกิน 15 นาที (walk-in)                                        |
+| ระยะเวลา    | 1–6 ชม. ทีละ 0.5                                                                                |
+| แพ็กเกจ     | `hourly` (รายชั่วโมง) หรือ `flat3h` เหมา 3 ชม. = ผู้เล่น × 130 + 3 × ค่าโต๊ะ                    |
+| เกินเวลา    | เกินไม่เกิน 10 นาทีไม่คิด เกินกว่านั้นคิดเพิ่มทีละครึ่งชั่วโมง (อัตรารายชั่วโมง)                |
+| ผู้เล่น     | ≤ capacity ของโต๊ะ และอยู่ในช่วง min–max ของเกม                                                 |
+| ยกเลิก      | สมาชิกยกเลิกเองได้ถึงก่อนเริ่ม 2 ชม. (`CANCEL_CUTOFF_HOURS`, 0 = ได้จนถึงเวลาเริ่ม)             |
+| ชนกัน       | โต๊ะเดียวกัน / ผู้ใช้คนเดียวกัน ห้ามเวลาทับกัน. เกมเดียวกันใช้พร้อมกันได้ไม่เกิน `copies` กล่อง |
 
 ## สถานะ
 
 - **Reservation:** `booked` (จองล่วงหน้า) → `playing` (ถึงเวลาเริ่ม — ระบบเปลี่ยนให้อัตโนมัติ) → `completed` (กดคืนเกม). ยกเลิกได้ → `cancelled`, ลูกค้าไม่มา (admin กด) → `no_show`
-- **Game:** `available` → `in_use` (มีโต๊ะกำลังเล่น) → `available` หลังคืนเกม. `maintenance` = admin ปิดจอง
+- **Game:** `available` → `in_use` (กำลังเล่นอยู่ครบทุกกล่อง) → `available` หลังคืนเกม. `maintenance` = ซ่อมอยู่ครบทุกกล่อง (หรือ admin ปิดจองเอง)
 - **Table:** `active` / `closed`. บน floor plan มี `state`: `available` · `reserved` · `occupied` · `closed`
 
 ## ฝั่งผู้ใช้ (FE user 2 คน)
 
-| หน้า                      | Endpoint                                                                              |
-| ------------------------- | ------------------------------------------------------------------------------------- |
-| เลือกเวลา → ดูว่าอะไรว่าง | `GET /api/reservations/availability?startAt=&durationHours=2&players=4`               |
-| Floor plan                | `GET /api/tables/floor?startAt=&durationHours=2` (ไม่ส่ง = ตอนนี้)                    |
-| คำนวณราคาก่อนยืนยัน       | `POST /api/reservations/quote` (body เดียวกับจอง)                                     |
-| ยืนยันจอง                 | `POST /api/reservations`                                                              |
-| การจองของฉัน (3 แท็บ)     | `GET /api/reservations?scope=active` · `upcoming` · `past`                            |
-| แก้ไขการจอง               | `PUT /api/reservations/:id` (ได้เฉพาะ `booked`)                                       |
-| ยกเลิก                    | `PATCH /api/reservations/:id/cancel` body `{ "reason": "..." }`                       |
-| เล่นเสร็จ / คืนเกม        | `PATCH /api/reservations/:id/return`                                                  |
-| รีวิวเกม                  | `POST /api/reviews` · `GET /api/reviews/:gameId` · `GET /api/reviews/:gameId/summary` |
-| รีวิวของฉัน               | `GET /api/reviews/my`                                                                 |
-| หน้าโปรไฟล์: สถิติ        | `GET /api/stats/me`                                                                   |
-| หน้า Home: เกมยอดนิยม     | `GET /api/stats/popular-games?limit=6`                                                |
+| หน้า                      | Endpoint                                                                                |
+| ------------------------- | --------------------------------------------------------------------------------------- |
+| เลือกเวลา → ดูว่าอะไรว่าง | `GET /api/reservations/availability?startAt=&durationHours=2&players=4`                 |
+| Floor plan                | `GET /api/tables/floor?startAt=&durationHours=2` (ไม่ส่ง = ตอนนี้)                      |
+| คำนวณราคาก่อนยืนยัน       | `POST /api/reservations/quote` (body เดียวกับจอง)                                       |
+| ยืนยันจอง                 | `POST /api/reservations`                                                                |
+| การจองของฉัน (3 แท็บ)     | `GET /api/reservations?scope=active` · `upcoming` · `past` (+ `counts`, ค้นด้วย `q`)    |
+| แก้ไขการจอง               | `PUT /api/reservations/:id` (ได้เฉพาะ `booked`)                                         |
+| ยกเลิก                    | `PATCH /api/reservations/:id/cancel` body `{ "reason": "..." }` (ก่อนเริ่ม ≥ 2 ชม.)     |
+| เล่นเสร็จ / คืนเกม        | `PATCH /api/reservations/:id/return`                                                    |
+| ขอต่อเวลา                 | `PATCH /api/reservations/:id/extend` body `{ "hours": 1 }`                              |
+| เรียก GM / พนักงาน        | `POST /api/assist` · `GET /api/assist/my?reservation=` · `PATCH /api/assist/:id/cancel` |
+| รีวิวเกม                  | `POST /api/reviews` · `GET /api/reviews/:gameId` · `GET /api/reviews/:gameId/summary`   |
+| รีวิวของฉัน               | `GET /api/reviews/my`                                                                   |
+| หน้าโปรไฟล์: สถิติ        | `GET /api/stats/me`                                                                     |
+| หน้า Home: เกมยอดนิยม     | `GET /api/stats/popular-games?limit=6`                                                  |
 
 Body การจอง:
 
@@ -265,21 +289,24 @@ Availability response (ย่อ):
 
 ## ฝั่งแอดมิน (FE admin 2 คน)
 
-| หน้า                              | Endpoint                                                              |
-| --------------------------------- | --------------------------------------------------------------------- |
-| Dashboard การ์ดตัวเลข             | `GET /api/stats/overview?date=2026-10-12`                             |
-| กราฟรายวัน                        | `GET /api/stats/daily?from=&to=` (default 7 วันล่าสุด)                |
-| กราฟช่วงเวลาคนเยอะ                | `GET /api/stats/hourly?from=&to=`                                     |
-| การใช้งานแต่ละโต๊ะ                | `GET /api/stats/tables?from=&to=`                                     |
-| ผังโต๊ะ + ดูว่าโต๊ะไหนเล่นเกมอะไร | `GET /api/tables/floor` → `tables[].current.game`                     |
-| จัดการโต๊ะ                        | `GET/POST /api/tables` · `PUT/DELETE /api/tables/:id`                 |
-| เปิด/ปิดปรับปรุงโต๊ะ              | `PATCH /api/tables/:id/status` body `{ "status": "closed" }`          |
-| รายการจองทั้งหมดของวัน            | `GET /api/reservations/admin?date=2026-10-12&status=playing`          |
-| รับคืนเกมที่เคาน์เตอร์            | `PATCH /api/reservations/:id/return`                                  |
-| ยกเลิกการจองที่ไม่เหมาะสม         | `PATCH /api/reservations/:id/cancel` (admin ยกเลิกได้แม้กำลังเล่น)    |
-| ลบการจอง                          | `DELETE /api/reservations/admin/:id`                                  |
-| ตั้งเกมเป็น maintenance           | `PUT /api/games/:id` body `{ "status": "maintenance" }` (module คน A) |
-| ดูรีวิว / ลบรีวิว                 | `GET /api/reviews?maxRating=3` · `DELETE /api/reviews/:id`            |
+| หน้า                              | Endpoint                                                                                                         |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Dashboard การ์ดตัวเลข             | `GET /api/stats/overview?date=2026-10-12`                                                                        |
+| กราฟรายวัน                        | `GET /api/stats/daily?from=&to=` (default 7 วันล่าสุด)                                                           |
+| กราฟช่วงเวลาคนเยอะ                | `GET /api/stats/hourly?from=&to=`                                                                                |
+| การใช้งานแต่ละโต๊ะ                | `GET /api/stats/tables?from=&to=`                                                                                |
+| ผังโต๊ะ + ดูว่าโต๊ะไหนเล่นเกมอะไร | `GET /api/tables/floor` → `tables[].current.game`                                                                |
+| จัดการโต๊ะ                        | `GET/POST /api/tables` · `PUT/DELETE /api/tables/:id`                                                            |
+| เปิด/ปิดปรับปรุงโต๊ะ              | `PATCH /api/tables/:id/status` body `{ "status": "closed" }`                                                     |
+| รายการจองทั้งหมดของวัน            | `GET /api/reservations/admin?date=2026-10-12&status=playing`                                                     |
+| รับคืนเกมที่เคาน์เตอร์            | `PATCH /api/reservations/:id/return`                                                                             |
+| ยกเลิกการจองที่ไม่เหมาะสม         | `PATCH /api/reservations/:id/cancel` (admin ยกเลิกได้แม้กำลังเล่น)                                               |
+| ลบการจอง                          | `DELETE /api/reservations/admin/:id`                                                                             |
+| คิวเรียกพนักงาน (GM)              | `GET /api/assist` (default = ยังไม่เสร็จ, มี `counts.open`) — poll ทุก 15–30 วิ                                  |
+| รับเรื่อง / เสร็จแล้ว             | `PATCH /api/assist/:id` body `{ "status": "acknowledged" }` หรือ `{ "status": "resolved", "resolution": "..." }` |
+| ต่อเวลาให้ลูกค้า                  | `PATCH /api/reservations/:id/extend` (admin ต่อเกิน max ชม./นอกเวลาได้)                                          |
+| ตั้งเกมเป็น maintenance           | `PUT /api/games/:id` body `{ "status": "maintenance" }` (module คน A)                                            |
+| ดูรีวิว / ลบรีวิว                 | `GET /api/reviews?maxRating=3` · `DELETE /api/reviews/:id`                                                       |
 
 Table body (`position` เป็น % ของพื้นที่ floor plan 0–100 — แก้ position ให้ส่งครบทั้ง x,y,w,h):
 
@@ -385,7 +412,8 @@ Table body (`position` เป็น % ของพื้นที่ floor plan 
     "minHours": 1,
     "maxHours": 6,
     "overtimeGraceMin": 10,
-    "extraSeats": 2
+    "extraSeats": 2,
+    "cancelCutoffHours": 2
   },
   "operatingHours": {
     "enforce": true,
@@ -438,12 +466,19 @@ Table body (`position` เป็น % ของพื้นที่ floor plan 
   "game": "<gameId>",
   "title": "การ์ดหาย",
   "description": "...",
-  "priority": "high"
+  "priority": "high",
+  "copies": 1
 }
 ```
 
-- แจ้งซ่อม → เกมเป็น `maintenance` (จองไม่ได้) / โต๊ะเป็น `closed` อัตโนมัติ
-- ปิดงาน (`resolved`) หรือลบใบแจ้ง → เปิดใช้งานคืนอัตโนมัติ (ถ้าไม่มีใบอื่นค้าง)
+- เกม: ใส่ `copies` = เสียกี่กล่อง (default 1) → ปิดเฉพาะกล่องนั้น กล่องที่เหลือยังจองได้. เกมเป็น `maintenance` (จองไม่ได้) เมื่อซ่อมครบทุกกล่อง. แจ้งเกินจำนวนกล่องที่ยังดีได้ 400
+- โต๊ะ: เป็น `closed` อัตโนมัติ
+- ปิดงาน (`resolved`) หรือลบใบแจ้ง → กล่อง/โต๊ะกลับมาใช้ได้อัตโนมัติ (แก้จำนวนกล่องได้ด้วย `PATCH /api/maintenance/:id` body `{ "copies": 2 }`)
+- `/availability` มี `copiesInRepair` = กล่องที่ซ่อมอยู่
+- ผลของ `POST` / `PATCH /api/maintenance` (เกม) มี `affectedReservations` = การจองที่ไม่มีกล่องให้แล้วหลังแจ้งซ่อม (คนที่เริ่มทีหลังตอนกล่องเต็ม) → แสดงเตือน admin ให้ติดต่อลูกค้าหรือเปลี่ยนเกม (ระบบไม่ยกเลิกให้เอง)
+- เกมที่ admin ปิดเอง (ตั้ง `status: maintenance` ที่หน้าแก้เกม) จะไม่ถูกเปิดคืนโดยการปิดใบแจ้งซ่อม ไม่ว่าจะแจ้งกี่กล่อง — ต้องเปิดเองที่หน้าแก้เกม
+- เกมที่ถูกปิดเพราะใบแจ้งซ่อม จะเปิดคืนเองเมื่อซ่อมเสร็จ แม้จำนวนกล่องของเกมจะถูกแก้ระหว่างซ่อม
+- module games (คน A): หลังแก้ `copies` ของเกม ให้เรียก `onGameCopiesChanged(gameId)` จาก `reservations.lifecycle.js` เพื่อคำนวณสถานะเกมใหม่
 - คืนเกมแบบ `condition: "damaged"` (หน้า 15) → ระบบเปิดใบแจ้งซ่อมให้เอง
 
 ### หน้า 12 — ภาพรวมร้าน
@@ -469,6 +504,39 @@ Table body (`position` เป็น % ของพื้นที่ floor plan 
 - รายได้อาหาร/เครื่องดื่ม, ส่งยอดเข้า POS, เก็บ/ริบเงินมัดจำจริง — ไม่มีในระบบ (settings เก็บแค่ค่า `depositPerPerson` ไว้แสดง)
 - Audit log (หน้า 9), ศูนย์แจ้งเตือน (หน้า 10), สิทธิ์ละเอียด (หน้า 16), SSO — นอกขอบเขต B
 - ระบบ Pending/Confirmed — การจองยืนยันทันที
+
+### หน้า 10 — ศูนย์การแจ้งเตือน (Notification Center)
+
+admin เท่านั้น — การแจ้งเตือนสร้างอัตโนมัติจากเหตุการณ์ในระบบ (ไม่ต้องสร้างเอง), สถานะ "อ่านแล้ว" แยกรายคน, เก็บ 60 วัน
+
+| ส่วนบนหน้า                               | Endpoint                                                                                                   |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| ไอคอนกระดิ่ง + ตัวเลข                    | `GET /api/notifications/unread-count` → `{ unread, important }` (poll ทุก 15–30 วิ)                        |
+| Filter Tabs ทั้งหมด / ยังไม่อ่าน / สำคัญ | `GET /api/notifications?filter=all\|unread\|important`                                                     |
+| แยกกลุ่มตามวัน                           | แต่ละรายการมี `dayGroup` (`today` / `yesterday` / `earlier`) และ `day` (YYYY-MM-DD)                        |
+| ปุ่มดำเนินการด่วน                        | `actions[]` = `{ key, label, method, path, body }` → เรียก API ตามนั้นได้เลย, ถ้า `done: true` ให้ซ่อนปุ่ม |
+| กดอ่าน 1 รายการ                          | `PATCH /api/notifications/:id/read`                                                                        |
+| อ่านทั้งหมดแล้ว                          | `PATCH /api/notifications/read-all`                                                                        |
+| ไอคอนตั้งค่า                             | `GET` / `PUT /api/notifications/preferences` body `{ "muted": ["booking_cancelled"] }`                     |
+
+| `type` (ไอคอน)      | เกิดเมื่อ                               | สำคัญ                                | ปุ่ม             |
+| ------------------- | --------------------------------------- | ------------------------------------ | ---------------- |
+| `booking_new`       | สมาชิกจองออนไลน์                        |                                      | ดูการจอง         |
+| `booking_cancelled` | สมาชิกยกเลิกเอง                         |                                      |                  |
+| `time_ending`       | โต๊ะเหลือ ≤ 10 นาที                     |                                      | ต่อเวลา, เช็คบิล |
+| `time_overdue`      | เลยเวลาแล้วยังไม่คืนเกม                 | ✅                                   | ต่อเวลา, เช็คบิล |
+| `assist`            | ลูกค้ากดเรียก GM                        | ✅                                   | รับเรื่อง        |
+| `maintenance_new`   | แจ้งซ่อม / เกมชำรุดตอนคืน               | ✅ ถ้า priority high หรือชำรุดตอนคืน | ดูใบแจ้งซ่อม     |
+| `maintenance_done`  | ซ่อมเสร็จ                               |                                      |                  |
+| `booking_affected`  | แจ้งซ่อมแล้วมีการจองที่ไม่มีกล่องเกมให้ | ✅                                   | ดูใบแจ้งซ่อม     |
+
+```js
+// ตัวอย่าง: ปุ่มดำเนินการด่วน
+async function runAction(a) {
+  await api(a.path.replace(/^\/api/, ''), { method: a.method, body: a.body });
+  await load(); // โหลดรายการใหม่ (รายการนั้นจะเป็น done: true)
+}
+```
 
 ## Demo data
 

@@ -20,6 +20,7 @@ export const RULES = {
   OVERTIME_GRACE_MIN: 10, // เล่นเกินเวลาไม่เกิน 10 นาที ไม่คิดเงินเพิ่ม
   START_GRACE_MIN: 15, // ยอมให้เวลาเริ่มย้อนหลังได้ 15 นาที (walk-in)
   OVERDUE_BLOCK_MIN: 30, // โต๊ะ/เกมที่เล่นเกินเวลายังไม่คืน กันไม่ให้จองช่วงใกล้ ๆ นี้
+  CANCEL_CUTOFF_HOURS: 2, // สมาชิกยกเลิกเองได้ถึงก่อนเริ่ม 2 ชม. (0 = ยกเลิกได้ตลอดจนถึงเวลาเริ่ม)
   OPERATING: { enforce: false, days: DEFAULT_DAYS },
 };
 
@@ -97,6 +98,86 @@ export function bookingWindowError(startAt, now = new Date(), rules = RULES) {
   }
   if (startAt.getTime() > now.getTime() + rules.MAX_ADVANCE_DAYS * 24 * HOUR_MS) {
     return `can book at most ${rules.MAX_ADVANCE_DAYS} days in advance`;
+  }
+  return null;
+}
+
+/** จำนวนกล่องของเกม (field `copies` ของ module games — ไม่มี = 1 กล่อง) */
+export function copiesOf(game) {
+  const n = Number(game?.copies);
+  return Number.isInteger(n) && n > 0 ? n : 1;
+}
+
+/**
+ * จำนวนกล่องที่ถูกใช้พร้อมกันสูงสุดในช่วง [startAt, endAt) จากรายการจอง (startAt/endAt/status)
+ * - นับแบบ sweep line: การจองที่ไม่ได้ทับกันจริง (ต่อคิวกัน) ใช้กล่องเดียวกันได้
+ * - เกมที่เล่นเกินเวลายังไม่คืน (playing แต่ endAt ผ่านแล้ว) ถือว่าถือกล่องไว้ทั้งช่วง
+ */
+export function peakUsage(rows, { startAt, endAt }) {
+  const s0 = startAt.getTime();
+  const e0 = endAt.getTime();
+  const events = [];
+  for (const r of rows) {
+    const rs = new Date(r.startAt).getTime();
+    let re = new Date(r.endAt).getTime();
+    if (r.status === 'playing' && re <= s0) re = e0; // ค้างคืนเกม
+    const s = Math.max(rs, s0);
+    const e = Math.min(re, e0);
+    if (s < e) events.push([s, 1], [e, -1]);
+  }
+  events.sort((a, b) => a[0] - b[0] || a[1] - b[1]); // จบก่อนเริ่ม ณ เวลาเดียวกัน
+  let cur = 0;
+  let peak = 0;
+  for (const [, d] of events) {
+    cur += d;
+    if (cur > peak) peak = cur;
+  }
+  return peak;
+}
+
+/**
+ * การจองที่ "ไม่มีกล่องให้" เมื่อกล่องที่ใช้ได้ลดลงเหลือ usable (เช่น หลังแจ้งซ่อม)
+ * จัดกล่องให้ตามลำดับเวลาเริ่ม (กำลังเล่นได้ก่อน) — คนที่มาทีหลังตอนกล่องเต็มคือคนที่ได้รับผลกระทบ
+ * rows: { _id, startAt, endAt, status } ของการจอง booked/playing ที่ยังไม่จบ
+ */
+export function overbooked(rows, usable, now = new Date(), rules = RULES) {
+  const holdUntil = now.getTime() + rules.OVERDUE_BLOCK_MIN * MINUTE_MS;
+  const items = rows
+    .map((r) => {
+      const start = new Date(r.startAt).getTime();
+      let end = new Date(r.endAt).getTime();
+      if (r.status === 'playing') end = Math.max(end, holdUntil); // ยังไม่คืน → ถือกล่องไว้ก่อน
+      return { r, start, end, playing: r.status === 'playing' };
+    })
+    .sort((a, b) => a.start - b.start || b.playing - a.playing);
+  const holding = []; // end time ของกล่องที่ถูกใช้อยู่
+  const affected = [];
+  for (const it of items) {
+    for (let i = holding.length - 1; i >= 0; i -= 1)
+      if (holding[i] <= it.start) holding.splice(i, 1);
+    if (holding.length < Math.max(0, usable)) holding.push(it.end);
+    else affected.push(it.r);
+  }
+  return affected;
+}
+
+/** ค่าต่อเวลา — คิดอัตรารายชั่วโมงเดียวกับตอนจอง (แพ็กเกจเหมาก็คิดรายชั่วโมงส่วนที่ต่อ) */
+export function extensionCharge({
+  hours,
+  players,
+  perPersonHour,
+  tableExtraPerHour = 0,
+  rules = RULES,
+}) {
+  const perHour = players * (perPersonHour ?? rules.PRICE_PER_PERSON_HOUR) + tableExtraPerHour;
+  return Math.round(hours * perHour);
+}
+
+/** สมาชิกยกเลิกเองได้ไหม — ต้องยกเลิกก่อนเวลาเริ่มอย่างน้อย CANCEL_CUTOFF_HOURS */
+export function cancelCutoffError(startAt, now = new Date(), rules = RULES) {
+  const cutoff = rules.CANCEL_CUTOFF_HOURS ?? 0;
+  if (cutoff > 0 && startAt.getTime() - now.getTime() < cutoff * HOUR_MS) {
+    return `can cancel at most ${cutoff} hours before start — please contact staff`;
   }
   return null;
 }

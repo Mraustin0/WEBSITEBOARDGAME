@@ -4,11 +4,16 @@ import {
   bookingWindowError,
   calcCheckout,
   calcPrice,
+  cancelCutoffError,
   computeEnd,
   conflictFilter,
+  copiesOf,
+  extensionCharge,
   openHoursOfDay,
   operatingHoursError,
+  overbooked,
   overlaps,
+  peakUsage,
 } from '../src/modules/reservations/reservations.rules.js';
 import { eachLocalDate, localDayRange, toLocalDateString } from '../src/lib/time.js';
 
@@ -148,5 +153,58 @@ describe('settings-driven rules (unit)', () => {
     expect(openHoursOfDay(1, { days: week() })).toBe(12);
     expect(openHoursOfDay(1, { days: week({ open: '18:00', close: '02:00' }) })).toBe(8);
     expect(openHoursOfDay(1, { days: week({ closed: true }) })).toBe(0);
+  });
+
+  it('members can cancel only up to CANCEL_CUTOFF_HOURS before start', () => {
+    const now = new Date('2026-10-01T10:00:00Z');
+    const at = (h) => new Date(now.getTime() + h * H);
+    expect(RULES.CANCEL_CUTOFF_HOURS).toBe(2);
+    expect(cancelCutoffError(at(3), now)).toBeNull();
+    expect(cancelCutoffError(at(2), now)).toBeNull(); // พอดี 2 ชม. ยังยกเลิกได้
+    expect(cancelCutoffError(at(1.5), now)).toMatch(/2 hours/);
+    expect(cancelCutoffError(at(1), now, { ...RULES, CANCEL_CUTOFF_HOURS: 0 })).toBeNull();
+  });
+
+  it('charges extensions at the booking-time hourly rate', () => {
+    expect(extensionCharge({ hours: 1, players: 2 })).toBe(100);
+    expect(
+      extensionCharge({ hours: 0.5, players: 4, perPersonHour: 60, tableExtraPerHour: 20 }),
+    ).toBe(130);
+  });
+
+  it('reads game copies (missing / invalid → 1)', () => {
+    expect(copiesOf({})).toBe(1);
+    expect(copiesOf(null)).toBe(1);
+    expect(copiesOf({ copies: 3 })).toBe(3);
+    expect(copiesOf({ copies: 0 })).toBe(1);
+  });
+
+  it('counts the peak number of copies used at the same time', () => {
+    const t = (h) => new Date(Date.UTC(2026, 9, 1, h));
+    const win = { startAt: t(13), endAt: t(15) };
+    const row = (s, e, status = 'booked') => ({ startAt: t(s), endAt: t(e), status });
+    expect(peakUsage([], win)).toBe(0);
+    // ต่อคิวกัน (13-14 แล้ว 14-15) ใช้กล่องเดียวพอ
+    expect(peakUsage([row(13, 14), row(14, 15)], win)).toBe(1);
+    // ทับกันจริงช่วง 13:30-14
+    expect(peakUsage([row(13, 14), row(13.5, 15)], win)).toBe(2);
+    // อยู่นอกช่วงไม่นับ
+    expect(peakUsage([row(10, 12), row(16, 17)], win)).toBe(0);
+    // เล่นเกินเวลายังไม่คืน → ถือกล่องทั้งช่วง
+    expect(peakUsage([row(10, 12, 'playing'), row(14, 15)], win)).toBe(2);
+  });
+
+  it('finds bookings left without a copy when usable copies drop', () => {
+    const now = new Date(Date.UTC(2026, 9, 1, 12));
+    const t = (h) => new Date(Date.UTC(2026, 9, 1, h));
+    const row = (id, s, e, status = 'booked') => ({ _id: id, startAt: t(s), endAt: t(e), status });
+    const rows = [row('a', 13, 14), row('b', 13.5, 14.5), row('c', 14, 15), row('d', 16, 17)];
+    // เหลือ 1 กล่อง: a ได้ก่อน, b ทับ a → ไม่มีกล่อง, c เริ่มตอน a จบ → ได้, d ได้
+    expect(overbooked(rows, 1, now).map((r) => r._id)).toEqual(['b']);
+    expect(overbooked(rows, 2, now)).toEqual([]);
+    expect(overbooked(rows, 0, now).map((r) => r._id)).toEqual(['a', 'b', 'c', 'd']);
+    // กำลังเล่น (เกินเวลา ยังไม่คืน) ได้กล่องก่อนเสมอ
+    const late = [row('p', 10, 11, 'playing'), row('x', 12, 13)];
+    expect(overbooked(late, 1, now).map((r) => r._id)).toEqual(['x']);
   });
 });

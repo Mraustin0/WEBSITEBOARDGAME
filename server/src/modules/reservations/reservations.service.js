@@ -9,20 +9,38 @@ import {
   bookingWindowError,
   calcCheckout,
   calcPrice,
+  cancelCutoffError,
   computeEnd,
   conflictFilter,
+  copiesOf,
   durationError,
+  extensionCharge,
   operatingHoursError,
+  peakUsage,
   PACKAGES,
   RULES,
 } from './reservations.rules.js';
 import { getRules } from '../settings/settings.service.js';
 import { openDamageTicket } from '../maintenance/maintenance.service.js';
-import { findBusy, refreshGameStatus, syncLifecycle } from './reservations.lifecycle.js';
+import {
+  notifyBookingCancelled,
+  notifyBookingNew,
+  resolveTimeAlerts,
+} from '../notifications/notifications.service.js';
+import {
+  brokenCopies,
+  findBusy,
+  refreshGameStatus,
+  syncLifecycle,
+  usableCopies,
+} from './reservations.lifecycle.js';
 
 const POPULATE = [
   { path: 'table', select: 'code name zone capacity status extraPerHour' },
-  { path: 'game', select: 'name thumbnail minPlayers maxPlayers status' },
+  {
+    path: 'game',
+    select: 'name thumbnail image minPlayers maxPlayers playtimeMin bggAverage status',
+  },
   { path: 'user', select: 'username email' },
   { path: 'createdBy', select: 'username' },
   { path: 'returnedBy', select: 'username' },
@@ -49,10 +67,28 @@ async function loadTable(id) {
 
 async function loadGame(id) {
   if (!id) return null;
-  const game = await Game.findById(id);
+  const game = await Game.findById(id).lean(); // lean → ได้ field copies แม้ schema ยังไม่มี
   if (!game) throw notFound('game not found');
   if (game.status === 'maintenance') throw conflict(`${game.name} is under maintenance`);
   return game;
+}
+
+/**
+ * เกมนี้เหลือกล่องว่างในช่วงเวลาไหม (เทียบกับการจองอื่นที่ทับช่วงนั้น)
+ * คืน null ถ้าว่าง, ไม่งั้นคืนข้อความ error
+ */
+async function gameFullError(game, { startAt, endAt }, { excludeId, now = new Date() } = {}) {
+  const filter = { ...conflictFilter({ startAt, endAt }, now), game: game._id };
+  if (excludeId) filter._id = { $ne: excludeId };
+  const [rows, { copies, usable }] = await Promise.all([
+    Reservation.find(filter).select('startAt endAt status').lean(),
+    usableCopies(game), // ไม่นับกล่องที่ซ่อมอยู่
+  ]);
+  if (usable <= 0) return `${game.name} is under maintenance`;
+  if (peakUsage(rows, { startAt, endAt }) < usable) return null;
+  return copies > 1
+    ? `all ${usable} available copies of ${game.name} are booked for this time`
+    : `${game.name} is already booked for this time`;
 }
 
 /**
@@ -87,13 +123,13 @@ async function validateBooking(
   const base = conflictFilter({ startAt, endAt }, now);
   if (excludeId) base._id = { $ne: excludeId };
 
-  const [tableClash, gameClash, userClash] = await Promise.all([
+  const [tableClash, gameErr, userClash] = await Promise.all([
     Reservation.exists({ ...base, table: table._id }),
-    game ? Reservation.exists({ ...base, game: game._id }) : null,
+    game ? gameFullError(game, { startAt, endAt }, { excludeId, now }) : null,
     userId ? Reservation.exists({ ...base, user: userId }) : null,
   ]);
   if (tableClash) throw conflict(`table ${table.code} is already booked for this time`);
-  if (gameClash) throw conflict(`${game.name} is already booked for this time`);
+  if (gameErr) throw conflict(gameErr);
   if (userClash) throw conflict('you already have a reservation overlapping this time');
 
   const price = calcPrice({
@@ -136,7 +172,9 @@ export async function create(userId, body) {
     note: body.note,
   });
   await syncLifecycle(); // ถ้าจองแบบเริ่มเลย (walk-in) จะเปลี่ยนเป็น playing ทันที
-  return Reservation.findById(r._id).populate(POPULATE);
+  const saved = await Reservation.findById(r._id).populate(POPULATE);
+  await notifyBookingNew(saved); // แจ้งพนักงาน: มีการจองออนไลน์ใหม่
+  return saved;
 }
 
 const SCOPES = {
@@ -149,19 +187,36 @@ const SCOPES = {
   all: { filter: {}, sort: { startAt: -1 } },
 };
 
-export async function listMine(userId, { scope, page, limit }) {
+/** filter ค้นหาจากรหัส/ชื่อโต๊ะ หรือชื่อเกม (ช่องค้นหาในหน้า "การจองของฉัน") */
+async function searchFilter(q) {
+  if (!q) return {};
+  const rx = new RegExp(escapeRegex(q), 'i');
+  const [tables, games] = await Promise.all([
+    Table.find({ $or: [{ code: rx }, { name: rx }, { zone: rx }] }).distinct('_id'),
+    Game.find({ name: rx }).distinct('_id'),
+  ]);
+  return { $or: [{ table: { $in: tables } }, { game: { $in: games } }] };
+}
+
+export async function listMine(userId, { scope, q, page, limit }) {
   await syncLifecycle();
   const { filter, sort } = SCOPES[scope];
-  const query = { user: userId, ...filter };
-  const [items, total] = await Promise.all([
+  const base = { user: userId, ...(await searchFilter(q)) };
+  const query = { ...base, ...filter };
+  const countOf = (name) => Reservation.countDocuments({ ...base, ...SCOPES[name].filter });
+  const [items, total, active, upcoming, past] = await Promise.all([
     Reservation.find(query)
       .populate(POPULATE)
       .sort(sort)
       .skip((page - 1) * limit)
       .limit(limit),
     Reservation.countDocuments(query),
+    countOf('active'),
+    countOf('upcoming'),
+    countOf('past'),
   ]);
-  return { items, total, page, limit };
+  // counts = ตัวเลขบนแท็บ (นับตามคำค้นเดียวกัน)
+  return { items, total, page, limit, counts: { active, upcoming, past } };
 }
 
 export async function getById(id, user) {
@@ -217,6 +272,10 @@ export async function cancel(id, user, reason = '') {
   if (!['booked', 'playing'].includes(r.status)) {
     throw conflict(`cannot cancel a ${r.status} reservation`);
   }
+  if (!admin) {
+    const err = cancelCutoffError(r.startAt, new Date(), await getRules());
+    if (err) throw conflict(err);
+  }
   const wasPlaying = r.status === 'playing';
   Object.assign(r, {
     status: 'cancelled',
@@ -226,7 +285,10 @@ export async function cancel(id, user, reason = '') {
   });
   await r.save();
   if (wasPlaying) await refreshGameStatus(r.game);
-  return r.populate(POPULATE);
+  await r.populate(POPULATE);
+  await resolveTimeAlerts(r._id);
+  if (!admin) await notifyBookingCancelled(r); // สมาชิกยกเลิกเอง → แจ้งพนักงาน
+  return r;
 }
 
 function assertPlaying(r) {
@@ -309,6 +371,7 @@ export async function returnGame(
   } else {
     await refreshGameStatus(r.game);
   }
+  await resolveTimeAlerts(r._id); // คืนเกมแล้ว → แจ้งเตือนเวลาของโต๊ะนี้จบ
   return r.populate(POPULATE);
 }
 
@@ -327,18 +390,77 @@ export async function setGame(id, user, gameId) {
       throw badRequest(`${game.name} needs ${game.minPlayers}-${game.maxPlayers} players`);
     }
     const now = new Date();
-    const clash = await Reservation.exists({
-      ...conflictFilter({ startAt: now, endAt: r.endAt > now ? r.endAt : now }, now),
-      _id: { $ne: r._id },
-      game: game._id,
-    });
-    if (clash) throw conflict(`${game.name} is being played or booked right now`);
+    const until = r.endAt > now ? r.endAt : new Date(now.getTime() + 60 * 1000);
+    const err = await gameFullError(
+      game,
+      { startAt: now, endAt: until },
+      { excludeId: r._id, now },
+    );
+    if (err) throw conflict(`${game.name} has no free copy right now`);
   }
 
   r.game = game?._id ?? null;
   await r.save();
   if (oldGame && String(oldGame) !== String(r.game)) await refreshGameStatus(oldGame);
   if (game) await refreshGameStatus(game._id);
+  return Reservation.findById(r._id).populate(POPULATE);
+}
+
+/**
+ * ขอต่อเวลา (ปุ่ม "ขอต่อเวลา" บนการ์ดโต๊ะที่กำลังเล่น)
+ * ต่อได้ถ้าโต๊ะ / เกม / ผู้ใช้ ไม่ชนกับการจองถัดไป — คิดเงินเพิ่มตามอัตราตอนจอง
+ * สมาชิก: รวมแล้วต้องไม่เกิน MAX_HOURS และอยู่ในเวลาทำการ (ถ้าเปิด enforce), admin ข้ามได้
+ */
+export async function extend(id, user, hours) {
+  await syncLifecycle();
+  const r = await loadOwned(id, user);
+  if (!['booked', 'playing'].includes(r.status)) {
+    throw conflict(`cannot extend a ${r.status} reservation`);
+  }
+  const staff = isAdmin(user);
+  const rules = await getRules();
+  const newDuration = r.durationHours + hours;
+  const newEnd = computeEnd(r.endAt, hours);
+
+  if (!staff) {
+    if (newDuration > rules.MAX_HOURS) {
+      throw badRequest(`total duration cannot exceed ${rules.MAX_HOURS} hours — ask staff`);
+    }
+    const hoursErr = operatingHoursError(r.startAt, newEnd, rules.OPERATING);
+    if (hoursErr) throw badRequest(hoursErr);
+  }
+
+  const now = new Date();
+  const base = {
+    ...conflictFilter({ startAt: r.endAt, endAt: newEnd }, now),
+    _id: { $ne: r._id },
+  };
+  const game = r.game ? await Game.findById(r.game).select('name copies').lean() : null;
+  const [tableClash, gameErr, userClash] = await Promise.all([
+    Reservation.exists({ ...base, table: r.table }),
+    game
+      ? gameFullError(game, { startAt: r.endAt, endAt: newEnd }, { excludeId: r._id, now })
+      : null,
+    r.user ? Reservation.exists({ ...base, user: r.user }) : null,
+  ]);
+  if (tableClash) throw conflict('the table is booked right after — cannot extend');
+  if (gameErr) throw conflict(`cannot extend — ${gameErr}`);
+  if (userClash) throw conflict('you have another reservation right after');
+
+  const charge = extensionCharge({
+    hours,
+    players: r.players,
+    perPersonHour: r.price?.perPersonHour,
+    tableExtraPerHour: r.price?.tableExtraPerHour ?? 0,
+    rules,
+  });
+  r.endAt = newEnd;
+  r.durationHours = newDuration;
+  r.price.total += charge;
+  r.price.hours = newDuration;
+  r.extensions.push({ hours, charge, at: now, by: user._id });
+  await r.save();
+  await resolveTimeAlerts(r._id); // ต่อเวลาแล้ว (ถ้าใกล้หมดอีกจะแจ้งใหม่ตามเวลาใหม่)
   return Reservation.findById(r._id).populate(POPULATE);
 }
 
@@ -372,16 +494,32 @@ export async function availability({ startAt, durationHours, players }) {
     durationError(durationHours, rules) ||
     operatingHoursError(startAt, endAt, rules.OPERATING);
 
-  const [busy, tables, games] = await Promise.all([
+  const [busy, tables, games, broken] = await Promise.all([
     findBusy({ startAt, endAt }, now),
     Table.find().sort({ zone: 1, code: 1 }).lean(),
     Game.find()
-      .select('name thumbnail minPlayers maxPlayers playtimeMin status')
+      .select(
+        'name thumbnail image minPlayers maxPlayers playtimeMin status copies bggAverage bggWeight categories designers yearPublished',
+      )
       .sort({ name: 1 })
       .lean(),
+    brokenCopies(),
   ]);
   const busyTables = new Set(busy.map((r) => String(r.table)));
-  const busyGames = new Set(busy.filter((r) => r.game).map((r) => String(r.game._id)));
+  // เกมนี้ถูกใช้/จองอยู่ที่โต๊ะไหนในช่วงนั้น (แสดง "In Use (T-04)" ใน modal เลือกเกม)
+  const tableCode = new Map(tables.map((t) => [String(t._id), t.code]));
+  const gameTables = new Map();
+  for (const r of busy) {
+    if (!r.game) continue;
+    const key = String(r.game._id);
+    if (!gameTables.has(key)) gameTables.set(key, []);
+    gameTables.get(key).push({
+      table: tableCode.get(String(r.table)) ?? null,
+      status: r.status,
+      startAt: r.startAt,
+      endAt: r.endAt,
+    });
+  }
 
   const tableReason = (t) => {
     if (t.status !== 'active') return 'closed';
@@ -389,9 +527,15 @@ export async function availability({ startAt, durationHours, players }) {
     if (players && players > t.capacity) return 'too_small';
     return null;
   };
-  const gameReason = (g) => {
+  // กล่องที่เหลือในช่วงนั้น = copies − จำนวนที่ถูกใช้พร้อมกันสูงสุด
+  const inRepair = (g) => Math.min(copiesOf(g), broken.get(String(g._id)) ?? 0);
+  const copiesLeft = (g) => {
+    const rows = gameTables.get(String(g._id)) ?? [];
+    return Math.max(0, copiesOf(g) - inRepair(g) - peakUsage(rows, { startAt, endAt }));
+  };
+  const gameReason = (g, left) => {
     if (g.status === 'maintenance') return 'maintenance';
-    if (busyGames.has(String(g._id))) return 'booked';
+    if (left === 0) return 'booked';
     if (players && (players < g.minPlayers || players > g.maxPlayers)) return 'player_count';
     return null;
   };
@@ -407,8 +551,17 @@ export async function availability({ startAt, durationHours, players }) {
       return { ...t, available: !reason && !windowErr, reason };
     }),
     games: games.map((g) => {
-      const reason = gameReason(g);
-      return { ...g, available: !reason && !windowErr, reason };
+      const left = g.status === 'maintenance' ? 0 : copiesLeft(g);
+      const reason = gameReason(g, left);
+      return {
+        ...g,
+        copies: copiesOf(g),
+        copiesInRepair: inRepair(g),
+        copiesLeft: left,
+        available: !reason && !windowErr,
+        reason,
+        inUseAt: gameTables.get(String(g._id)) ?? [],
+      };
     }),
   };
 }
@@ -506,6 +659,7 @@ export async function adminRemove(id) {
   const r = await Reservation.findByIdAndDelete(id);
   if (!r) throw notFound('reservation not found');
   if (r.status === 'playing') await refreshGameStatus(r.game);
+  await resolveTimeAlerts(r._id);
   return r;
 }
 
@@ -526,5 +680,6 @@ export async function markNoShow(id, admin) {
   Object.assign(r, { status: 'no_show', noShowAt: new Date(), cancelledBy: admin._id });
   await r.save();
   if (wasPlaying) await refreshGameStatus(r.game);
+  await resolveTimeAlerts(r._id);
   return r.populate(POPULATE);
 }
