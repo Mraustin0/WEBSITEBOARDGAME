@@ -2,22 +2,23 @@ import { useCallback, useEffect, useState } from 'react';
 import { api } from '../../lib/api.js';
 import './settings.css';
 
-const GROUPS = {
-  store: 'ข้อมูลร้าน',
-  pricing: 'อัตราค่าบริการ',
-  booking: 'กติกาการจอง',
-  operatingHours: 'เวลาทำการ',
-  noShow: 'นโยบาย No-show',
-};
+const NAV = [
+  { id: 'store', label: 'ข้อมูลร้าน', en: 'General Info' },
+  { id: 'pricing', label: 'อัตราค่าบริการ', en: 'Pricing & Rates' },
+  { id: 'booking', label: 'นโยบายการจอง', en: 'Booking Policy' },
+  { id: 'operatingHours', label: 'เวลาทำการ', en: 'Operating Hours' },
+  { id: 'noShow', label: 'นโยบาย No-show', en: 'No-Show & Deposit' },
+];
+
 const DAY_NAMES = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
-const ORDER = [1, 2, 3, 4, 5, 6, 0]; // แสดงจันทร์ -> อาทิตย์ (API: 0 = อาทิตย์)
-const TIME_RE = /^([01]\d|2[0-4]):[0-5]\d$/; // รับ 24:00 ด้วย เพราะข้อมูลจริงใช้ปิด 24:00
+const DAY_EN = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const ORDER = [1, 2, 3, 4, 5, 6, 0];
+const TIME_RE = /^([01]\d|2[0-4]):[0-5]\d$/;
 const clone = (o) => JSON.parse(JSON.stringify(o));
 
-// เติมค่าที่ขาด เพื่อให้ช่องกรอกทุกช่องมีค่าเสมอ และเวลาทำการครบ 7 วัน
 function normalize(s) {
   const out = clone(s ?? {});
-  for (const g of Object.keys(GROUPS)) out[g] = out[g] ?? {};
+  for (const g of NAV.map((n) => n.id)) out[g] = out[g] ?? {};
   const days = out.operatingHours.days ?? [];
   out.operatingHours.days = [0, 1, 2, 3, 4, 5, 6].map(
     (d) =>
@@ -26,7 +27,6 @@ function normalize(s) {
   return out;
 }
 
-// แปลง err.details (โครงสร้างไม่ตายตัว) ให้เป็นข้อความอ่านง่าย
 function fmtDetails(d) {
   if (!d || typeof d !== 'object') return '';
   return Object.entries(d)
@@ -37,30 +37,36 @@ function fmtDetails(d) {
     .join(' • ');
 }
 
-function Num({ label, unit, value, onChange, step = 1, hint }) {
+function Field({ label, hint, children }) {
   return (
-    <label className="field">
-      <span>{label}</span>
-      <div className="st-unit">
-        <input
-          className="input"
-          type="number"
-          min="0"
-          step={step}
-          value={value ?? ''}
-          onChange={(e) => onChange(e.target.value === '' ? '' : Number(e.target.value))}
-        />
-        {unit && <em>{unit}</em>}
-      </div>
-      {hint && <small className="muted">{hint}</small>}
+    <label className="st-field">
+      <span className="st-label">{label}</span>
+      {children}
+      {hint && <small className="st-hint">{hint}</small>}
     </label>
   );
 }
 
-// หน้า 6 ตั้งค่าร้าน: GET /settings (โหลด) / PUT /settings (บันทึก เฉพาะหมวดที่แก้)
+function NumInput({ value, onChange, unit, step = 1, min = 0 }) {
+  return (
+    <div className="st-unit">
+      <input
+        className="input st-input"
+        type="number"
+        min={min}
+        step={step}
+        value={value ?? ''}
+        onChange={(e) => onChange(e.target.value === '' ? '' : Number(e.target.value))}
+      />
+      {unit && <em>{unit}</em>}
+    </div>
+  );
+}
+
 export default function Settings() {
   const [saved, setSaved] = useState(null);
   const [form, setForm] = useState(null);
+  const [section, setSection] = useState('pricing');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [ok, setOk] = useState(false);
@@ -80,12 +86,15 @@ export default function Settings() {
     load();
   }, [load]);
 
-  if (!form)
+  if (!form) {
     return (
-      <div className="panel">
-        {error ? <div className="form-error">{error}</div> : 'กำลังโหลดการตั้งค่า...'}
+      <div className="st">
+        <div className="panel st-loading">
+          {error ? <div className="form-error">{error}</div> : 'กำลังโหลดการตั้งค่า...'}
+        </div>
       </div>
     );
+  }
 
   const set = (g, k) => (v) => setForm((f) => ({ ...f, [g]: { ...f[g], [k]: v } }));
   const setDay = (day, patch) =>
@@ -96,6 +105,7 @@ export default function Settings() {
         days: f.operatingHours.days.map((d) => (d.day === day ? { ...d, ...patch } : d)),
       },
     }));
+
   const copyMonday = () =>
     setForm((f) => {
       const m = f.operatingHours.days.find((d) => d.day === 1);
@@ -113,7 +123,7 @@ export default function Settings() {
       };
     });
 
-  const changed = Object.keys(GROUPS).filter(
+  const changed = NAV.map((n) => n.id).filter(
     (g) => JSON.stringify(form[g]) !== JSON.stringify(saved[g]),
   );
 
@@ -140,9 +150,9 @@ export default function Settings() {
     setError('');
     setOk(false);
     try {
-      const body = Object.fromEntries(changed.map((g) => [g, form[g]])); // ส่งเฉพาะหมวดที่แก้
+      const body = Object.fromEntries(changed.map((g) => [g, form[g]]));
       await api('/settings', { method: 'PUT', body });
-      await load(); // โหลดค่าจริงจาก server กลับมาแสดง
+      await load();
       setOk(true);
       setTimeout(() => setOk(false), 3000);
     } catch (err) {
@@ -155,229 +165,295 @@ export default function Settings() {
     }
   }
 
-  const { store, pricing, booking, operatingHours: oh, noShow } = form;
+  const st = form.store;
+  const pr = form.pricing;
+  const bk = form.booking;
+  const oh = form.operatingHours;
+  const ns = form.noShow;
+  const navItem = NAV.find((n) => n.id === section);
 
   return (
     <div className="st">
       <div className="page-head">
         <div>
+          <p className="st-crumb">ภาพรวมระบบ / ตั้งค่า</p>
           <h1>
-            ตั้งค่าร้านค้าและระบบ <small className="muted">(Store Settings)</small>
+            ตั้งค่าร้านค้าและระบบ
+            <span className="st-title-en">Store Settings</span>
           </h1>
-          <p className="muted">จัดการข้อมูลทั่วไป อัตราค่าบริการ กติกาการจอง และเวลาทำการของร้าน</p>
+          <p className="st-lead">
+            จัดการข้อมูลทั่วไป อัตราค่าบริการ กติกาการจอง และเวลาทำการของร้าน
+          </p>
         </div>
       </div>
 
       {error && <div className="form-error">{error}</div>}
       {ok && <div className="st-ok">บันทึกการตั้งค่าเรียบร้อยแล้ว</div>}
 
-      <section className="panel">
-        <div className="panel-head">
-          <h2>ข้อมูลร้าน</h2>
-        </div>
-        <div className="st-grid">
-          <label className="field">
-            <span>ชื่อร้าน</span>
-            <input
-              className="input"
-              value={store.name ?? ''}
-              onChange={(e) => set('store', 'name')(e.target.value)}
-            />
-          </label>
-          <label className="field">
-            <span>เบอร์โทรร้าน</span>
-            <input
-              className="input"
-              value={store.phone ?? ''}
-              onChange={(e) => set('store', 'phone')(e.target.value)}
-            />
-          </label>
-        </div>
-      </section>
+      <div className="st-layout">
+        {/* Sidebar ตามดีไซน์ */}
+        <aside className="st-nav panel">
+          <p className="st-nav-title">การตั้งค่าหลัก</p>
+          {NAV.map((n) => (
+            <button
+              key={n.id}
+              type="button"
+              className={'st-nav-item' + (section === n.id ? ' active' : '')}
+              onClick={() => setSection(n.id)}
+            >
+              <span>{n.label}</span>
+              <small>{n.en}</small>
+              {changed.includes(n.id) && <i className="st-dot" title="มีการแก้ไข" />}
+            </button>
+          ))}
+        </aside>
 
-      <section className="panel">
-        <div className="panel-head">
-          <h2>อัตราค่าบริการ (Pricing & Rates)</h2>
-        </div>
-        <div className="st-grid">
-          <Num
-            label="ค่าบริการรายชั่วโมง"
-            unit="฿ / คน / ชม."
-            value={pricing.perPersonHour}
-            onChange={set('pricing', 'perPersonHour')}
-          />
-          <Num
-            label="แพ็กเกจ 3 ชม. เหมาจ่าย"
-            unit="฿ / คน"
-            value={pricing.flat3hPerPerson}
-            onChange={set('pricing', 'flat3hPerPerson')}
-          />
-          <Num
-            label="เป้ารายได้ต่อวัน"
-            unit="฿"
-            value={pricing.revenueTargetPerDay}
-            onChange={set('pricing', 'revenueTargetPerDay')}
-            hint="ใช้คำนวณแถบเป้าหมายในหน้าภาพรวม"
-          />
-        </div>
-        <p className="muted">ราคาใหม่มีผลกับการจองใหม่เท่านั้น (การจองเดิมเก็บราคาตอนจองไว้)</p>
-      </section>
-
-      <section className="panel">
-        <div className="panel-head">
-          <h2>กติกาการจอง (Booking Policy)</h2>
-        </div>
-        <div className="st-grid">
-          <Num
-            label="จองล่วงหน้าได้สูงสุด"
-            unit="วัน"
-            value={booking.maxAdvanceDays}
-            onChange={set('booking', 'maxAdvanceDays')}
-          />
-          <Num
-            label="เล่นขั้นต่ำ"
-            unit="ชม."
-            step={0.5}
-            value={booking.minHours}
-            onChange={set('booking', 'minHours')}
-          />
-          <Num
-            label="เล่นสูงสุด"
-            unit="ชม."
-            step={0.5}
-            value={booking.maxHours}
-            onChange={set('booking', 'maxHours')}
-          />
-          <Num
-            label="ผ่อนผันเวลาเกิน"
-            unit="นาที"
-            value={booking.overtimeGraceMin}
-            onChange={set('booking', 'overtimeGraceMin')}
-            hint="เกินจากนี้ถึงคิดค่าล่วงเวลา"
-          />
-          <Num
-            label="เก้าอี้เสริมต่อโต๊ะ"
-            unit="ที่นั่ง"
-            value={booking.extraSeats}
-            onChange={set('booking', 'extraSeats')}
-          />
-        </div>
-      </section>
-
-      <section className="panel">
-        <div className="panel-head">
-          <h2>นโยบาย No-show และเงินมัดจำ</h2>
-        </div>
-        <div className="st-grid">
-          <Num
-            label="รอลูกค้าที่ไม่มา"
-            unit="นาที"
-            value={noShow.graceMin}
-            onChange={set('noShow', 'graceMin')}
-          />
-          <Num
-            label="เงินมัดจำ"
-            unit="฿ / คน"
-            value={noShow.depositPerPerson}
-            onChange={set('noShow', 'depositPerPerson')}
-          />
-          <Num
-            label="ระงับบัญชีเมื่อไม่มาครบ"
-            unit="ครั้ง"
-            value={noShow.suspendAfter}
-            onChange={set('noShow', 'suspendAfter')}
-          />
-        </div>
-      </section>
-
-      <section className="panel">
-        <div className="panel-head">
-          <h2>เวลาทำการของร้าน (Operating Hours)</h2>
-          <button type="button" className="btn-ghost" onClick={copyMonday}>
-            คัดลอกเวลาวันจันทร์ไปทุกวัน
-          </button>
-        </div>
-        <label className="st-check">
-          <input
-            type="checkbox"
-            checked={!!oh.enforce}
-            onChange={(e) =>
-              setForm((f) => ({
-                ...f,
-                operatingHours: { ...f.operatingHours, enforce: e.target.checked },
-              }))
-            }
-          />
-          ไม่ให้สมาชิกจองนอกเวลาทำการ (admin เปิดโต๊ะนอกเวลาได้)
-        </label>
-        {ORDER.map((n) => {
-          const d = oh.days.find((x) => x.day === n);
-          return (
-            <div key={n} className={'st-day' + (d.closed ? ' off' : '')}>
-              <label className="st-check">
-                <input
-                  type="checkbox"
-                  checked={!d.closed}
-                  onChange={(e) => setDay(n, { closed: !e.target.checked })}
-                />
-                <b>{DAY_NAMES[n]}</b>
-              </label>
-              <input
-                className="input"
-                aria-label={`เวลาเปิดวัน${DAY_NAMES[n]}`}
-                placeholder="10:00"
-                maxLength={5}
-                disabled={d.closed}
-                value={d.open}
-                onChange={(e) => setDay(n, { open: e.target.value })}
-              />
-              <span>–</span>
-              <input
-                className="input"
-                aria-label={`เวลาปิดวัน${DAY_NAMES[n]}`}
-                placeholder="22:00"
-                maxLength={5}
-                disabled={d.closed}
-                value={d.close}
-                onChange={(e) => setDay(n, { close: e.target.value })}
-              />
-              <small className="muted">
-                {d.closed
-                  ? 'ปิดทำการ'
-                  : TIME_RE.test(d.close) && TIME_RE.test(d.open) && d.close < d.open
-                    ? 'ปิดหลังเที่ยงคืน'
-                    : ''}
-              </small>
+        {/* Content */}
+        <div className="st-content">
+          <section className="panel st-section">
+            <div className="st-section-head">
+              <h2>
+                {navItem?.label}
+                <span className="st-title-en">{navItem?.en}</span>
+              </h2>
             </div>
-          );
-        })}
-      </section>
 
+            {section === 'store' && (
+              <div className="st-grid-2">
+                <Field label="ชื่อร้าน">
+                  <input
+                    className="input st-input"
+                    value={st.name ?? ''}
+                    onChange={(e) => set('store', 'name')(e.target.value)}
+                  />
+                </Field>
+                <Field label="เบอร์โทรร้าน">
+                  <input
+                    className="input st-input"
+                    value={st.phone ?? ''}
+                    onChange={(e) => set('store', 'phone')(e.target.value)}
+                  />
+                </Field>
+                <Field label="อีเมล">
+                  <input
+                    className="input st-input"
+                    type="email"
+                    value={st.email ?? ''}
+                    onChange={(e) => set('store', 'email')(e.target.value)}
+                  />
+                </Field>
+                <Field label="ที่อยู่">
+                  <input
+                    className="input st-input"
+                    value={st.address ?? ''}
+                    onChange={(e) => set('store', 'address')(e.target.value)}
+                  />
+                </Field>
+              </div>
+            )}
+
+            {section === 'pricing' && (
+              <div className="st-stack">
+                <div className="st-grid-3">
+                  <Field label="ค่าบริการรายชั่วโมง" hint="คิดตามจำนวนคน × ชั่วโมง">
+                    <NumInput
+                      value={pr.perPersonHour}
+                      onChange={set('pricing', 'perPersonHour')}
+                      unit="฿ / คน / ชม."
+                    />
+                  </Field>
+                  <Field label="แพ็กเกจ 3 ชม. เหมาจ่าย" hint="ต่อคน">
+                    <NumInput
+                      value={pr.flat3hPerPerson}
+                      onChange={set('pricing', 'flat3hPerPerson')}
+                      unit="฿ / คน"
+                    />
+                  </Field>
+                  <Field label="เป้าหมายรายได้ต่อวัน" hint="ใช้คำนวณ % เป้าหมายในหน้าภาพรวม">
+                    <NumInput
+                      value={pr.revenueTargetPerDay}
+                      onChange={set('pricing', 'revenueTargetPerDay')}
+                      unit="฿"
+                    />
+                  </Field>
+                </div>
+                <p className="st-note">
+                  ราคาใหม่มีผลกับการจองใหม่เท่านั้น (การจองเดิมเก็บราคาตอนจองไว้)
+                </p>
+              </div>
+            )}
+
+            {section === 'booking' && (
+              <div className="st-grid-3">
+                <Field label="จองล่วงหน้าได้สูงสุด" hint="สมาชิกจองล่วงหน้าได้กี่วัน">
+                  <NumInput
+                    value={bk.maxAdvanceDays}
+                    onChange={set('booking', 'maxAdvanceDays')}
+                    unit="วัน"
+                  />
+                </Field>
+                <Field label="เล่นขั้นต่ำ">
+                  <NumInput
+                    value={bk.minHours}
+                    onChange={set('booking', 'minHours')}
+                    unit="ชม."
+                    step={0.5}
+                  />
+                </Field>
+                <Field label="เล่นสูงสุด">
+                  <NumInput
+                    value={bk.maxHours}
+                    onChange={set('booking', 'maxHours')}
+                    unit="ชม."
+                    step={0.5}
+                  />
+                </Field>
+                <Field label="ผ่อนผันเวลาเกิน" hint="เกินเวลานี้ค่อยคิด overtime">
+                  <NumInput
+                    value={bk.overtimeGraceMin}
+                    onChange={set('booking', 'overtimeGraceMin')}
+                    unit="นาที"
+                  />
+                </Field>
+                <Field label="เก้าอี้เสริมต่อโต๊ะ">
+                  <NumInput
+                    value={bk.extraSeats}
+                    onChange={set('booking', 'extraSeats')}
+                    unit="ที่"
+                  />
+                </Field>
+                <Field label="ยกเลิกได้ถึงก่อนเริ่ม" hint="สมาชิกยกเลิกเองได้">
+                  <NumInput
+                    value={bk.cancelCutoffHours}
+                    onChange={set('booking', 'cancelCutoffHours')}
+                    unit="ชม."
+                  />
+                </Field>
+              </div>
+            )}
+
+            {section === 'operatingHours' && (
+              <div className="st-stack">
+                <div className="st-hours-toolbar">
+                  <label className="st-toggle">
+                    <input
+                      type="checkbox"
+                      checked={!!oh.enforce}
+                      onChange={(e) => set('operatingHours', 'enforce')(e.target.checked)}
+                    />
+                    <span>
+                      บังคับเวลาทำการ — ไม่ให้สมาชิกจองนอกเวลา (admin ยังเปิดโต๊ะนอกเวลาได้)
+                    </span>
+                  </label>
+                  <button type="button" className="btn-ghost st-btn" onClick={copyMonday}>
+                    คัดลอกวันจันทร์ไปทุกวัน
+                  </button>
+                </div>
+
+                <div className="st-days">
+                  {ORDER.map((n) => {
+                    const d = oh.days.find((x) => x.day === n);
+                    return (
+                      <div key={n} className={'st-day' + (d.closed ? ' off' : '')}>
+                        <label className="st-day-check">
+                          <input
+                            type="checkbox"
+                            checked={!d.closed}
+                            onChange={(e) => setDay(n, { closed: !e.target.checked })}
+                          />
+                          <div>
+                            <b>{DAY_NAMES[n]}</b>
+                            <small>{DAY_EN[n]}</small>
+                          </div>
+                        </label>
+                        <div className="st-day-times">
+                          <input
+                            className="input st-input st-time"
+                            aria-label={`เวลาเปิดวัน${DAY_NAMES[n]}`}
+                            placeholder="10:00"
+                            maxLength={5}
+                            disabled={d.closed}
+                            value={d.open}
+                            onChange={(e) => setDay(n, { open: e.target.value })}
+                          />
+                          <span className="st-dash">–</span>
+                          <input
+                            className="input st-input st-time"
+                            aria-label={`เวลาปิดวัน${DAY_NAMES[n]}`}
+                            placeholder="22:00"
+                            maxLength={5}
+                            disabled={d.closed}
+                            value={d.close}
+                            onChange={(e) => setDay(n, { close: e.target.value })}
+                          />
+                        </div>
+                        <span className="st-day-note">
+                          {d.closed
+                            ? 'ปิดทำการ'
+                            : TIME_RE.test(d.close) && TIME_RE.test(d.open) && d.close < d.open
+                              ? 'ปิดหลังเที่ยงคืน'
+                              : 'ปกติ'}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {section === 'noShow' && (
+              <div className="st-grid-3">
+                <Field label="ผ่อนผันมาสาย" hint="เกินเวลานี้ถือว่า no-show">
+                  <NumInput value={ns.graceMin} onChange={set('noShow', 'graceMin')} unit="นาที" />
+                </Field>
+                <Field label="เงินมัดจำต่อคน" hint="แสดงในระบบ — ยังไม่ตัดบัตรจริง">
+                  <NumInput
+                    value={ns.depositPerPerson}
+                    onChange={set('noShow', 'depositPerPerson')}
+                    unit="฿ / คน"
+                  />
+                </Field>
+                <Field label="ระงับบัญชีหลัง no-show" hint="ครบจำนวนครั้งนี้ควรระงับ">
+                  <NumInput
+                    value={ns.suspendAfter}
+                    onChange={set('noShow', 'suspendAfter')}
+                    unit="ครั้ง"
+                  />
+                </Field>
+              </div>
+            )}
+          </section>
+        </div>
+      </div>
+
+      {/* Sticky save bar */}
       <div className="st-bar">
-        <span>
+        <span className="st-bar-msg">
           {changed.length > 0
-            ? `มีการเปลี่ยนแปลงที่ยังไม่ได้บันทึก ${changed.length} หมวด (${changed.map((g) => GROUPS[g]).join(', ')})`
+            ? `มีการเปลี่ยนแปลงที่ยังไม่ได้บันทึก ${changed.length} หมวด (${changed
+                .map((g) => NAV.find((n) => n.id === g)?.label)
+                .join(', ')})`
             : 'ยังไม่มีการเปลี่ยนแปลง'}
         </span>
-        <div className="head-actions">
+        <div className="st-bar-actions">
           <button
             type="button"
-            className="btn-ghost"
+            className="btn-ghost st-btn"
             disabled={busy || changed.length === 0}
             onClick={() => {
               setForm(clone(saved));
               setError('');
             }}
           >
-            ยกเลิก (Discard Changes)
+            ยกเลิก (Discard)
           </button>
           <button
             type="button"
-            className="btn-primary"
+            className="btn-primary st-btn"
             disabled={busy || changed.length === 0}
             onClick={save}
           >
-            {busy ? 'กำลังบันทึก...' : '✓ บันทึกการเปลี่ยนแปลง (Save Changes)'}
+            {busy ? 'กำลังบันทึก...' : '✓ บันทึกการเปลี่ยนแปลง'}
           </button>
         </div>
       </div>

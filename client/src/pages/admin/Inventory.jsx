@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { api } from '../../lib/api.js';
 import './inventory.css';
 
-const STATUS_LABEL = {
-  available: { text: 'พร้อมใช้งาน', tone: 'ok' },
-  in_use: { text: 'กำลังเล่น', tone: 'play' },
-  maintenance: { text: 'ส่งซ่อม', tone: 'fix' },
+const STATUS = {
+  available: { label: 'พร้อมใช้งาน', tone: 'ok' },
+  in_use: { label: 'กำลังเล่น', tone: 'play' },
+  maintenance: { label: 'ส่งซ่อม', tone: 'fix' },
 };
 
 const emptyForm = () => ({
@@ -24,18 +24,15 @@ const emptyForm = () => ({
   categories: '',
   mechanics: '',
   status: 'available',
+  copies: 1,
 });
 
-function statusBadge(status) {
-  const s = STATUS_LABEL[status] || STATUS_LABEL.available;
-  return <span className={`inv-badge inv-badge-${s.tone}`}>{s.text}</span>;
-}
-
-/** Modal เพิ่มเกม — กรอกเอง หรือดึงจาก BGG */
 function AddGameModal({ onClose, onCreated }) {
   const [form, setForm] = useState(emptyForm);
   const [bggQ, setBggQ] = useState('');
   const [bggHits, setBggHits] = useState([]);
+  const [bggLoading, setBggLoading] = useState(false);
+  const [bggNote, setBggNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -45,31 +42,40 @@ function AddGameModal({ onClose, onCreated }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  // ค้น BGG (debounce)
   useEffect(() => {
     const q = bggQ.trim();
     if (q.length < 2) {
       setBggHits([]);
+      setBggNote('');
       return;
     }
+    setBggLoading(true);
+    setBggNote('');
     const id = setTimeout(() => {
       api('/bgg/search', { query: { q } })
-        .then((d) => setBggHits(Array.isArray(d) ? d : (d?.items ?? [])))
-        .catch(() => setBggHits([]));
+        .then((d) => {
+          const list = Array.isArray(d) ? d : (d?.items ?? []);
+          setBggHits(list);
+          setBggNote(list.length ? '' : 'ไม่พบเกมใน BGG');
+        })
+        .catch((err) => {
+          setBggHits([]);
+          setBggNote(err.message || 'ค้น BGG ไม่สำเร็จ (อาจยังไม่มี API token)');
+        })
+        .finally(() => setBggLoading(false));
     }, 350);
     return () => clearTimeout(id);
   }, [bggQ]);
 
-  function setField(k, v) {
-    setForm((f) => ({ ...f, [k]: v }));
-  }
+  const setField = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
   async function pickBgg(hit) {
     setBusy(true);
     setError('');
     try {
       const d = await api(`/bgg/game/${hit.bggId}`);
-      setForm({
+      setForm((f) => ({
+        ...f,
         name: d.name || hit.name || '',
         minPlayers: d.minPlayers || 1,
         maxPlayers: d.maxPlayers || 4,
@@ -84,9 +90,10 @@ function AddGameModal({ onClose, onCreated }) {
         categories: (d.categories || []).join(', '),
         mechanics: (d.mechanics || []).join(', '),
         status: 'available',
-      });
+      }));
       setBggQ('');
       setBggHits([]);
+      setBggNote('');
     } catch (err) {
       setError(err.message || 'ดึงข้อมูล BGG ไม่สำเร็จ');
     } finally {
@@ -106,6 +113,7 @@ function AddGameModal({ onClose, onCreated }) {
         maxPlayers: Number(form.maxPlayers) || 4,
         playtimeMin: Number(form.playtimeMin) || 60,
         status: form.status,
+        copies: Math.max(1, Number(form.copies) || 1),
       };
       if (form.yearPublished) body.yearPublished = Number(form.yearPublished);
       if (form.thumbnail) body.thumbnail = form.thumbnail;
@@ -124,7 +132,6 @@ function AddGameModal({ onClose, onCreated }) {
         .filter(Boolean);
       if (cats.length) body.categories = cats;
       if (mechs.length) body.mechanics = mechs;
-
       await api('/games', { method: 'POST', body });
       onCreated();
     } catch (err) {
@@ -136,14 +143,16 @@ function AddGameModal({ onClose, onCreated }) {
 
   return (
     <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <form className="modal inv-modal" onSubmit={submit} role="dialog" aria-modal="true">
+      <form className="modal inv-modal" onSubmit={submit}>
         <div className="inv-modal-head">
-          <h2>เพิ่มเกมใหม่เข้าคลัง</h2>
+          <div>
+            <h2>เพิ่มเกมใหม่เข้าคลัง</h2>
+            <p className="muted">ค้นจาก BGG หรือกรอกเอง</p>
+          </div>
           <button type="button" className="inv-x" onClick={onClose} aria-label="ปิด">
             ✕
           </button>
         </div>
-
         {error && <div className="form-error">{error}</div>}
 
         <label className="field">
@@ -155,6 +164,8 @@ function AddGameModal({ onClose, onCreated }) {
             onChange={(e) => setBggQ(e.target.value)}
           />
         </label>
+        {bggLoading && <p className="muted inv-bgg-note">กำลังค้นหา...</p>}
+        {bggNote && !bggLoading && <p className="muted inv-bgg-note">{bggNote}</p>}
         {bggHits.length > 0 && (
           <ul className="inv-bgg-list">
             {bggHits.slice(0, 8).map((h) => (
@@ -210,6 +221,20 @@ function AddGameModal({ onClose, onCreated }) {
             />
           </label>
           <label className="field">
+            <span>จำนวนกล่อง</span>
+            <input
+              className="input"
+              type="number"
+              min={1}
+              max={50}
+              value={form.copies}
+              onChange={(e) => setField('copies', e.target.value)}
+            />
+          </label>
+        </div>
+
+        <div className="inv-form-row">
+          <label className="field">
             <span>ปีที่ออก</span>
             <input
               className="input"
@@ -218,31 +243,29 @@ function AddGameModal({ onClose, onCreated }) {
               onChange={(e) => setField('yearPublished', e.target.value)}
             />
           </label>
+          <label className="field">
+            <span>สถานะ</span>
+            <select
+              className="input"
+              value={form.status}
+              onChange={(e) => setField('status', e.target.value)}
+            >
+              <option value="available">พร้อมใช้งาน</option>
+              <option value="in_use">กำลังเล่น</option>
+              <option value="maintenance">ส่งซ่อม</option>
+            </select>
+          </label>
         </div>
-
-        <label className="field">
-          <span>สถานะ</span>
-          <select
-            className="input"
-            value={form.status}
-            onChange={(e) => setField('status', e.target.value)}
-          >
-            <option value="available">พร้อมใช้งาน</option>
-            <option value="in_use">กำลังเล่น</option>
-            <option value="maintenance">ส่งซ่อม</option>
-          </select>
-        </label>
 
         <label className="field">
           <span>หมวดหมู่ (คั่นด้วยจุลภาค)</span>
           <input
             className="input"
+            placeholder="Strategy, Family"
             value={form.categories}
             onChange={(e) => setField('categories', e.target.value)}
-            placeholder="Strategy, Family"
           />
         </label>
-
         <label className="field">
           <span>URL รูปย่อ (thumbnail)</span>
           <input
@@ -253,7 +276,6 @@ function AddGameModal({ onClose, onCreated }) {
             onChange={(e) => setField('thumbnail', e.target.value)}
           />
         </label>
-
         <label className="field">
           <span>URL รูปใหญ่ (image)</span>
           <input
@@ -264,7 +286,12 @@ function AddGameModal({ onClose, onCreated }) {
             onChange={(e) => setField('image', e.target.value)}
           />
         </label>
-
+        {(form.thumbnail || form.image) && (
+          <div className="inv-preview">
+            <img src={form.thumbnail || form.image} alt="" />
+            <span className="muted">ตัวอย่างรูป</span>
+          </div>
+        )}
         <label className="field">
           <span>คำอธิบาย</span>
           <textarea
@@ -273,13 +300,6 @@ function AddGameModal({ onClose, onCreated }) {
             onChange={(e) => setField('description', e.target.value)}
           />
         </label>
-
-        {(form.thumbnail || form.image) && (
-          <div className="inv-preview">
-            <img src={form.thumbnail || form.image} alt="" />
-            <span className="muted">ตัวอย่างรูป{form.bggId ? ' (จาก BGG / URL)' : ''}</span>
-          </div>
-        )}
 
         <div className="modal-actions">
           <button type="button" className="btn-ghost" onClick={onClose}>
@@ -295,11 +315,11 @@ function AddGameModal({ onClose, onCreated }) {
 }
 
 export default function Inventory() {
-  const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [q, setQ] = useState('');
+  const [qInput, setQInput] = useState('');
   const [status, setStatus] = useState('');
   const [sort, setSort] = useState('name');
   const [counts, setCounts] = useState({ all: 0, available: 0, in_use: 0, maintenance: 0 });
@@ -353,13 +373,9 @@ export default function Inventory() {
   useEffect(() => {
     load();
   }, [load]);
-
   useEffect(() => {
     loadCounts();
   }, [loadCounts]);
-
-  // debounce search
-  const [qInput, setQInput] = useState('');
   useEffect(() => {
     const id = setTimeout(() => {
       setPage(1);
@@ -369,15 +385,20 @@ export default function Inventory() {
   }, [qInput]);
 
   const pages = Math.max(1, Math.ceil(total / limit));
+  const pct = (n) => (counts.all ? ((n / counts.all) * 100).toFixed(1) : '0');
 
   return (
     <div className="inv">
       <div className="page-head">
         <div>
-          <h1>คลังบอร์ดเกม (Inventory)</h1>
+          <p className="inv-breadcrumb muted">ภาพรวมระบบ / คลังบอร์ดเกม</p>
+          <h1>
+            คลังบอร์ดเกม
+            <span className="inv-title-en">Game Inventory</span>
+          </h1>
           <p className="muted">
             รายการทั้งหมด {counts.all} เกม
-            {status ? ` · กรอง: ${STATUS_LABEL[status]?.text || status}` : ''}
+            {status ? ` · กรอง: ${STATUS[status]?.label}` : ''}
           </p>
         </div>
         <div className="inv-head-actions">
@@ -397,7 +418,7 @@ export default function Inventory() {
         </div>
       </div>
 
-      {/* สรุปสถานะ */}
+      {/* KPI ตามดีไซน์ */}
       <div className="inv-kpis">
         <button
           type="button"
@@ -407,8 +428,12 @@ export default function Inventory() {
             setPage(1);
           }}
         >
-          <span className="inv-kpi-label">ทั้งหมด</span>
+          <div className="inv-kpi-top">
+            <span className="inv-kpi-label">เกมทั้งหมดในคลัง</span>
+            <span className="inv-kpi-ico">📦</span>
+          </div>
           <strong>{counts.all}</strong>
+          <small className="muted">TOTAL VAULT</small>
         </button>
         <button
           type="button"
@@ -418,8 +443,12 @@ export default function Inventory() {
             setPage(1);
           }}
         >
-          <span className="inv-kpi-label">พร้อมเล่น</span>
+          <div className="inv-kpi-top">
+            <span className="inv-kpi-label">พร้อมให้บริการ</span>
+            <span className="inv-kpi-ico">✓</span>
+          </div>
           <strong>{counts.available}</strong>
+          <small className="muted">{pct(counts.available)}% · IN-VAULT</small>
         </button>
         <button
           type="button"
@@ -429,8 +458,12 @@ export default function Inventory() {
             setPage(1);
           }}
         >
-          <span className="inv-kpi-label">กำลังเล่น</span>
+          <div className="inv-kpi-top">
+            <span className="inv-kpi-label">กำลังอยู่บนโต๊ะ</span>
+            <span className="inv-kpi-ico">🎮</span>
+          </div>
           <strong>{counts.in_use}</strong>
+          <small className="muted">{pct(counts.in_use)}% · IN-PLAY</small>
         </button>
         <button
           type="button"
@@ -440,82 +473,121 @@ export default function Inventory() {
             setPage(1);
           }}
         >
-          <span className="inv-kpi-label">ส่งซ่อม</span>
+          <div className="inv-kpi-top">
+            <span className="inv-kpi-label">ส่งซ่อม / บำรุง</span>
+            <span className="inv-kpi-ico">🔧</span>
+          </div>
           <strong>{counts.maintenance}</strong>
+          <small className="muted">{pct(counts.maintenance)}% · MAINTENANCE</small>
         </button>
       </div>
 
-      {/* ตัวกรอง */}
       <div className="inv-filters panel">
         <input
           className="input inv-search"
-          placeholder="ค้นหาชื่อเกม..."
+          placeholder="ค้นหาชื่อบอร์ดเกม..."
           value={qInput}
           onChange={(e) => setQInput(e.target.value)}
         />
-        <select
-          className="input inv-sort"
-          value={sort}
-          onChange={(e) => {
-            setSort(e.target.value);
-            setPage(1);
-          }}
-        >
-          <option value="name">เรียงตามชื่อ</option>
-          <option value="year">เรียงตามปี</option>
-          <option value="bggRating">เรียงตามเรตติ้ง BGG</option>
-          <option value="createdAt">เรียงตามวันที่เพิ่ม</option>
-        </select>
+        <div className="inv-filters-row">
+          <div className="inv-filter-chips">
+            {[
+              { key: '', label: `ทั้งหมด (${counts.all})` },
+              { key: 'available', label: `พร้อมเล่น (${counts.available})` },
+              { key: 'in_use', label: `กำลังเล่น (${counts.in_use})` },
+              { key: 'maintenance', label: `ส่งซ่อม (${counts.maintenance})` },
+            ].map((c) => (
+              <button
+                key={c.key || 'all'}
+                type="button"
+                className={'inv-chip' + (status === c.key ? ' active' : '')}
+                onClick={() => {
+                  setStatus(c.key);
+                  setPage(1);
+                }}
+              >
+                {c.label}
+              </button>
+            ))}
+          </div>
+          <select
+            className="input inv-sort"
+            value={sort}
+            onChange={(e) => {
+              setSort(e.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="name">เรียงตามชื่อ</option>
+            <option value="year">เรียงตามปี</option>
+            <option value="bggRating">เรียงตามเรตติ้ง BGG</option>
+            <option value="createdAt">เรียงตามวันที่เพิ่ม</option>
+          </select>
+        </div>
       </div>
 
       {error && <div className="form-error">{error}</div>}
-      {loading && <p className="muted">กำลังโหลด...</p>}
+      {loading && <p className="muted">กำลังโหลดคลังเกม...</p>}
 
-      {/* การ์ดเกม */}
       <div className="inv-grid">
         {!loading && items.length === 0 && <p className="muted inv-empty">ไม่พบเกมในคลัง</p>}
-        {items.map((g) => (
-          <article key={g._id} className="inv-card panel">
-            <div className="inv-card-img">
-              {g.thumbnail || g.image ? (
-                <img src={g.thumbnail || g.image} alt="" />
-              ) : (
-                <div className="inv-card-ph">🎲</div>
-              )}
-              <div className="inv-card-badges">
-                {statusBadge(g.status)}
-                {g.bggAverage != null && (
-                  <span className="inv-rating">★ {Number(g.bggAverage).toFixed(1)}</span>
+        {items.map((g) => {
+          const st = STATUS[g.status] || STATUS.available;
+          const copies = g.copies ?? 1;
+          return (
+            <article key={g._id} className="inv-card panel">
+              <div className="inv-card-img">
+                {g.thumbnail || g.image ? (
+                  <img src={g.thumbnail || g.image} alt="" loading="lazy" />
+                ) : (
+                  <div className="inv-card-ph">🎲</div>
                 )}
-              </div>
-            </div>
-            <div className="inv-card-body">
-              <h3 title={g.name}>{g.name}</h3>
-              <div className="inv-tags">
-                {(g.categories || []).slice(0, 3).map((c) => (
-                  <span key={c} className="inv-tag">
-                    {c}
+                <div className="inv-card-badges">
+                  <span className={`inv-badge inv-badge-${st.tone}`}>
+                    {st.label}
+                    {copies > 1 ? ` · ${copies} กล่อง` : ''}
                   </span>
-                ))}
+                  {g.bggAverage != null && (
+                    <span className="inv-rating">★ {Number(g.bggAverage).toFixed(1)}</span>
+                  )}
+                </div>
               </div>
-              <div className="inv-meta">
-                <span>
-                  {g.minPlayers}–{g.maxPlayers} คน
-                </span>
-                <span>{g.playtimeMin || '—'} นาที</span>
-                {g.bggWeight != null && <span>น้ำหนัก {Number(g.bggWeight).toFixed(1)}/5</span>}
-              </div>
-              <div className="inv-card-actions">
+              <div className="inv-card-body">
+                <h3 title={g.name}>{g.name}</h3>
+                <div className="inv-tags">
+                  {(g.categories || []).slice(0, 3).map((c) => (
+                    <span key={c} className="inv-tag">
+                      {c}
+                    </span>
+                  ))}
+                </div>
+                <div className="inv-meta-grid">
+                  <div>
+                    <span className="inv-meta-k">PLAYERS</span>
+                    <span className="inv-meta-v">
+                      {g.minPlayers}–{g.maxPlayers}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="inv-meta-k">TIME</span>
+                    <span className="inv-meta-v">{g.playtimeMin || '—'}m</span>
+                  </div>
+                  <div>
+                    <span className="inv-meta-k">WEIGHT</span>
+                    <span className="inv-meta-v">
+                      {g.bggWeight != null ? `${Number(g.bggWeight).toFixed(1)}/5` : '—'}
+                    </span>
+                  </div>
+                </div>
                 <Link className="btn-primary inv-btn" to={`/admin/inventory/${g._id}`}>
                   ดูรายละเอียด / จัดการ
                 </Link>
               </div>
-            </div>
-          </article>
-        ))}
+            </article>
+          );
+        })}
       </div>
 
-      {/* หน้า */}
       {pages > 1 && (
         <div className="inv-pager">
           <button
