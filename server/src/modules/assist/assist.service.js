@@ -2,6 +2,7 @@ import { AssistRequest, ACTIVE_ASSIST_STATUSES } from '../../models/assist.model
 import { Reservation } from '../../models/reservation.model.js';
 import { conflict, notFound } from '../../lib/errors.js';
 import { syncLifecycle } from '../reservations/reservations.lifecycle.js';
+import { notifyAssist, resolveNotifications } from '../notifications/notifications.service.js';
 
 const POPULATE = [
   { path: 'table', select: 'code name zone' },
@@ -41,7 +42,9 @@ export async function create(user, { reservation, topic, note }) {
     topic,
     note,
   });
-  return doc.populate(POPULATE);
+  await doc.populate(POPULATE);
+  await notifyAssist(doc); // แจ้งพนักงาน (สำคัญ)
+  return doc;
 }
 
 /** คำขอของฉัน (แสดงสถานะ "พนักงานรับเรื่องแล้ว" บนการ์ด) */
@@ -62,6 +65,7 @@ export async function cancel(id, user) {
   }
   doc.status = 'cancelled';
   await doc.save();
+  await resolveNotifications({ 'refs.assist': doc._id });
   return doc.populate(POPULATE);
 }
 
@@ -102,5 +106,6 @@ export async function update(id, admin, { status, resolution }) {
   }
   if (resolution !== undefined) doc.resolution = resolution;
   await doc.save();
+  await resolveNotifications({ 'refs.assist': doc._id }); // รับเรื่องแล้ว → ซ่อนปุ่มในแจ้งเตือน
   return doc.populate(POPULATE);
 }

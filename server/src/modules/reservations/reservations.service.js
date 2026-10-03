@@ -23,6 +23,11 @@ import {
 import { getRules } from '../settings/settings.service.js';
 import { openDamageTicket } from '../maintenance/maintenance.service.js';
 import {
+  notifyBookingCancelled,
+  notifyBookingNew,
+  resolveTimeAlerts,
+} from '../notifications/notifications.service.js';
+import {
   brokenCopies,
   findBusy,
   refreshGameStatus,
@@ -167,7 +172,9 @@ export async function create(userId, body) {
     note: body.note,
   });
   await syncLifecycle(); // ถ้าจองแบบเริ่มเลย (walk-in) จะเปลี่ยนเป็น playing ทันที
-  return Reservation.findById(r._id).populate(POPULATE);
+  const saved = await Reservation.findById(r._id).populate(POPULATE);
+  await notifyBookingNew(saved); // แจ้งพนักงาน: มีการจองออนไลน์ใหม่
+  return saved;
 }
 
 const SCOPES = {
@@ -278,7 +285,10 @@ export async function cancel(id, user, reason = '') {
   });
   await r.save();
   if (wasPlaying) await refreshGameStatus(r.game);
-  return r.populate(POPULATE);
+  await r.populate(POPULATE);
+  await resolveTimeAlerts(r._id);
+  if (!admin) await notifyBookingCancelled(r); // สมาชิกยกเลิกเอง → แจ้งพนักงาน
+  return r;
 }
 
 function assertPlaying(r) {
@@ -361,6 +371,7 @@ export async function returnGame(
   } else {
     await refreshGameStatus(r.game);
   }
+  await resolveTimeAlerts(r._id); // คืนเกมแล้ว → แจ้งเตือนเวลาของโต๊ะนี้จบ
   return r.populate(POPULATE);
 }
 
@@ -449,6 +460,7 @@ export async function extend(id, user, hours) {
   r.price.hours = newDuration;
   r.extensions.push({ hours, charge, at: now, by: user._id });
   await r.save();
+  await resolveTimeAlerts(r._id); // ต่อเวลาแล้ว (ถ้าใกล้หมดอีกจะแจ้งใหม่ตามเวลาใหม่)
   return Reservation.findById(r._id).populate(POPULATE);
 }
 
@@ -647,6 +659,7 @@ export async function adminRemove(id) {
   const r = await Reservation.findByIdAndDelete(id);
   if (!r) throw notFound('reservation not found');
   if (r.status === 'playing') await refreshGameStatus(r.game);
+  await resolveTimeAlerts(r._id);
   return r;
 }
 
@@ -667,5 +680,6 @@ export async function markNoShow(id, admin) {
   Object.assign(r, { status: 'no_show', noShowAt: new Date(), cancelledBy: admin._id });
   await r.save();
   if (wasPlaying) await refreshGameStatus(r.game);
+  await resolveTimeAlerts(r._id);
   return r.populate(POPULATE);
 }

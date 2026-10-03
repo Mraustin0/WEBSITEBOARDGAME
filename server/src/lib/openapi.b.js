@@ -921,6 +921,131 @@ const assistPaths = {
   },
 };
 
+const NOTI_TYPES = [
+  'booking_new',
+  'booking_cancelled',
+  'booking_affected',
+  'time_ending',
+  'time_overdue',
+  'assist',
+  'maintenance_new',
+  'maintenance_done',
+];
+const notification = {
+  type: 'object',
+  properties: {
+    _id: { type: 'string' },
+    type: { type: 'string', enum: NOTI_TYPES, description: 'ใช้เลือกไอคอน' },
+    title: { type: 'string', example: 'โต๊ะ A2 ใกล้หมดเวลา' },
+    message: { type: 'string', example: 'bn_member เหลือเวลาอีก 8 นาที (ถึง 03/10 18:00)' },
+    important: { type: 'boolean' },
+    read: { type: 'boolean', description: 'ผู้ใช้คนนี้อ่านแล้วหรือยัง' },
+    done: { type: 'boolean', description: 'เรื่องนี้จัดการแล้ว → ซ่อนปุ่มดำเนินการ' },
+    refs: { type: 'object', description: 'reservation / table / game / assist / ticket id' },
+    actions: {
+      type: 'array',
+      description: 'ปุ่มดำเนินการด่วน — FE เรียก method + path (+ body) ได้เลย',
+      items: {
+        type: 'object',
+        properties: {
+          key: { type: 'string', enum: ['extend', 'checkout', 'acknowledge', 'open'] },
+          label: { type: 'string', example: 'ต่อเวลา' },
+          method: { type: 'string', example: 'PATCH' },
+          path: { type: 'string', example: '/api/reservations/<id>/extend' },
+          body: { type: 'object', example: { hours: 0.5 } },
+        },
+      },
+    },
+    day: { type: 'string', example: '2026-10-03', description: 'วันที่ (เวลาไทย)' },
+    dayGroup: { type: 'string', enum: ['today', 'yesterday', 'earlier'] },
+    createdAt: { type: 'string', format: 'date-time' },
+  },
+};
+const notiCounts = {
+  unread: { type: 'integer', description: 'ยังไม่อ่าน (ตัวเลขบนกระดิ่ง)' },
+  important: { type: 'integer', description: 'สำคัญที่ยังไม่อ่าน' },
+};
+
+const notificationPaths = {
+  '/notifications': {
+    get: {
+      tags: ['notifications'],
+      summary: 'รายการแจ้งเตือน (admin) — แท็บ ทั้งหมด / ยังไม่อ่าน / สำคัญ',
+      security: bearer,
+      parameters: [
+        q('filter', { type: 'string', enum: ['all', 'unread', 'important'], default: 'all' }),
+        q('type', { type: 'string', enum: NOTI_TYPES }),
+        q('page', { type: 'integer', default: 1 }),
+        q('limit', { type: 'integer', default: 30 }),
+      ],
+      responses: {
+        200: ok({
+          allOf: [paged(notification), { type: 'object', properties: notiCounts }],
+        }),
+        403: err('ไม่ใช่ admin'),
+      },
+    },
+  },
+  '/notifications/unread-count': {
+    get: {
+      tags: ['notifications'],
+      summary: 'ตัวเลขบนไอคอนกระดิ่ง (poll ทุก 15–30 วิ)',
+      security: bearer,
+      responses: { 200: ok({ type: 'object', properties: notiCounts }) },
+    },
+  },
+  '/notifications/{id}/read': {
+    parameters: [idPath()],
+    patch: {
+      tags: ['notifications'],
+      summary: 'อ่านแล้ว (นับแยกรายคน)',
+      security: bearer,
+      responses: { 200: { description: 'ok' }, 404: err('not found') },
+    },
+  },
+  '/notifications/read-all': {
+    patch: {
+      tags: ['notifications'],
+      summary: 'ปุ่ม "อ่านทั้งหมดแล้ว"',
+      security: bearer,
+      responses: { 200: { description: 'ok' } },
+    },
+  },
+  '/notifications/preferences': {
+    get: {
+      tags: ['notifications'],
+      summary: 'การตั้งค่าการแจ้งเตือนของฉัน (ประเภทที่ปิดไว้)',
+      security: bearer,
+      responses: {
+        200: ok({
+          type: 'object',
+          properties: { muted: { type: 'array', items: { type: 'string' } } },
+        }),
+      },
+    },
+    put: {
+      tags: ['notifications'],
+      summary: 'ปิด/เปิดการแจ้งเตือนบางประเภท',
+      security: bearer,
+      requestBody: {
+        required: true,
+        content: json({
+          type: 'object',
+          required: ['muted'],
+          properties: {
+            muted: {
+              type: 'array',
+              items: { type: 'string', enum: NOTI_TYPES },
+              example: ['booking_cancelled'],
+            },
+          },
+        }),
+      },
+      responses: { 200: { description: 'ok' }, 400: err('invalid type') },
+    },
+  },
+};
+
 const maintenancePaths = {
   '/maintenance': {
     get: {
@@ -1072,4 +1197,5 @@ export const bPaths = {
   ...settingsPaths,
   ...maintenancePaths,
   ...assistPaths,
+  ...notificationPaths,
 };

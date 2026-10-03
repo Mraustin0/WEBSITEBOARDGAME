@@ -1,6 +1,6 @@
 # API คน B — Tables · Reservations · Reviews · Stats
 
-สำหรับทีม frontend. Swagger ดูได้ที่ `http://localhost:4000/api/docs` (tag: tables, reservations, reviews, stats, settings, maintenance, assist).
+สำหรับทีม frontend. Swagger ดูได้ที่ `http://localhost:4000/api/docs` (tag: tables, reservations, reviews, stats, settings, maintenance, assist, notifications).
 ทุก request ที่ต้อง login ใส่ header `Authorization: Bearer <token>`.
 Error ทุกตัวเป็น `{ "error": "ข้อความ", "details": {...} }` — 400 = input ผิด, 401 = ไม่ได้ login, 403 = ไม่ใช่ admin, 404 = ไม่เจอ, 409 = ชนกัน (จองซ้ำ/โต๊ะปิด/เกมซ่อม).
 
@@ -504,6 +504,39 @@ Table body (`position` เป็น % ของพื้นที่ floor plan 
 - รายได้อาหาร/เครื่องดื่ม, ส่งยอดเข้า POS, เก็บ/ริบเงินมัดจำจริง — ไม่มีในระบบ (settings เก็บแค่ค่า `depositPerPerson` ไว้แสดง)
 - Audit log (หน้า 9), ศูนย์แจ้งเตือน (หน้า 10), สิทธิ์ละเอียด (หน้า 16), SSO — นอกขอบเขต B
 - ระบบ Pending/Confirmed — การจองยืนยันทันที
+
+### หน้า 10 — ศูนย์การแจ้งเตือน (Notification Center)
+
+admin เท่านั้น — การแจ้งเตือนสร้างอัตโนมัติจากเหตุการณ์ในระบบ (ไม่ต้องสร้างเอง), สถานะ "อ่านแล้ว" แยกรายคน, เก็บ 60 วัน
+
+| ส่วนบนหน้า                               | Endpoint                                                                                                   |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| ไอคอนกระดิ่ง + ตัวเลข                    | `GET /api/notifications/unread-count` → `{ unread, important }` (poll ทุก 15–30 วิ)                        |
+| Filter Tabs ทั้งหมด / ยังไม่อ่าน / สำคัญ | `GET /api/notifications?filter=all\|unread\|important`                                                     |
+| แยกกลุ่มตามวัน                           | แต่ละรายการมี `dayGroup` (`today` / `yesterday` / `earlier`) และ `day` (YYYY-MM-DD)                        |
+| ปุ่มดำเนินการด่วน                        | `actions[]` = `{ key, label, method, path, body }` → เรียก API ตามนั้นได้เลย, ถ้า `done: true` ให้ซ่อนปุ่ม |
+| กดอ่าน 1 รายการ                          | `PATCH /api/notifications/:id/read`                                                                        |
+| อ่านทั้งหมดแล้ว                          | `PATCH /api/notifications/read-all`                                                                        |
+| ไอคอนตั้งค่า                             | `GET` / `PUT /api/notifications/preferences` body `{ "muted": ["booking_cancelled"] }`                     |
+
+| `type` (ไอคอน)      | เกิดเมื่อ                               | สำคัญ                                | ปุ่ม             |
+| ------------------- | --------------------------------------- | ------------------------------------ | ---------------- |
+| `booking_new`       | สมาชิกจองออนไลน์                        |                                      | ดูการจอง         |
+| `booking_cancelled` | สมาชิกยกเลิกเอง                         |                                      |                  |
+| `time_ending`       | โต๊ะเหลือ ≤ 10 นาที                     |                                      | ต่อเวลา, เช็คบิล |
+| `time_overdue`      | เลยเวลาแล้วยังไม่คืนเกม                 | ✅                                   | ต่อเวลา, เช็คบิล |
+| `assist`            | ลูกค้ากดเรียก GM                        | ✅                                   | รับเรื่อง        |
+| `maintenance_new`   | แจ้งซ่อม / เกมชำรุดตอนคืน               | ✅ ถ้า priority high หรือชำรุดตอนคืน | ดูใบแจ้งซ่อม     |
+| `maintenance_done`  | ซ่อมเสร็จ                               |                                      |                  |
+| `booking_affected`  | แจ้งซ่อมแล้วมีการจองที่ไม่มีกล่องเกมให้ | ✅                                   | ดูใบแจ้งซ่อม     |
+
+```js
+// ตัวอย่าง: ปุ่มดำเนินการด่วน
+async function runAction(a) {
+  await api(a.path.replace(/^\/api/, ''), { method: a.method, body: a.body });
+  await load(); // โหลดรายการใหม่ (รายการนั้นจะเป็น done: true)
+}
+```
 
 ## Demo data
 

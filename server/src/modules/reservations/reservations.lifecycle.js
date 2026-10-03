@@ -5,6 +5,7 @@ import { Game } from '../../models/game.model.js';
 import { MaintenanceTicket, OPEN_TICKET_STATUSES } from '../../models/maintenance.model.js';
 import { logger } from '../../lib/logger.js';
 import { conflictFilter, copiesOf } from './reservations.rules.js';
+import { scanTimeAlerts } from '../notifications/notifications.service.js';
 
 const { Types } = mongoose;
 
@@ -115,6 +116,7 @@ export function startLifecycleJob(intervalMs = 60_000) {
   const tick = () =>
     syncLifecycle()
       .then((n) => n && logger.info({ started: n }, 'reservations started'))
+      .then(() => scanTimeAlerts()) // แจ้งเตือนโต๊ะใกล้หมดเวลา / เลยเวลา
       .catch((err) => logger.error({ err }, 'lifecycle sync failed'));
   tick();
   const timer = setInterval(tick, intervalMs);
