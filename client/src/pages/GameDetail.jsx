@@ -332,9 +332,9 @@ export default function GameDetail() {
                 justifyContent: 'center',
               }}
             >
-              {game.imageUrl ? (
+              {game.image ? (
                 <img
-                  src={game.imageUrl}
+                  src={game.image}
                   alt={game.name}
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />
@@ -493,9 +493,9 @@ export default function GameDetail() {
                   รูปภาพ (URL):
                 </label>
                 <input
-                  type="text"
-                  value={editData.imageUrl || ''}
-                  onChange={(e) => setEditData({ ...editData, imageUrl: e.target.value })}
+                  type="url"
+                  value={editData.image || ''}
+                  onChange={(e) => setEditData({ ...editData, image: e.target.value })}
                   style={{
                     width: '100%',
                     padding: '0.5rem',

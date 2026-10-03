@@ -10,7 +10,7 @@ export default function AddGame() {
     playtimeMin: 30,
     yearPublished: 2024,
     copies: 1, // เพิ่มฟิลด์จำนวนเกม
-    imageUrl: '', // เพิ่มฟิลด์รูปภาพ
+    image: '', // เพิ่มฟิลด์รูปภาพ
     description: '',
   });
   const [saving, setSaving] = useState(false);
@@ -105,13 +105,27 @@ export default function AddGame() {
 
           {/* เพิ่มช่องใส่ลิงก์รูปภาพ */}
           <input
-            type="text"
-            name="imageUrl"
-            value={formData.imageUrl}
+            type="url"
+            name="image"
+            value={formData.image}
             onChange={handleChange}
             placeholder="ลิงก์รูปภาพ (URL)"
             style={{ padding: '0.75rem', borderRadius: '6px', border: '1px solid #ccc' }}
           />
+
+          {formData.image && (
+            <img
+              src={formData.image}
+              alt="preview"
+              style={{
+                width: '100%',
+                maxHeight: 240,
+                objectFit: 'contain',
+                borderRadius: 8,
+                background: '#f3f4f6',
+              }}
+            />
+          )}
 
           <div style={{ display: 'flex', gap: '1rem' }}>
             {/* เพิ่มช่องใส่จำนวนเกม */}

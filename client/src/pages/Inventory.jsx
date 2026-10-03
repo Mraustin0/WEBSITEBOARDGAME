@@ -378,6 +378,16 @@ export default function Inventory() {
                   justifyContent: 'space-between',
                 }}
               >
+                <img
+                  src={game.thumbnail || game.image || 'https://placehold.co/400x300?text=No+Image'}
+                  alt={game.name}
+                  style={{ width: '100%', height: 180, objectFit: 'cover', background: '#f3f4f6' }}
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = 'https://placehold.co/400x300?text=No+Image';
+                  }}
+                />
+
                 <div style={{ padding: '1.25rem' }}>
                   <div
                     style={{
