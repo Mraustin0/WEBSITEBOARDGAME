@@ -213,7 +213,7 @@
 
 .inv-card-img {
   position: relative;
-  aspect-ratio: 16 / 10;
+  aspect-ratio: 4 / 3;
   background: var(--color-bg);
 }
 
@@ -894,4 +894,46 @@
 
 .inv-kpi strong {
   font-family: 'Kanit', var(--font-heading), sans-serif !important;
+}
+.inv-bgg-list {
+  list-style: none;
+  margin: 8px 0 12px;
+  padding: 0;
+  max-height: 200px;
+  overflow-y: auto;
+  border: 2px solid #0f766e;
+  border-radius: 8px;
+  background: #f0fdf7;
+}
+
+.inv-bgg-list li {
+  margin: 0;
+}
+
+.inv-bgg-list button {
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border: 0;
+  border-bottom: 1px solid #d1fae5;
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.95rem;
+  color: #134e4a;
+}
+
+.inv-bgg-list button:hover {
+  background: #ccfbf1;
+}
+
+.inv-bgg-list button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.inv-bgg-note {
+  margin: 4px 0 8px;
+  font-size: 0.875rem;
+  color: #0f766e;
+  font-weight: 600;
 }

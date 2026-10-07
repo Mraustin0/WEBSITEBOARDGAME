@@ -20,3 +20,14 @@ export const changePasswordSchema = z
     path: ['newPassword'],
     message: 'newPassword must differ from oldPassword',
   });
+
+export const updateProfileSchema = z
+  .object({
+    username: z.string().trim().min(3).max(32).optional(),
+    email: z.string().trim().toLowerCase().email().optional(),
+    displayName: z.string().trim().max(80).optional(),
+    phone: z.string().trim().max(30).optional(),
+    lineId: z.string().trim().max(60).optional(),
+    avatar: z.string().max(500).optional(),
+  })
+  .refine((o) => Object.keys(o).length > 0, 'nothing to update');

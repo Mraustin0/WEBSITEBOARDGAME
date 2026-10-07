@@ -2,6 +2,8 @@ import mongoose from 'mongoose';
 
 const { Schema, model, Types } = mongoose;
 
+export const GAME_STATUSES = ['available', 'in_use', 'maintenance'];
+
 const GameSchema = new Schema(
   {
     bggId: { type: Number, index: true, sparse: true, unique: true },
@@ -13,25 +15,30 @@ const GameSchema = new Schema(
     thumbnail: { type: String },
     image: { type: String },
     description: { type: String },
-    // BGG-derived aggregate stats (populated on import)
     bggAverage: { type: Number, min: 0, max: 10 },
     bggWeight: { type: Number, min: 0, max: 5 },
     bggRating: { type: Number, min: 0 },
     categories: { type: [String], default: [], index: true },
     mechanics: { type: [String], default: [], index: true },
     designers: { type: [String], default: [] },
-    // สถานะของกล่องเกมในร้าน: available → in_use (มีโต๊ะกำลังเล่น) → available; maintenance = ปิดจอง
     status: {
       type: String,
-      enum: ['available', 'in_use', 'maintenance'],
+      enum: GAME_STATUSES,
       default: 'available',
       index: true,
     },
+    copies: { type: Number, default: 1, min: 0 },
+    shelf: { type: String, default: '', trim: true, index: true },
+    sku: { type: String, default: '', trim: true, index: true },
+    barcode: { type: String, default: '', trim: true },
+    publisher: { type: String, default: '', trim: true },
+    notes: { type: String, default: '' },
     createdBy: { type: Types.ObjectId, ref: 'User' },
   },
   { timestamps: true },
 );
 
 GameSchema.index({ name: 'text', description: 'text' });
+GameSchema.index({ status: 1, shelf: 1 });
 
 export const Game = model('Game', GameSchema);

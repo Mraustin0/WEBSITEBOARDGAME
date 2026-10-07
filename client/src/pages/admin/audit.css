@@ -1,0 +1,154 @@
+.audit .page-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.audit .title-en {
+  font-size: 0.85em;
+  color: var(--muted, #6b7280);
+  font-weight: 500;
+  margin-left: 8px;
+}
+.audit-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.audit-stats .stat-card {
+  background: var(--card, #fff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.audit-stats .stat-card strong {
+  font-size: 1.4rem;
+}
+.audit-stats .stat-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted, #6b7280);
+}
+.audit-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.audit-filters input,
+.audit-filters select {
+  padding: 8px 12px;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  min-width: 160px;
+}
+.audit-filters input {
+  flex: 1;
+  min-width: 220px;
+}
+.audit-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.audit-item {
+  background: var(--card, #fff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+.audit-item-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+.audit-item-top time {
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: var(--muted, #6b7280);
+}
+.action-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  text-transform: uppercase;
+}
+.action-badge.green {
+  background: #d1fae5;
+  color: #065f46;
+}
+.action-badge.blue {
+  background: #dbeafe;
+  color: #1e40af;
+}
+.action-badge.red {
+  background: #fee2e2;
+  color: #991b1b;
+}
+.action-badge.orange {
+  background: #ffedd5;
+  color: #9a3412;
+}
+.action-badge.purple {
+  background: #ede9fe;
+  color: #5b21b6;
+}
+.action-badge.gray {
+  background: #f3f4f6;
+  color: #374151;
+}
+.module-tag {
+  font-size: 0.75rem;
+  color: var(--muted, #6b7280);
+  background: #f9fafb;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+.audit-summary {
+  margin: 0 0 6px;
+  font-size: 0.95rem;
+}
+.audit-meta {
+  font-size: 0.8rem;
+  color: var(--muted, #6b7280);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.audit .pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 20px;
+}
+.audit .error-box {
+  background: #fef2f2;
+  color: #991b1b;
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+.audit .btn {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border, #e5e7eb);
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+.audit .btn.primary {
+  background: #0f766e;
+  color: #fff;
+  border-color: #0f766e;
+}

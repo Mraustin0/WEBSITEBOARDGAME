@@ -22,6 +22,8 @@ import maintenanceRoutes from './modules/maintenance/maintenance.routes.js';
 import assistRoutes from './modules/assist/assist.routes.js';
 import notificationRoutes from './modules/notifications/notifications.routes.js';
 import adminRoutes from './modules/admin/admin.routes.js';
+import auditRoutes from './modules/audit/audit.routes.js';
+import rolesRoutes from './modules/roles/roles.routes.js';
 
 export function createApp() {
   const app = express();
@@ -53,6 +55,8 @@ export function createApp() {
   app.use('/api/assist', assistRoutes);
   app.use('/api/notifications', notificationRoutes);
   app.use('/api/admin', adminRoutes);
+  app.use('/api/audit', auditRoutes);
+  app.use('/api/roles', rolesRoutes);
 
   app.use('/api', notFoundHandler);
   app.use(errorHandler);

@@ -20,7 +20,9 @@ const MENU = [
     group: 'MANAGEMENT',
     items: [
       { to: '/admin/users', icon: '👥', label: 'จัดการผู้ใช้ (Users)' },
+      { to: '/admin/roles', icon: '🔐', label: 'สิทธิ์การเข้าถึง (Roles)' },
       { to: '/admin/reports', icon: '📈', label: 'รายงาน (Reports)' },
+      { to: '/admin/audit', icon: '📋', label: 'บันทึกกิจกรรม (Audit)' },
       { to: '/admin/settings', icon: '⚙', label: 'ตั้งค่า (Settings)' },
     ],
   },

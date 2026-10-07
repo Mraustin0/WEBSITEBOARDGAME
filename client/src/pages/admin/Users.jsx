@@ -14,6 +14,19 @@ const ROLES = {
   user: { label: 'สมาชิก', en: 'Member', desc: 'ใช้งานทั่วไป จองโต๊ะและดูการจองของตัวเอง' },
 };
 
+const STATUSES = {
+  active: { label: 'ปกติ', className: 'ok' },
+  suspended: { label: 'ระงับ', className: 'bad' },
+  pending: { label: 'รอตรวจ', className: 'warn' },
+};
+
+const TIERS = {
+  regular: 'Regular',
+  gold: 'Gold',
+  vip: 'VIP',
+  new: 'New',
+};
+
 function formatDate(iso) {
   return new Date(iso).toLocaleDateString('th-TH', {
     timeZone: 'Asia/Bangkok',
@@ -285,13 +298,24 @@ function DeleteModal({ user, onClose, onDone }) {
 /**
  * หน้าจัดการผู้ใช้งานและสิทธิ์ (ดีไซน์หน้า 5)
  * ใช้ GET /admin/users, PUT /admin/users/:id/role, DELETE /admin/users/:id, POST /auth/register
- * หมายเหตุ: backend ยังไม่มี field สถานะ/ระงับ, เบอร์โทร, LINE, เข้าใช้ล่าสุด, ประวัติการจอง
- * จึงไม่แสดงคอลัมน์เหล่านั้น (ไม่ทำข้อมูลปลอม)
+ * รองรับ status / tier / suspend / approve จาก API ใหม่
  */
+
+async function suspendUser(user, reason = '') {
+  await api(`/admin/users/${user._id}/suspend`, { method: 'PATCH', body: { reason } });
+}
+async function unsuspendUser(user) {
+  await api(`/admin/users/${user._id}/unsuspend`, { method: 'PATCH' });
+}
+async function approveUser(user) {
+  await api(`/admin/users/${user._id}/approve`, { method: 'PATCH' });
+}
+
 export default function Users() {
   const [q, setQ] = useState('');
   const [search, setSearch] = useState(''); // ค่า q ที่ debounce แล้ว
   const [role, setRole] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
   const [page, setPage] = useState(1);
   const [data, setData] = useState({ items: [], total: 0 });
   const [stats, setStats] = useState({ total: 0, admins: 0, recent: 0, recentCapped: false });
@@ -320,31 +344,28 @@ export default function Users() {
     setLoading(true);
     setError('');
     try {
-      const res = await api('/admin/users', { query: { q: search, role, page, limit: LIMIT } });
+      const res = await api('/admin/users', {
+        query: { q: search, role, status: statusFilter || undefined, page, limit: LIMIT },
+      });
       setData({ items: res.items ?? [], total: res.total ?? 0 });
     } catch (err) {
       setError(err.message || 'โหลดรายชื่อผู้ใช้ไม่สำเร็จ');
     } finally {
       setLoading(false);
     }
-  }, [search, role, page]);
+  }, [search, role, statusFilter, page]);
 
   // ตัวเลขสรุป: ผู้ใช้ทั้งหมด / ผู้ดูแล / สมัครใหม่ 7 วัน (นับจาก 200 รายล่าสุด)
   const loadStats = useCallback(async () => {
     try {
-      const [all, admins] = await Promise.all([
-        api('/admin/users', { query: { limit: 200 } }),
-        api('/admin/users', { query: { role: 'admin', limit: 1 } }),
-      ]);
-      const since = Date.now() - 7 * DAY_MS;
-      const recent = (all.items ?? []).filter(
-        (u) => new Date(u.createdAt).getTime() >= since,
-      ).length;
+      const s = await api('/admin/users/stats');
       setStats({
-        total: all.total ?? 0,
-        admins: admins.total ?? 0,
-        recent,
-        recentCapped: (all.total ?? 0) > 200 && recent >= 200,
+        total: s.total ?? 0,
+        admins: s.staff ?? 0,
+        recent: s.pending ?? 0,
+        recentCapped: false,
+        active: s.active ?? 0,
+        suspended: s.suspended ?? 0,
       });
     } catch {
       /* การ์ดสรุปไม่สำคัญเท่าตาราง: ปล่อยค่าเดิมไว้ */
@@ -429,10 +450,23 @@ export default function Users() {
           <input
             className="input us-search"
             type="search"
-            placeholder="ค้นหาด้วยชื่อหรืออีเมล..."
+            placeholder="ค้นหาชื่อ อีเมล โทร LINE..."
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
+          <select
+            className="input"
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="">ทุกสถานะ</option>
+            <option value="active">ปกติ</option>
+            <option value="suspended">ระงับ</option>
+            <option value="pending">รอตรวจ</option>
+          </select>
           <div className="us-tabs" role="tablist">
             {tabs.map((t) => (
               <button
@@ -459,20 +493,21 @@ export default function Users() {
                 <th>อีเมล (EMAIL)</th>
                 <th>วันที่สมัคร (JOINED)</th>
                 <th>ระดับสิทธิ์ (ROLE)</th>
+                <th>สถานะ</th>
                 <th aria-label="จัดการ" />
               </tr>
             </thead>
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={5} className="us-empty">
+                  <td colSpan={6} className="us-empty">
                     กำลังโหลด...
                   </td>
                 </tr>
               )}
               {!loading && data.items.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="us-empty">
+                  <td colSpan={6} className="us-empty">
                     ไม่พบผู้ใช้ที่ตรงกับเงื่อนไข
                   </td>
                 </tr>
@@ -509,6 +544,14 @@ export default function Users() {
                         <span className={'us-role ' + u.role}>
                           {ROLES[u.role]?.label ?? u.role}
                         </span>
+                        {u.tier && u.tier !== 'regular' && (
+                          <small className="us-muted"> · {TIERS[u.tier] || u.tier}</small>
+                        )}
+                      </td>
+                      <td>
+                        <span className={'us-status ' + (u.status || 'active')}>
+                          {STATUSES[u.status]?.label || u.status || 'ปกติ'}
+                        </span>
                       </td>
                       <td className="us-actions">
                         <button
@@ -520,6 +563,61 @@ export default function Users() {
                         >
                           แก้ไขสิทธิ์
                         </button>
+                        {u.status === 'suspended' ? (
+                          <button
+                            type="button"
+                            className="us-btn"
+                            disabled={isMe}
+                            onClick={async () => {
+                              try {
+                                await unsuspendUser(u);
+                                setNotice({ tone: 'ok', text: `ปลดระงับ ${u.username} แล้ว` });
+                                load();
+                                loadStats();
+                              } catch (err) {
+                                setError(err.message);
+                              }
+                            }}
+                          >
+                            ปลดระงับ
+                          </button>
+                        ) : u.status === 'pending' ? (
+                          <button
+                            type="button"
+                            className="us-btn"
+                            onClick={async () => {
+                              try {
+                                await approveUser(u);
+                                setNotice({ tone: 'ok', text: `อนุมัติ ${u.username} แล้ว` });
+                                load();
+                                loadStats();
+                              } catch (err) {
+                                setError(err.message);
+                              }
+                            }}
+                          >
+                            อนุมัติ
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className="us-btn us-btn-warn"
+                            disabled={isMe}
+                            onClick={async () => {
+                              const reason = window.prompt('เหตุผลที่ระงับ (ไม่บังคับ)') ?? '';
+                              try {
+                                await suspendUser(u, reason);
+                                setNotice({ tone: 'ok', text: `ระงับ ${u.username} แล้ว` });
+                                load();
+                                loadStats();
+                              } catch (err) {
+                                setError(err.message);
+                              }
+                            }}
+                          >
+                            ระงับ
+                          </button>
+                        )}
                         <button
                           type="button"
                           className="us-btn us-btn-danger"

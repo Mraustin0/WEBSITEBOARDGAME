@@ -9,15 +9,15 @@ import Reports from './pages/admin/Reports.jsx';
 import Inventory from './pages/admin/Inventory.jsx';
 import GameDetail from './pages/admin/GameDetail.jsx';
 import Users from './pages/admin/Users.jsx';
-import MemberDetail from './pages/admin/MemberDetail';
-import Profile from './pages/admin/Profile';
+import MemberDetail from './pages/admin/MemberDetail.jsx';
+import Profile from './pages/admin/Profile.jsx';
+import Audit from './pages/admin/Audit.jsx';
+import Roles from './pages/admin/Roles.jsx';
 
-// ต้องมี token ถึงเข้า /admin ได้ (ถ้า token หมดอายุ api.js จะพากลับ /login เอง)
 function RequireAuth({ children }) {
   return localStorage.getItem('token') ? children : <Navigate to="/login" replace />;
 }
 
-// หน้าที่ยังไม่ได้ทำ: แสดงข้อความแทนการเด้งกลับเงียบ ๆ
 function ComingSoon() {
   return (
     <div className="panel">
@@ -45,10 +45,12 @@ export default function App() {
         <Route path="maintenance" element={<Maintenance />} />
         <Route path="reports" element={<Reports />} />
         <Route path="users" element={<Users />} />
+        <Route path="users/:id" element={<MemberDetail />} />
+        <Route path="roles" element={<Roles />} />
+        <Route path="audit" element={<Audit />} />
         <Route path="inventory" element={<Inventory />} />
-        <Route path="/admin/users/:id" element={<MemberDetail />} />
-        <Route path="/admin/profile" element={<Profile />} />
         <Route path="inventory/:id" element={<GameDetail />} />
+        <Route path="profile" element={<Profile />} />
         <Route path="*" element={<ComingSoon />} />
       </Route>
       <Route path="*" element={<Navigate to="/admin" replace />} />

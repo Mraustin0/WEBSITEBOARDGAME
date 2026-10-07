@@ -93,7 +93,7 @@ function AddGameModal({ onClose, onCreated }) {
       }));
       setBggQ('');
       setBggHits([]);
-      setBggNote('');
+      setBggNote('ดึงข้อมูลจาก BGG แล้ว');
     } catch (err) {
       setError(err.message || 'ดึงข้อมูล BGG ไม่สำเร็จ');
     } finally {
@@ -162,21 +162,56 @@ function AddGameModal({ onClose, onCreated }) {
             placeholder="พิมพ์ชื่อเกม เช่น Catan"
             value={bggQ}
             onChange={(e) => setBggQ(e.target.value)}
+            autoComplete="off"
           />
         </label>
-        {bggLoading && <p className="muted inv-bgg-note">กำลังค้นหา...</p>}
-        {bggNote && !bggLoading && <p className="muted inv-bgg-note">{bggNote}</p>}
-        {bggHits.length > 0 && (
-          <ul className="inv-bgg-list">
-            {bggHits.slice(0, 8).map((h) => (
-              <li key={h.bggId}>
-                <button type="button" disabled={busy} onClick={() => pickBgg(h)}>
+
+        {bggLoading && (
+          <p className="muted" style={{ margin: '4px 0 8px' }}>
+            กำลังค้นหา...
+          </p>
+        )}
+
+        {!bggLoading && bggHits.length > 0 && (
+          <label className="field" style={{ marginBottom: 12 }}>
+            <span style={{ color: '#0f766e', fontWeight: 600 }}>
+              พบ {bggHits.length} รายการ — เลือกเพื่อเติมฟอร์ม
+            </span>
+            <select
+              className="input"
+              defaultValue=""
+              disabled={busy}
+              onChange={(e) => {
+                const id = Number(e.target.value);
+                const hit = bggHits.find((h) => h.bggId === id);
+                if (hit) pickBgg(hit);
+                e.target.value = '';
+              }}
+              style={{
+                marginTop: 6,
+                border: '2px solid #0f766e',
+                background: '#ecfdf5',
+                fontWeight: 600,
+                color: '#134e4a',
+              }}
+            >
+              <option value="" disabled>
+                -- เลือกเกมจาก BGG --
+              </option>
+              {bggHits.slice(0, 15).map((h) => (
+                <option key={h.bggId} value={h.bggId}>
                   {h.name}
                   {h.yearPublished ? ` (${h.yearPublished})` : ''}
-                </button>
-              </li>
-            ))}
-          </ul>
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+
+        {!bggLoading && bggNote && bggHits.length === 0 && (
+          <p className="muted" style={{ margin: '4px 0 8px' }}>
+            {bggNote}
+          </p>
         )}
 
         <label className="field">
@@ -330,20 +365,31 @@ export default function Inventory() {
 
   const loadCounts = useCallback(async () => {
     try {
-      const [all, a, u, m] = await Promise.all([
-        api('/games', { query: { limit: 1 } }),
-        api('/games', { query: { limit: 1, status: 'available' } }),
-        api('/games', { query: { limit: 1, status: 'in_use' } }),
-        api('/games', { query: { limit: 1, status: 'maintenance' } }),
-      ]);
+      const s = await api('/games/stats');
       setCounts({
-        all: all?.total ?? 0,
-        available: a?.total ?? 0,
-        in_use: u?.total ?? 0,
-        maintenance: m?.total ?? 0,
+        all: s.titles ?? s.total ?? 0,
+        available: s.available ?? 0,
+        in_use: s.inUse ?? 0,
+        maintenance: s.maintenance ?? 0,
+        totalCopies: s.totalCopies ?? 0,
       });
     } catch {
-      /* ignore */
+      try {
+        const [all, a, u, m] = await Promise.all([
+          api('/games', { query: { limit: 1 } }),
+          api('/games', { query: { limit: 1, status: 'available' } }),
+          api('/games', { query: { limit: 1, status: 'in_use' } }),
+          api('/games', { query: { limit: 1, status: 'maintenance' } }),
+        ]);
+        setCounts({
+          all: all?.total ?? 0,
+          available: a?.total ?? 0,
+          in_use: u?.total ?? 0,
+          maintenance: m?.total ?? 0,
+        });
+      } catch {
+        /* ignore */
+      }
     }
   }, []);
 
@@ -363,6 +409,15 @@ export default function Inventory() {
       });
       setItems(data?.items ?? []);
       setTotal(data?.total ?? 0);
+      if (data?.counts) {
+        setCounts((c) => ({
+          ...c,
+          all: data.counts.total ?? c.all,
+          available: data.counts.available ?? c.available,
+          in_use: data.counts.inUse ?? c.in_use,
+          maintenance: data.counts.maintenance ?? c.maintenance,
+        }));
+      }
     } catch (err) {
       setError(err.message || 'โหลดคลังเกมไม่สำเร็จ');
     } finally {
@@ -418,7 +473,6 @@ export default function Inventory() {
         </div>
       </div>
 
-      {/* KPI ตามดีไซน์ */}
       <div className="inv-kpis">
         <button
           type="button"
@@ -537,8 +591,8 @@ export default function Inventory() {
           return (
             <article key={g._id} className="inv-card panel">
               <div className="inv-card-img">
-                {g.thumbnail || g.image ? (
-                  <img src={g.thumbnail || g.image} alt="" loading="lazy" />
+                {g.image || g.thumbnail ? (
+                  <img src={g.image || g.thumbnail} alt="" loading="lazy" />
                 ) : (
                   <div className="inv-card-ph">🎲</div>
                 )}

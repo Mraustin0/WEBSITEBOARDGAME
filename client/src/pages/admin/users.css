@@ -396,3 +396,28 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+.us-status {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+.us-status.active {
+  background: #d1fae5;
+  color: #065f46;
+}
+.us-status.suspended {
+  background: #fee2e2;
+  color: #991b1b;
+}
+.us-status.pending {
+  background: #ffedd5;
+  color: #9a3412;
+}
+.us-btn-warn {
+  color: #9a3412 !important;
+  border-color: #fed7aa !important;
+  background: #fff7ed !important;
+}

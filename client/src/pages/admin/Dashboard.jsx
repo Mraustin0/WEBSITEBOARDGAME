@@ -61,10 +61,20 @@ export default function Dashboard() {
   const load = useCallback(async () => {
     const today = todayTH();
     const [a, b, c] = await Promise.allSettled([
-      api('/stats/overview', { query: { date: today } }),
+      api('/stats/dashboard', { query: { date: today } }),
       api('/tables/floor'),
       api('/reservations/admin', { query: { date: today } }),
     ]);
+    // fallback overview ถ้ายังไม่มี /dashboard
+    if (a.status === 'rejected') {
+      try {
+        const ov = await api('/stats/overview', { query: { date: today } });
+        a.status = 'fulfilled';
+        a.value = ov;
+      } catch {
+        /* keep rejected */
+      }
+    }
     const bad = [a, b, c].find((r) => r.status === 'rejected' && r.reason?.status !== 401);
     setError(bad ? bad.reason.message : '');
     if (a.status === 'fulfilled') setOv(a.value);

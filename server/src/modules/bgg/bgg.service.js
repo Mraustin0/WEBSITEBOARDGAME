@@ -1,6 +1,7 @@
 import { XMLParser } from 'fast-xml-parser';
 import { AppError, notFound } from '../../lib/errors.js';
 import { createCache } from '../../lib/cache.js';
+import { env } from '../../config/env.js';
 
 const BASE = 'https://boardgamegeek.com/xmlapi2';
 const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '' });
@@ -23,7 +24,13 @@ const linksOfType = (links, type) =>
 async function fetchXml(path) {
   const cached = cache.get(path);
   if (cached) return cached;
-  const res = await fetch(`${BASE}${path}`);
+
+  const headers = {};
+  if (env.BGG_TOKEN) {
+    headers.Authorization = `Bearer ${env.BGG_TOKEN}`;
+  }
+
+  const res = await fetch(`${BASE}${path}`, { headers });
   if (!res.ok) throw new AppError(502, `BGG ${res.status}`);
   const parsed = parser.parse(await res.text());
   cache.set(path, parsed);

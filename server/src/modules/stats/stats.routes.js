@@ -16,6 +16,13 @@ router.get(
 router.get('/me', requireAuth, asyncHandler(controller.mine));
 
 router.get('/overview', ...admin, validate({ query: dayQuery }), asyncHandler(controller.overview));
+router.get(
+  '/dashboard',
+  ...admin,
+  validate({ query: dayQuery }),
+  asyncHandler(controller.dashboard),
+);
+router.get('/alerts', ...admin, asyncHandler(controller.alerts));
 router.get('/daily', ...admin, validate({ query: rangeQuery }), asyncHandler(controller.daily));
 router.get('/hourly', ...admin, validate({ query: rangeQuery }), asyncHandler(controller.hourly));
 router.get(

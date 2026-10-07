@@ -629,3 +629,127 @@ export async function exportCsv(query) {
     csv: '\uFEFF' + [header.join(','), ...lines].join('\r\n') + '\r\n',
   };
 }
+
+/** รวมข้อมูลสำหรับหน้า Dashboard ภาพรวมร้าน */
+export async function dashboard({ date } = {}) {
+  const ov = await overview({ date });
+  const day = date ?? toLocalDateString(new Date());
+  const { start, end } = localDayRange(day);
+  const now = new Date();
+
+  const [upcoming, openTicketsList, pendingConfirm, noShowsToday] = await Promise.all([
+    Reservation.find({
+      status: 'booked',
+      startAt: { $gte: now, $lt: end },
+    })
+      .populate('table', 'code zone')
+      .populate('game', 'name')
+      .populate('user', 'username')
+      .sort({ startAt: 1 })
+      .limit(10)
+      .lean(),
+    MaintenanceTicket.find({ status: { $in: OPEN_TICKET_STATUSES } })
+      .sort({ priority: -1, createdAt: 1 })
+      .limit(5)
+      .lean(),
+    // ถ้ายังไม่มี status pending — ใช้ booked ที่สร้างภายใน 30 นาทีล่าสุดเป็น proxy
+    Reservation.find({
+      status: 'booked',
+      createdAt: { $gte: new Date(Date.now() - 30 * 60 * 1000) },
+      startAt: { $gte: now },
+    })
+      .populate('table', 'code')
+      .populate('user', 'username')
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .lean(),
+    Reservation.countDocuments({
+      status: 'no_show',
+      startAt: { $gte: start, $lt: end },
+    }),
+  ]);
+
+  const alerts = [];
+  if (noShowsToday > 0) {
+    alerts.push({
+      type: 'no_show',
+      severity: 'high',
+      title: `มี No-show ${noShowsToday} รายการวันนี้`,
+      count: noShowsToday,
+    });
+  }
+  for (const t of openTicketsList.slice(0, 3)) {
+    alerts.push({
+      type: 'maintenance',
+      severity: t.priority === 'high' ? 'high' : 'medium',
+      title: t.title || 'รายการซ่อมค้าง',
+      id: t._id,
+    });
+  }
+  if (pendingConfirm.length) {
+    alerts.push({
+      type: 'pending_confirm',
+      severity: 'medium',
+      title: `การจองใหม่รอตรวจสอบ ${pendingConfirm.length} รายการ`,
+      count: pendingConfirm.length,
+    });
+  }
+
+  return {
+    ...ov,
+    upcoming,
+    alerts,
+    pendingConfirm,
+    openTickets: openTicketsList,
+  };
+}
+
+/** รายการที่ต้องทำ (Action Needed) */
+export async function alerts() {
+  await syncLifecycle();
+  const now = new Date();
+  const day = toLocalDateString(now);
+  const { start, end } = localDayRange(day);
+
+  const [noShows, openTickets, endingSoon, overduePlaying] = await Promise.all([
+    Reservation.find({ status: 'no_show', startAt: { $gte: start, $lt: end } })
+      .populate('table', 'code zone')
+      .populate('user', 'username')
+      .limit(20)
+      .lean(),
+    MaintenanceTicket.find({ status: { $in: OPEN_TICKET_STATUSES } })
+      .sort({ createdAt: 1 })
+      .limit(20)
+      .lean(),
+    Reservation.find({
+      status: 'playing',
+      endAt: { $gte: now, $lte: new Date(now.getTime() + 15 * 60 * 1000) },
+    })
+      .populate('table', 'code')
+      .populate('game', 'name')
+      .limit(10)
+      .lean(),
+    Reservation.find({
+      status: 'playing',
+      endAt: { $lt: now },
+    })
+      .populate('table', 'code')
+      .populate('game', 'name')
+      .limit(10)
+      .lean(),
+  ]);
+
+  return {
+    noShows,
+    openTickets,
+    endingSoon,
+    overduePlaying,
+    counts: {
+      noShows: noShows.length,
+      openTickets: openTickets.length,
+      endingSoon: endingSoon.length,
+      overduePlaying: overduePlaying.length,
+      total: noShows.length + openTickets.length + endingSoon.length + overduePlaying.length,
+    },
+  };
+}
