@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { Gamepad } from 'reicon-react';
+import { Gamepad, Users, ClockCircle, Scale, Box } from 'reicon-react';
 import { api } from '../../lib/api.js';
 import { timeTH } from '../../lib/date.js';
 import './inventory.css';
@@ -225,7 +225,9 @@ export default function GameDetail() {
 
             <div className="gd-fact-row">
               <div className="gd-fact">
-                <span className="gd-fact-ico">👥</span>
+                <span className="gd-fact-ico" aria-hidden="true">
+                  <Users size={20} />
+                </span>
                 <div>
                   <span className="inv-meta-k">จำนวนผู้เล่น</span>
                   <strong>
@@ -234,14 +236,18 @@ export default function GameDetail() {
                 </div>
               </div>
               <div className="gd-fact">
-                <span className="gd-fact-ico">⏱</span>
+                <span className="gd-fact-ico" aria-hidden="true">
+                  <ClockCircle size={20} />
+                </span>
                 <div>
                   <span className="inv-meta-k">เวลาโดยประมาณ</span>
                   <strong>{game.playtimeMin || '—'} นาที</strong>
                 </div>
               </div>
               <div className="gd-fact">
-                <span className="gd-fact-ico">⚖</span>
+                <span className="gd-fact-ico" aria-hidden="true">
+                  <Scale size={20} />
+                </span>
                 <div>
                   <span className="inv-meta-k">ระดับความซับซ้อน</span>
                   <strong>
@@ -250,7 +256,9 @@ export default function GameDetail() {
                 </div>
               </div>
               <div className="gd-fact">
-                <span className="gd-fact-ico">📦</span>
+                <span className="gd-fact-ico" aria-hidden="true">
+                  <Box size={20} />
+                </span>
                 <div>
                   <span className="inv-meta-k">จำนวนกล่อง</span>
                   <strong>{copies} กล่อง</strong>

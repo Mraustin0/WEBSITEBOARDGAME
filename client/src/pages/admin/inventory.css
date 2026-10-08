@@ -70,60 +70,110 @@
 /* KPI */
 .inv-kpis {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--space-md);
 }
 
 .inv-kpi {
   text-align: left;
-  padding: 16px 18px;
+  padding: 18px 20px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  background: #fff;
+  background: var(--color-surface);
   cursor: pointer;
   box-shadow: var(--shadow-1);
   transition:
-    border-color 0.15s,
-    box-shadow 0.15s;
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+  font-family: var(--font-body);
 }
 
 .inv-kpi:hover {
-  border-color: var(--color-secondary);
+  border-color: #a7f3d0;
+  box-shadow: var(--shadow-2);
+  transform: translateY(-1px);
 }
 
 .inv-kpi.active {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px rgba(6, 78, 59, 0.12);
+  box-shadow: 0 0 0 3px rgba(6, 78, 59, 0.1);
 }
 
 .inv-kpi-top {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 6px;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  margin-bottom: 12px;
 }
 
 .inv-kpi-label {
   font-size: var(--fs-detail);
+  font-weight: 500;
   color: var(--color-text-muted);
+  line-height: 1.35;
+  letter-spacing: 0.01em;
 }
 
+/* icon badge — no emoji, soft tinted chip */
 .inv-kpi-ico {
-  font-size: var(--fs-body);
-  opacity: 0.7;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  background: #f1f5f9;
+  color: #64748b;
+  opacity: 1;
+}
+
+.inv-kpi-ico svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+}
+
+.inv-kpi.ok .inv-kpi-ico {
+  background: var(--state-available-bg);
+  color: var(--state-available);
+}
+
+.inv-kpi.play .inv-kpi-ico {
+  background: var(--state-reserved-bg);
+  color: var(--state-reserved);
+}
+
+.inv-kpi.fix .inv-kpi-ico {
+  background: var(--state-occupied-bg);
+  color: var(--state-occupied);
+}
+
+.inv-kpi:not(.ok):not(.play):not(.fix) .inv-kpi-ico {
+  background: #ecfdf5;
+  color: var(--color-primary);
 }
 
 .inv-kpi strong {
   display: block;
   font-family: var(--font-heading);
-  font-size: var(--fs-title-lg); /* Title */
+  font-size: var(--fs-title-lg);
   font-weight: 700;
   color: var(--color-primary);
-  line-height: 1.15;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
 }
 
 .inv-kpi small {
-  font-size: var(--fs-detail); /* Details */
+  display: block;
+  margin-top: 4px;
+  font-size: var(--fs-tiny);
+  font-weight: 500;
+  color: var(--color-text-muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .inv-kpi.ok strong {
@@ -227,10 +277,15 @@
 .inv-card-ph {
   width: 100%;
   height: 100%;
-  display: grid;
-  place-items: center;
-  font-size: var(--fs-main);
-  background: linear-gradient(145deg, #ecfdf5, #f1f5f9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(145deg, #ecfdf5 0%, #f1f5f9 100%);
+  color: #94a3b8;
+}
+.inv-card-ph svg {
+  display: block;
+  opacity: 0.65;
 }
 
 .inv-card-badges {
@@ -511,10 +566,15 @@
 }
 
 .gd-cover.ph {
-  display: grid;
-  place-items: center;
-  font-size: var(--fs-main);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: linear-gradient(145deg, #ecfdf5, #f1f5f9);
+  color: #94a3b8;
+}
+.gd-cover.ph svg {
+  display: block;
+  opacity: 0.65;
 }
 
 .gd-year-pill {
@@ -606,8 +666,35 @@
 }
 
 .gd-fact-ico {
-  font-size: var(--fs-sub);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  flex-shrink: 0;
+  background: #eef2ff;
+  color: #6366f1;
   line-height: 1;
+}
+.gd-fact-ico svg {
+  display: block;
+}
+.gd-fact:nth-child(1) .gd-fact-ico {
+  background: #ede9fe;
+  color: #7c3aed;
+}
+.gd-fact:nth-child(2) .gd-fact-ico {
+  background: #ecfdf5;
+  color: #059669;
+}
+.gd-fact:nth-child(3) .gd-fact-ico {
+  background: #f1f5f9;
+  color: #475569;
+}
+.gd-fact:nth-child(4) .gd-fact-ico {
+  background: #fff7ed;
+  color: #ea580c;
 }
 
 .gd-fact strong {
@@ -960,25 +1047,4 @@
   font-size: 0.875rem;
   color: #0f766e;
   font-weight: 600;
-}
-
-.inv-kpi-ico {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: inherit;
-  opacity: 0.7;
-}
-.inv-kpi-ico svg {
-  display: block;
-}
-.inv-card-ph {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #94a3b8;
-  opacity: 0.55;
-}
-.inv-card-ph svg {
-  display: block;
 }

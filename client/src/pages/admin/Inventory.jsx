@@ -496,7 +496,7 @@ export default function Inventory() {
           <div className="inv-kpi-top">
             <span className="inv-kpi-label">เกมทั้งหมดในคลัง</span>
             <span className="inv-kpi-ico">
-              <Box size={20} />
+              <Box size={18} />
             </span>
           </div>
           <strong>{counts.all}</strong>
@@ -513,7 +513,7 @@ export default function Inventory() {
           <div className="inv-kpi-top">
             <span className="inv-kpi-label">พร้อมให้บริการ</span>
             <span className="inv-kpi-ico">
-              <CheckCircle size={20} />
+              <CheckCircle size={18} />
             </span>
           </div>
           <strong>{counts.available}</strong>
@@ -530,7 +530,7 @@ export default function Inventory() {
           <div className="inv-kpi-top">
             <span className="inv-kpi-label">กำลังอยู่บนโต๊ะ</span>
             <span className="inv-kpi-ico">
-              <Gamepad size={20} />
+              <Gamepad size={18} />
             </span>
           </div>
           <strong>{counts.in_use}</strong>
@@ -547,7 +547,7 @@ export default function Inventory() {
           <div className="inv-kpi-top">
             <span className="inv-kpi-label">ส่งซ่อม / บำรุง</span>
             <span className="inv-kpi-ico">
-              <Tuning size={20} />
+              <Tuning size={18} />
             </span>
           </div>
           <strong>{counts.maintenance}</strong>
