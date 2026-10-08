@@ -103,13 +103,25 @@ export default function GameDetail() {
   }
 
   async function remove() {
-    if (!window.confirm(`ลบเกม "${game?.name}" ออกจากคลัง?`)) return;
+    if (
+      !window.confirm(
+        `ลบเกม "${game?.name}" ออกจากคลัง?\n\nถ้ายังมีการจองที่รอยืนยัน / จองล่วงหน้า / กำลังเล่น ระบบจะไม่ให้ลบ`,
+      )
+    ) {
+      return;
+    }
     setBusy(true);
+    setError('');
     try {
       await api(`/games/${id}`, { method: 'DELETE' });
       navigate('/admin/inventory', { replace: true });
     } catch (err) {
-      setError(err.message || 'ลบไม่สำเร็จ');
+      const msg =
+        err.status === 409
+          ? err.message ||
+            'ลบไม่ได้: ยังมีการจองที่ผูกกับเกมนี้ — ไปหน้าการจองแล้วกดยืนยัน ยกเลิก หรือจบรอบก่อน'
+          : err.message || 'ลบไม่สำเร็จ';
+      setError(msg);
       setBusy(false);
     }
   }

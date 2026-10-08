@@ -182,7 +182,11 @@ export async function remove(id, req) {
     game: id,
     status: { $in: ['booked', 'playing'] },
   });
-  if (active) throw conflict(`game has ${active} active reservation(s)`);
+  if (active) {
+    throw conflict(
+      `ลบเกมไม่ได้: ยังมีการจองที่ใช้งานอยู่ ${active} รายการ (จองล่วงหน้า / รอยืนยัน / กำลังเล่น) — กรุณายกเลิกหรือจบการจองก่อน`,
+    );
+  }
   const game = await Game.findByIdAndDelete(id);
   if (!game) throw notFound('game not found');
   logAudit({

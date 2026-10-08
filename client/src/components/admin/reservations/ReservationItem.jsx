@@ -9,18 +9,22 @@ import {
   tableCode,
 } from '../../../lib/reservationStatus.js';
 
-// การ์ดหนึ่งรายการในรายการจอง
-// รองรับ onConfirm ตาม API Develop: PATCH /reservations/admin/:id/confirm
+/** การ์ดหนึ่งรายการในรายการจอง — ปุ่มสั้น อ่านง่าย */
 export default function ReservationItem({ r, busy, onCancel, onNoShow, onCheckout, onConfirm }) {
   const st = displayStatus(r);
-  const canConfirm = needsConfirm(r);
+  const pending = needsConfirm(r);
+  const canConfirm = pending && typeof onConfirm === 'function';
   const canCancel = r.status === 'booked' || r.status === 'playing';
   const canNoShow = r.status === 'booked';
   const canCheckout = r.status === 'playing';
   const dim = r.status === 'cancelled' || r.status === 'no_show';
 
+  const showActions = canConfirm || canCancel || canNoShow || canCheckout;
+
   return (
-    <li className={`res-item tone-${st.tone}${dim ? ' is-dim' : ''}`}>
+    <li
+      className={`res-item tone-${st.tone}${dim ? ' is-dim' : ''}${pending ? ' is-pending' : ''}`}
+    >
       <div className="res-item-top">
         <div className="res-time">
           {timeTH(r.startAt)} – {timeTH(endAtOf(r))}
@@ -36,16 +40,17 @@ export default function ReservationItem({ r, busy, onCancel, onNoShow, onCheckou
         {gameName(r) && <span> • {gameName(r)}</span>}
       </div>
 
-      {(canConfirm || canCancel || canNoShow || canCheckout) && (
+      {showActions && (
         <div className="res-actions">
           {canConfirm && (
             <button
               type="button"
               className="btn-primary"
               disabled={busy}
-              onClick={() => onConfirm?.(r)}
+              title="ยืนยันการจองออนไลน์"
+              onClick={() => onConfirm(r)}
             >
-              ยืนยันการจอง
+              ยืนยัน
             </button>
           )}
 
@@ -54,15 +59,22 @@ export default function ReservationItem({ r, busy, onCancel, onNoShow, onCheckou
               type="button"
               className="btn-primary"
               disabled={busy}
+              title="เช็คบิลและคืนเกม"
               onClick={() => onCheckout(r)}
             >
-              เช็คบิล / คืนเกม
+              เช็คบิล
             </button>
           )}
 
           {canNoShow && (
-            <button type="button" className="btn-ghost" disabled={busy} onClick={() => onNoShow(r)}>
-              ลูกค้าไม่มา
+            <button
+              type="button"
+              className="btn-ghost"
+              disabled={busy}
+              title="บันทึกว่าลูกค้าไม่มาตามนัด"
+              onClick={() => onNoShow(r)}
+            >
+              ไม่มา
             </button>
           )}
 
@@ -71,9 +83,10 @@ export default function ReservationItem({ r, busy, onCancel, onNoShow, onCheckou
               type="button"
               className="btn-danger"
               disabled={busy}
+              title="ยกเลิกการจอง"
               onClick={() => onCancel(r)}
             >
-              ยกเลิกการจอง
+              ยกเลิก
             </button>
           )}
         </div>

@@ -92,7 +92,6 @@ export default function Reservations() {
     runAction(r, `/reservations/admin/${r._id}/no-show`, { method: 'PATCH' });
   }
 
-  // API Develop: PATCH /reservations/admin/:id/confirm
   function onConfirm(r) {
     if (!window.confirm(`ยืนยันการจองของ ${customerName(r)}?`)) return;
     runAction(r, `/reservations/admin/${r._id}/confirm`, { method: 'PATCH' });
@@ -164,7 +163,7 @@ export default function Reservations() {
           onCancel={onCancel}
           onNoShow={onNoShow}
           onConfirm={onConfirm}
-          onCheckout={(r) => setCheckoutReservation(r)}
+          onCheckout={(r) => setCheckoutReservation(r)} /* <-- เพิ่มบรรทัดนี้ลงไปครับ */
         />
       </div>
 
@@ -189,6 +188,7 @@ export default function Reservations() {
         />
       )}
 
+      {/* <-- เพิ่ม CheckoutModal ตรงนี้ --> */}
       <CheckoutModal
         isOpen={!!checkoutReservation}
         reservation={checkoutReservation}

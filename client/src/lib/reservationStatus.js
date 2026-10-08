@@ -30,13 +30,29 @@ export function displayStatus(r) {
   return statusOf(r?.status);
 }
 
-// ชื่อลูกค้า: สมาชิก -> username, walk-in -> ชื่อ/เบอร์
+// ชื่อลูกค้า: สมาชิก -> displayName / username, walk-in -> ชื่อ / เบอร์
 export function customerName(r) {
-  return r?.user?.username ?? r?.customer?.name ?? r?.customer?.phone ?? 'ไม่ระบุชื่อ';
+  const u = r?.user;
+  if (u && typeof u === 'object') {
+    const name = (u.displayName || u.username || '').trim();
+    if (name) return name;
+  }
+  const c = r?.customer;
+  if (c && typeof c === 'object') {
+    const name = (c.name || '').trim();
+    if (name) return name;
+    const phone = (c.phone || '').trim();
+    if (phone) return phone;
+  }
+  return 'ไม่ระบุชื่อ';
 }
 
 export function customerPhone(r) {
-  return r?.customer?.phone ?? r?.user?.phone ?? '';
+  const fromCustomer = (r?.customer?.phone || '').trim();
+  if (fromCustomer) return fromCustomer;
+  const u = r?.user;
+  if (u && typeof u === 'object') return (u.phone || '').trim();
+  return '';
 }
 
 // รหัสโต๊ะ (table อาจเป็น object ที่ populate มา หรือเป็นแค่ id)

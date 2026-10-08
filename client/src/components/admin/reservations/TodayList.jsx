@@ -9,8 +9,6 @@ const TABS = [
   { key: 'playing', label: 'กำลังเล่น' },
 ];
 
-// รายการจองด้านขวา: ค้นหา (ส่ง ?q= ไป server) + แท็บกรองสถานะ (กรองฝั่ง client)
-// tab "รอยืนยัน" = booked ที่ยังไม่มี confirmedAt (ตรงกับ API confirmed=false)
 export default function TodayList({
   items,
   loading,
@@ -24,24 +22,21 @@ export default function TodayList({
   const [tab, setTab] = useState('all');
   const [text, setText] = useState('');
 
-  // หน่วงการค้นหา 400ms ไม่ให้ยิง API ทุกตัวอักษร
   useEffect(() => {
     const id = setTimeout(() => onSearch(text.trim()), 400);
     return () => clearTimeout(id);
   }, [text]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const count = (key) => {
-    if (key === 'all') return items.length;
-    if (key === 'pending') return items.filter((i) => needsConfirm(i)).length;
-    return items.filter((i) => i.status === key).length;
+  const matchTab = (r, key) => {
+    if (key === 'all') return true;
+    if (key === 'pending') return needsConfirm(r);
+    if (key === 'booked') return r.status === 'booked' && !needsConfirm(r);
+    if (key === 'playing') return r.status === 'playing';
+    return r.status === key;
   };
 
-  const shown =
-    tab === 'all'
-      ? items
-      : tab === 'pending'
-        ? items.filter((i) => needsConfirm(i))
-        : items.filter((i) => i.status === tab);
+  const count = (key) => items.filter((i) => matchTab(i, key)).length;
+  const shown = items.filter((i) => matchTab(i, tab));
 
   return (
     <section className="panel today-list">
