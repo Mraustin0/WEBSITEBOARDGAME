@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import { validate } from '../../middleware/validate.js';
-import { requireAuth, requireRole } from '../../middleware/auth.js';
+import { requireAuth, requirePermission } from '../../middleware/auth.js';
 import { asyncHandler } from '../../lib/errors.js';
 import { copiesBody, gameBody, gameBodyPartial, idParam, listQuery } from './games.schema.js';
 import * as controller from './games.controller.js';
 
 const router = Router();
-const admin = [requireAuth, requireRole('admin')];
+const admin = [requireAuth, requirePermission('inventory')];
 
 router.get('/', validate({ query: listQuery }), asyncHandler(controller.list));
 router.get('/stats', ...admin, asyncHandler(controller.inventoryStats));

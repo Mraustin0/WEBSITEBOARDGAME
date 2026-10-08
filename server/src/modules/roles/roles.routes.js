@@ -1,13 +1,13 @@
 import { Router } from 'express';
 import { validate } from '../../middleware/validate.js';
-import { requireAuth, requireRole } from '../../middleware/auth.js';
+import { requireAuth, requirePermission } from '../../middleware/auth.js';
 import { asyncHandler } from '../../lib/errors.js';
 import { createBody, idParam, membersBody, permissionsBody, updateBody } from './roles.schema.js';
 import * as controller from './roles.controller.js';
 import { z } from 'zod';
 
 const router = Router();
-router.use(requireAuth, requireRole('admin'));
+router.use(requireAuth, requirePermission('roles'));
 
 const userIdParam = z.object({
   id: z.string().regex(/^[a-f0-9]{24}$/i),

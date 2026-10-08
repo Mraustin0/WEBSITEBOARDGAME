@@ -1,13 +1,13 @@
 import { Router } from 'express';
 import { validate } from '../../middleware/validate.js';
-import { requireAuth, requireRole } from '../../middleware/auth.js';
+import { requireAuth, requirePermission } from '../../middleware/auth.js';
 import { asyncHandler } from '../../lib/errors.js';
 import { idParam, listQuery, prefsBody } from './notifications.schema.js';
 import * as controller from './notifications.controller.js';
 
 // ศูนย์การแจ้งเตือนของพนักงาน/แอดมิน
 const router = Router();
-router.use(requireAuth, requireRole('admin'));
+router.use(requireAuth, requirePermission('floor', 'view')); // พนักงานหน้าร้านเห็นแจ้งเตือน
 
 router.get('/', validate({ query: listQuery }), asyncHandler(controller.list));
 router.get('/unread-count', asyncHandler(controller.unreadCount));

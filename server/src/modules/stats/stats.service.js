@@ -18,6 +18,8 @@ import {
 import { syncLifecycle } from '../reservations/reservations.lifecycle.js';
 import { openHoursOfDay } from '../reservations/reservations.rules.js';
 import { getRules } from '../settings/settings.service.js';
+import { AssistRequest, ACTIVE_ASSIST_STATUSES } from '../../models/assist.model.js';
+import { list as listShifts } from '../shifts/shifts.service.js';
 
 // นับเฉพาะการใช้บริการจริง (ไม่รวมยกเลิก / no-show)
 const NOT_CANCELLED = { status: { $nin: NOT_SERVED } };
@@ -630,95 +632,174 @@ export async function exportCsv(query) {
   };
 }
 
-/** รวมข้อมูลสำหรับหน้า Dashboard ภาพรวมร้าน */
+const PRIORITY_RANK = { high: 0, medium: 1, low: 2 };
+const byPriority = (a, b) =>
+  (PRIORITY_RANK[a.priority] ?? 3) - (PRIORITY_RANK[b.priority] ?? 3) || a.createdAt - b.createdAt;
+
+/**
+ * รายการที่ต้องจัดการด่วน (Action Needed) — ใช้ทั้งหน้า Dashboard และ /stats/alerts
+ * แต่ละรายการ: { type, severity: high|medium|low, title, count, link }
+ */
+async function actionItems(now = new Date()) {
+  const { start, end } = localDayRange(toLocalDateString(now));
+  const rules = await getRules();
+  const [
+    overdue,
+    endingSoon,
+    noShows,
+    openAssists,
+    pendingConfirm,
+    tickets,
+    pendingUsers,
+    noShowRows,
+  ] = await Promise.all([
+    Reservation.countDocuments({ status: 'playing', endAt: { $lt: now } }),
+    Reservation.countDocuments({
+      status: 'playing',
+      endAt: { $gte: now, $lte: new Date(now.getTime() + 15 * 60 * 1000) },
+    }),
+    Reservation.countDocuments({ status: 'no_show', startAt: { $gte: start, $lt: end } }),
+    AssistRequest.countDocuments({ status: { $in: ACTIVE_ASSIST_STATUSES } }),
+    Reservation.countDocuments({
+      source: 'online',
+      confirmedAt: null,
+      status: { $in: ['booked', 'playing'] },
+    }),
+    MaintenanceTicket.find({ status: { $in: OPEN_TICKET_STATUSES } })
+      .select('title priority itemType createdAt')
+      .lean(),
+    User.countDocuments({ status: 'pending' }),
+    rules.NO_SHOW_SUSPEND_AFTER > 0
+      ? Reservation.aggregate([
+          { $match: { status: 'no_show', user: { $ne: null } } },
+          { $group: { _id: '$user', n: { $sum: 1 } } },
+          { $match: { n: { $gte: rules.NO_SHOW_SUSPEND_AFTER } } },
+          { $lookup: { from: 'users', localField: '_id', foreignField: '_id', as: 'u' } },
+          { $unwind: '$u' },
+          { $match: { 'u.status': 'active' } },
+          { $count: 'n' },
+        ])
+      : [],
+  ]);
+  const suspendCandidates = noShowRows[0]?.n ?? 0;
+  const highTickets = tickets.filter((t) => t.priority === 'high').length;
+
+  const items = [
+    overdue && {
+      type: 'overdue',
+      severity: 'high',
+      title: `โต๊ะเลยเวลายังไม่คืนเกม ${overdue} โต๊ะ`,
+      count: overdue,
+      link: '/api/reservations/admin?status=playing',
+    },
+    openAssists && {
+      type: 'assist',
+      severity: 'high',
+      title: `ลูกค้าเรียกพนักงาน ${openAssists} รายการ`,
+      count: openAssists,
+      link: '/api/assist',
+    },
+    endingSoon && {
+      type: 'ending_soon',
+      severity: 'medium',
+      title: `โต๊ะใกล้หมดเวลา ${endingSoon} โต๊ะ`,
+      count: endingSoon,
+      link: '/api/reservations/admin?status=playing',
+    },
+    pendingConfirm && {
+      type: 'pending_confirm',
+      severity: 'medium',
+      title: `การจองออนไลน์รอยืนยัน ${pendingConfirm} รายการ`,
+      count: pendingConfirm,
+      link: '/api/reservations/admin?confirmed=false',
+    },
+    tickets.length && {
+      type: 'maintenance',
+      severity: highTickets ? 'high' : 'medium',
+      title: `งานซ่อมค้าง ${tickets.length} รายการ${highTickets ? ` (ด่วน ${highTickets})` : ''}`,
+      count: tickets.length,
+      link: '/api/maintenance',
+    },
+    noShows && {
+      type: 'no_show',
+      severity: 'medium',
+      title: `No-show วันนี้ ${noShows} รายการ`,
+      count: noShows,
+      link: '/api/reservations/admin?status=no_show',
+    },
+    suspendCandidates && {
+      type: 'suspend_candidate',
+      severity: 'medium',
+      title: `สมาชิก no-show ครบ ${rules.NO_SHOW_SUSPEND_AFTER} ครั้ง ${suspendCandidates} คน — ควรพิจารณาระงับ`,
+      count: suspendCandidates,
+      link: '/api/admin/users',
+    },
+    pendingUsers && {
+      type: 'pending_user',
+      severity: 'low',
+      title: `บัญชีรออนุมัติ ${pendingUsers} บัญชี`,
+      count: pendingUsers,
+      link: '/api/admin/users?status=pending',
+    },
+  ].filter(Boolean);
+  return { items, openTickets: tickets.sort(byPriority).slice(0, 5) };
+}
+
+/** รวมข้อมูลสำหรับหน้า Dashboard ภาพรวมร้าน (หน้า 12) */
 export async function dashboard({ date } = {}) {
   const ov = await overview({ date });
-  const day = date ?? toLocalDateString(new Date());
-  const { start, end } = localDayRange(day);
   const now = new Date();
+  const day = date ?? toLocalDateString(now);
+  const { end } = localDayRange(day);
+  const today = toLocalDateString(now);
 
-  const [upcoming, openTicketsList, pendingConfirm, noShowsToday] = await Promise.all([
-    Reservation.find({
-      status: 'booked',
-      startAt: { $gte: now, $lt: end },
-    })
+  const [revenueTrend, topGames, upcoming, pendingConfirm, action, shifts] = await Promise.all([
+    daily({ from: addDays(day, -6), to: day }),
+    popularGames({ from: addDays(day, -6), to: day, limit: 5 }),
+    Reservation.find({ status: 'booked', startAt: { $gte: now, $lt: end } })
       .populate('table', 'code zone')
       .populate('game', 'name')
       .populate('user', 'username')
       .sort({ startAt: 1 })
       .limit(10)
       .lean(),
-    MaintenanceTicket.find({ status: { $in: OPEN_TICKET_STATUSES } })
-      .sort({ priority: -1, createdAt: 1 })
-      .limit(5)
-      .lean(),
-    // ถ้ายังไม่มี status pending — ใช้ booked ที่สร้างภายใน 30 นาทีล่าสุดเป็น proxy
     Reservation.find({
-      status: 'booked',
-      createdAt: { $gte: new Date(Date.now() - 30 * 60 * 1000) },
-      startAt: { $gte: now },
+      source: 'online',
+      confirmedAt: null,
+      status: { $in: ['booked', 'playing'] },
     })
       .populate('table', 'code')
       .populate('user', 'username')
-      .sort({ createdAt: -1 })
+      .sort({ startAt: 1 })
       .limit(5)
       .lean(),
-    Reservation.countDocuments({
-      status: 'no_show',
-      startAt: { $gte: start, $lt: end },
-    }),
+    actionItems(now),
+    listShifts({ date: day }),
   ]);
-
-  const alerts = [];
-  if (noShowsToday > 0) {
-    alerts.push({
-      type: 'no_show',
-      severity: 'high',
-      title: `มี No-show ${noShowsToday} รายการวันนี้`,
-      count: noShowsToday,
-    });
-  }
-  for (const t of openTicketsList.slice(0, 3)) {
-    alerts.push({
-      type: 'maintenance',
-      severity: t.priority === 'high' ? 'high' : 'medium',
-      title: t.title || 'รายการซ่อมค้าง',
-      id: t._id,
-    });
-  }
-  if (pendingConfirm.length) {
-    alerts.push({
-      type: 'pending_confirm',
-      severity: 'medium',
-      title: `การจองใหม่รอตรวจสอบ ${pendingConfirm.length} รายการ`,
-      count: pendingConfirm.length,
-    });
-  }
 
   return {
     ...ov,
+    revenueTrend, // 7 วันล่าสุด (รายได้รายวัน)
+    topGames,
     upcoming,
-    alerts,
     pendingConfirm,
-    openTickets: openTicketsList,
+    alerts: action.items,
+    openTickets: action.openTickets,
+    shifts: shifts.items, // กะพนักงานของวัน
+    onDutyNow: day === today ? shifts.onDutyNow : 0,
   };
 }
 
-/** รายการที่ต้องทำ (Action Needed) */
+/** รายการที่ต้องทำ (Action Needed) + รายละเอียด */
 export async function alerts() {
   await syncLifecycle();
   const now = new Date();
-  const day = toLocalDateString(now);
-  const { start, end } = localDayRange(day);
-
-  const [noShows, openTickets, endingSoon, overduePlaying] = await Promise.all([
+  const { start, end } = localDayRange(toLocalDateString(now));
+  const [action, noShows, endingSoon, overduePlaying] = await Promise.all([
+    actionItems(now),
     Reservation.find({ status: 'no_show', startAt: { $gte: start, $lt: end } })
       .populate('table', 'code zone')
       .populate('user', 'username')
-      .limit(20)
-      .lean(),
-    MaintenanceTicket.find({ status: { $in: OPEN_TICKET_STATUSES } })
-      .sort({ createdAt: 1 })
       .limit(20)
       .lean(),
     Reservation.find({
@@ -729,27 +810,24 @@ export async function alerts() {
       .populate('game', 'name')
       .limit(10)
       .lean(),
-    Reservation.find({
-      status: 'playing',
-      endAt: { $lt: now },
-    })
+    Reservation.find({ status: 'playing', endAt: { $lt: now } })
       .populate('table', 'code')
       .populate('game', 'name')
       .limit(10)
       .lean(),
   ]);
-
   return {
+    items: action.items,
     noShows,
-    openTickets,
+    openTickets: action.openTickets,
     endingSoon,
     overduePlaying,
     counts: {
       noShows: noShows.length,
-      openTickets: openTickets.length,
+      openTickets: action.openTickets.length,
       endingSoon: endingSoon.length,
       overduePlaying: overduePlaying.length,
-      total: noShows.length + openTickets.length + endingSoon.length + overduePlaying.length,
+      total: action.items.reduce((n, a) => n + a.count, 0),
     },
   };
 }

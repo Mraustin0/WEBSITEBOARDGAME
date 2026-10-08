@@ -1,6 +1,35 @@
 import { Game } from '../../models/game.model.js';
-import { notFound } from '../../lib/errors.js';
+import { conflict, notFound } from '../../lib/errors.js';
 import { logAudit } from '../../lib/audit.js';
+import { Reservation } from '../../models/reservation.model.js';
+import { copyBreakdown, onGameCopiesChanged } from '../reservations/reservations.lifecycle.js';
+
+/** รวมสถานะรายกล่องของทั้งร้าน */
+async function inventoryTotals() {
+  const all = await Game.find().select('copies status').lean();
+  const map = await copyBreakdown(all);
+  const t = {
+    titles: all.length,
+    totalCopies: 0,
+    inVault: 0,
+    inPlay: 0,
+    inRepair: 0,
+    titlesAvailable: 0,
+    titlesInUse: 0,
+    titlesMaintenance: 0,
+  };
+  for (const g of all) {
+    const b = map.get(String(g._id));
+    t.totalCopies += b.copies;
+    t.inVault += b.inVault;
+    t.inPlay += b.inPlay;
+    t.inRepair += b.inRepair;
+    if (b.inVault > 0) t.titlesAvailable += 1;
+    else if (b.inRepair >= b.copies) t.titlesMaintenance += 1;
+    else t.titlesInUse += 1;
+  }
+  return t;
+}
 
 const SORT_FIELDS = {
   name: 'name',
@@ -48,101 +77,66 @@ export async function list(query) {
   const sortField = SORT_FIELDS[sort] || 'createdAt';
   const sortDir = order === 'asc' ? 1 : -1;
 
-  const [items, total, counts] = await Promise.all([
+  const [games, total, t] = await Promise.all([
     Game.find(filter)
       .sort({ [sortField]: sortDir })
       .skip((page - 1) * limit)
-      .limit(limit),
+      .limit(limit)
+      .lean(),
     Game.countDocuments(filter),
-    Game.aggregate([
-      {
-        $group: {
-          _id: null,
-          total: { $sum: 1 },
-          totalCopies: { $sum: { $ifNull: ['$copies', 1] } },
-          available: {
-            $sum: { $cond: [{ $eq: ['$status', 'available'] }, 1, 0] },
-          },
-          inUse: {
-            $sum: { $cond: [{ $eq: ['$status', 'in_use'] }, 1, 0] },
-          },
-          maintenance: {
-            $sum: { $cond: [{ $eq: ['$status', 'maintenance'] }, 1, 0] },
-          },
-          availableCopies: {
-            $sum: {
-              $cond: [{ $eq: ['$status', 'available'] }, { $ifNull: ['$copies', 1] }, 0],
-            },
-          },
-        },
-      },
-    ]),
+    inventoryTotals(),
   ]);
-
-  const c = counts[0] || {
-    total: 0,
-    totalCopies: 0,
-    available: 0,
-    inUse: 0,
-    maintenance: 0,
-    availableCopies: 0,
-  };
+  // สถานะรายกล่องของแต่ละเกม (บนชั้น / กำลังเล่น / ซ่อม)
+  const map = await copyBreakdown(games);
+  const items = games.map((g) => {
+    const b = map.get(String(g._id));
+    return { ...g, copiesInVault: b.inVault, copiesInPlay: b.inPlay, copiesInRepair: b.inRepair };
+  });
   return {
     items,
     total,
     page,
     limit,
     counts: {
-      total: c.total,
-      totalCopies: c.totalCopies,
-      available: c.available,
-      inUse: c.inUse,
-      maintenance: c.maintenance,
-      availableCopies: c.availableCopies,
+      total: t.titles,
+      totalCopies: t.totalCopies,
+      available: t.titlesAvailable, // จำนวนเกมที่ยังมีกล่องบนชั้น
+      inUse: t.titlesInUse, // เกมที่กล่องที่ใช้ได้ถูกเล่นอยู่ครบ
+      maintenance: t.titlesMaintenance, // เกมที่ซ่อมครบทุกกล่อง
+      availableCopies: t.inVault,
+      inPlayCopies: t.inPlay,
+      inRepairCopies: t.inRepair,
     },
   };
 }
 
+/** การ์ดสรุปหน้า Inventory (นับเป็นกล่อง) */
 export async function inventoryStats() {
-  const [agg] = await Game.aggregate([
-    {
-      $group: {
-        _id: null,
-        titles: { $sum: 1 },
-        totalCopies: { $sum: { $ifNull: ['$copies', 1] } },
-        available: {
-          $sum: {
-            $cond: [{ $eq: ['$status', 'available'] }, { $ifNull: ['$copies', 1] }, 0],
-          },
-        },
-        inUse: {
-          $sum: {
-            $cond: [{ $eq: ['$status', 'in_use'] }, { $ifNull: ['$copies', 1] }, 0],
-          },
-        },
-        maintenance: {
-          $sum: {
-            $cond: [{ $eq: ['$status', 'maintenance'] }, { $ifNull: ['$copies', 1] }, 0],
-          },
-        },
-      },
-    },
-  ]);
-  return (
-    agg || {
-      titles: 0,
-      totalCopies: 0,
-      available: 0,
-      inUse: 0,
-      maintenance: 0,
-    }
-  );
+  const t = await inventoryTotals();
+  return {
+    titles: t.titles,
+    totalCopies: t.totalCopies,
+    inVault: t.inVault,
+    inPlay: t.inPlay,
+    maintenance: t.inRepair,
+    // ชื่อเดิม (ใช้ได้ต่อ)
+    available: t.inVault,
+    inUse: t.inPlay,
+  };
 }
 
 export async function findById(id) {
   const game = await Game.findById(id);
   if (!game) throw notFound('game not found');
   return game;
+}
+
+/** รายละเอียดเกม + สถานะรายกล่อง */
+export async function detail(id) {
+  const game = await Game.findById(id).lean();
+  if (!game) throw notFound('game not found');
+  const b = (await copyBreakdown([game])).get(String(game._id));
+  return { ...game, copiesInVault: b.inVault, copiesInPlay: b.inPlay, copiesInRepair: b.inRepair };
 }
 
 export async function create(data, userId, req) {
@@ -160,8 +154,13 @@ export async function create(data, userId, req) {
 }
 
 export async function update(id, data, req) {
-  const game = await Game.findByIdAndUpdate(id, data, { new: true, runValidators: true });
+  let game = await Game.findByIdAndUpdate(id, data, { new: true, runValidators: true });
   if (!game) throw notFound('game not found');
+  if (data.copies !== undefined) {
+    // จำนวนกล่องเปลี่ยน → คำนวณสถานะเกมใหม่ (available / in_use / maintenance)
+    await onGameCopiesChanged(game._id);
+    game = await Game.findById(game._id);
+  }
   logAudit({
     req,
     actor: req?.user,
@@ -179,6 +178,11 @@ export async function updateCopies(id, data, req) {
 }
 
 export async function remove(id, req) {
+  const active = await Reservation.countDocuments({
+    game: id,
+    status: { $in: ['booked', 'playing'] },
+  });
+  if (active) throw conflict(`game has ${active} active reservation(s)`);
   const game = await Game.findByIdAndDelete(id);
   if (!game) throw notFound('game not found');
   logAudit({
@@ -237,5 +241,5 @@ export async function exportCsv(query) {
         .join(','),
     );
   }
-  return { filename: 'games_inventory.csv', csv: lines.join('\n') };
+  return { filename: 'games_inventory.csv', csv: `\uFEFF${lines.join('\n')}` }; // BOM → Excel อ่านไทยได้
 }

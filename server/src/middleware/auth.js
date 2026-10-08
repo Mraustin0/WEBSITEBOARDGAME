@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 import { env } from '../config/env.js';
 import { User } from '../models/user.model.js';
 import { forbidden, unauthorized } from '../lib/errors.js';
+import { actionOf, can } from '../lib/permissions.js';
 
 const TOKEN_TTL = '7d';
 
@@ -49,5 +50,23 @@ export function requireAnyRole(...roles) {
     if (!req.user) return next(unauthorized());
     if (!roles.includes(req.user.role)) return next(forbidden());
     next();
+  };
+}
+
+/**
+ * ตรวจสิทธิ์ตาม permission matrix ของบทบาท (admin ผ่านเสมอ)
+ * action: 'view' | 'edit' | 'del' | 'approve' | 'auto' (เดาจาก HTTP method)
+ * ใช้หลัง requireAuth เช่น router.use(requireAuth, requirePermission('maintenance'))
+ */
+export function requirePermission(key, action = 'auto') {
+  return async (req, _res, next) => {
+    try {
+      if (!req.user) return next(unauthorized());
+      const act = action === 'auto' ? actionOf(req.method) : action;
+      if (await can(req.user, key, act)) return next();
+      next(forbidden(`no permission: ${key}:${act}`));
+    } catch (err) {
+      next(err);
+    }
   };
 }

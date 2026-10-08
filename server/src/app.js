@@ -24,6 +24,7 @@ import notificationRoutes from './modules/notifications/notifications.routes.js'
 import adminRoutes from './modules/admin/admin.routes.js';
 import auditRoutes from './modules/audit/audit.routes.js';
 import rolesRoutes from './modules/roles/roles.routes.js';
+import shiftRoutes from './modules/shifts/shifts.routes.js';
 
 export function createApp() {
   const app = express();
@@ -57,6 +58,7 @@ export function createApp() {
   app.use('/api/admin', adminRoutes);
   app.use('/api/audit', auditRoutes);
   app.use('/api/roles', rolesRoutes);
+  app.use('/api/shifts', shiftRoutes);
 
   app.use('/api', notFoundHandler);
   app.use(errorHandler);

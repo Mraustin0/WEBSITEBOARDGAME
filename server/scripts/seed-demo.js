@@ -12,6 +12,7 @@ import { Table } from '../src/models/table.model.js';
 import { Reservation } from '../src/models/reservation.model.js';
 import { Review } from '../src/models/review.model.js';
 import { calcPrice } from '../src/modules/reservations/reservations.rules.js';
+import { ensureSystemRoles } from '../src/modules/roles/roles.service.js';
 
 const TAG = 'demo-seed';
 const H = 60 * 60 * 1000;
@@ -57,6 +58,17 @@ await User.findOneAndUpdate(
   },
   { upsert: true },
 );
+
+// พนักงานสำหรับ demo สิทธิ์ละเอียด (หน้า 16): staff = Game Master, manager = ผู้จัดการร้าน
+await ensureSystemRoles();
+for (const role of ['staff', 'manager']) {
+  const username = `demo_${role}`;
+  await User.findOneAndUpdate(
+    { email: `${username}@demo.local` },
+    { $setOnInsert: { username, email: `${username}@demo.local`, passwordHash }, $set: { role } },
+    { upsert: true },
+  );
+}
 
 await Reservation.deleteMany({ note: TAG });
 await Review.deleteMany({ user: { $in: users.map((u) => u._id) } });
@@ -175,6 +187,6 @@ for (const u of users) {
 await Review.insertMany(reviews);
 
 logger.info(
-  `demo data: ${users.length} members + demo_admin@demo.local (password demo1234), ${docs.length} reservations, ${reviews.length} reviews`,
+  `demo data: ${users.length} members + demo_admin / demo_staff / demo_manager @demo.local (password demo1234), ${docs.length} reservations, ${reviews.length} reviews`,
 );
 await disconnectDb();

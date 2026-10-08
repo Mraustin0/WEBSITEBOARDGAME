@@ -27,7 +27,7 @@ const GameSchema = new Schema(
       default: 'available',
       index: true,
     },
-    copies: { type: Number, default: 1, min: 0 },
+    copies: { type: Number, default: 1, min: 1 }, // จำนวนกล่อง (อย่างน้อย 1)
     shelf: { type: String, default: '', trim: true, index: true },
     sku: { type: String, default: '', trim: true, index: true },
     barcode: { type: String, default: '', trim: true },

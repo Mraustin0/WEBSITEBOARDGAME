@@ -1,13 +1,13 @@
 import { Router } from 'express';
 import { validate } from '../../middleware/validate.js';
-import { requireAuth, requireRole } from '../../middleware/auth.js';
+import { requireAuth, requirePermission } from '../../middleware/auth.js';
 import { asyncHandler } from '../../lib/errors.js';
 import { createBody, idParam, listQuery, myQuery, updateBody } from './assist.schema.js';
 import * as controller from './assist.controller.js';
 
 // เรียกพนักงาน / Game Master จากโต๊ะที่กำลังเล่น
 const router = Router();
-const admin = requireRole('admin');
+const admin = requirePermission('floor');
 router.use(requireAuth);
 
 // member

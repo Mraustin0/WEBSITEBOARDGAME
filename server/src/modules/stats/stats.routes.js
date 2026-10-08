@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import { validate } from '../../middleware/validate.js';
-import { requireAuth, requireRole } from '../../middleware/auth.js';
+import { requireAuth, requirePermission } from '../../middleware/auth.js';
 import { asyncHandler } from '../../lib/errors.js';
 import { dayQuery, gameIdParam, popularQuery, rangeQuery, userIdParam } from './stats.schema.js';
 import * as controller from './stats.controller.js';
 
 const router = Router();
-const admin = [requireAuth, requireRole('admin')];
+const admin = [requireAuth, requirePermission('reports', 'view')];
 
 router.get(
   '/popular-games',

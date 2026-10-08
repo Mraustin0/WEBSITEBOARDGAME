@@ -4,7 +4,7 @@ export const list = async (req, res) => res.json(await service.list(req.query));
 
 export const inventoryStats = async (_req, res) => res.json(await service.inventoryStats());
 
-export const detail = async (req, res) => res.json(await service.findById(req.params.id));
+export const detail = async (req, res) => res.json(await service.detail(req.params.id));
 
 export const create = async (req, res) => {
   const game = await service.create(req.body, req.user._id, req);

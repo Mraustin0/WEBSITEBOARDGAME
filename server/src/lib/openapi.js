@@ -1,5 +1,6 @@
 import { aPaths, aSchemas } from './openapi.a.js';
 import { bPaths, bSchemas } from './openapi.b.js';
+import { extPaths } from './openapi.ext.js';
 
 export const openapiSpec = {
   openapi: '3.0.3',
@@ -225,3 +226,8 @@ export const openapiSpec = {
     ...bPaths,
   },
 };
+
+// รวม path ของระบบหลังร้านที่ขยาย (merge ราย method — ไม่ทับ GET /auth/me เดิม)
+for (const [p, ops] of Object.entries(extPaths)) {
+  openapiSpec.paths[p] = { ...(openapiSpec.paths[p] ?? {}), ...ops };
+}

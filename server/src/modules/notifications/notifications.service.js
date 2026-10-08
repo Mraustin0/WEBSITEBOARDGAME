@@ -113,6 +113,12 @@ export function notifyBookingNew(r) {
     })`,
     refs: { reservation: r._id, table: r.table?._id, game: r.game?._id },
     actions: [
+      {
+        key: 'confirm',
+        label: 'ยืนยัน',
+        method: 'PATCH',
+        path: `/api/reservations/admin/${r._id}/confirm`,
+      },
       { key: 'open', label: 'ดูการจอง', method: 'GET', path: `/api/reservations/${r._id}` },
     ],
   });

@@ -93,7 +93,8 @@ describeIf('notification center (integration)', () => {
     expect(n.message).toMatch(/bn_member จองโต๊ะ N1/);
     expect(n.read).toBe(false);
     expect(n.dayGroup).toBe('today');
-    expect(n.actions[0].path).toBe(`/api/reservations/${booked.body._id}`);
+    expect(n.actions.map((a) => a.key)).toEqual(['confirm', 'open']);
+    expect(n.actions[1].path).toBe(`/api/reservations/${booked.body._id}`);
 
     await request(app)
       .patch(`/api/reservations/${booked.body._id}/cancel`)

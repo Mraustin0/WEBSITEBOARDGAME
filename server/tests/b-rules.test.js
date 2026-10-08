@@ -13,6 +13,7 @@ import {
   operatingHoursError,
   overbooked,
   overlaps,
+  peakHoursOf,
   peakUsage,
 } from '../src/modules/reservations/reservations.rules.js';
 import { eachLocalDate, localDayRange, toLocalDateString } from '../src/lib/time.js';
@@ -206,5 +207,33 @@ describe('settings-driven rules (unit)', () => {
     // กำลังเล่น (เกินเวลา ยังไม่คืน) ได้กล่องก่อนเสมอ
     const late = [row('p', 10, 11, 'playing'), row('x', 12, 13)];
     expect(overbooked(late, 1, now).map((r) => r._id)).toEqual(['x']);
+  });
+
+  it('counts hours inside the peak window (Bangkok time, across midnight)', () => {
+    const at = (iso) => new Date(iso);
+    const peak = { enabled: true, perPersonHour: 80, start: '17:00', end: '23:00' };
+    expect(peakHoursOf(at('2026-10-10T16:00:00+07:00'), 2, peak)).toBe(1);
+    expect(peakHoursOf(at('2026-10-10T12:00:00+07:00'), 2, peak)).toBe(0);
+    expect(peakHoursOf(at('2026-10-10T16:00:00+07:00'), 2, { ...peak, enabled: false })).toBe(0);
+    const late = { ...peak, start: '22:00', end: '02:00' };
+    expect(peakHoursOf(at('2026-10-11T00:30:00+07:00'), 2, late)).toBe(1.5);
+    const price = calcPrice({
+      players: 2,
+      durationHours: 2,
+      startAt: at('2026-10-10T16:00:00+07:00'),
+      rules: { ...RULES, PEAK: peak },
+    });
+    expect(price.total).toBe(2 * 50 + 2 * 80);
+    expect(price.peakHours).toBe(1);
+    // แพ็กเกจเหมาไม่คิด peak
+    expect(
+      calcPrice({
+        players: 2,
+        durationHours: 3,
+        pkg: 'flat3h',
+        startAt: at('2026-10-10T18:00:00+07:00'),
+        rules: { ...RULES, PEAK: peak },
+      }).total,
+    ).toBe(260);
   });
 });

@@ -49,8 +49,13 @@ const AuditLogSchema = new Schema(
     meta: { type: Schema.Types.Mixed, default: {} },
     ip: { type: String, default: '' },
     userAgent: { type: String, default: '' },
+    // hash chain (Integrity Verification Badge)
+    seq: { type: Number, index: true },
+    prevHash: { type: String, default: '' },
+    hash: { type: String, default: '' },
+    createdAt: { type: Date, default: Date.now },
   },
-  { timestamps: { createdAt: true, updatedAt: false } },
+  { timestamps: false },
 );
 
 AuditLogSchema.index({ createdAt: -1 });

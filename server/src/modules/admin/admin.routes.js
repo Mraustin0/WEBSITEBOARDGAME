@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { validate } from '../../middleware/validate.js';
-import { requireAuth, requireRole } from '../../middleware/auth.js';
+import { requireAuth, requirePermission } from '../../middleware/auth.js';
 import { asyncHandler } from '../../lib/errors.js';
 import {
   createUserBody,
@@ -14,7 +14,7 @@ import * as controller from './admin.controller.js';
 
 const router = Router();
 
-router.use(requireAuth, requireRole('admin'));
+router.use(requireAuth, requirePermission('users'));
 
 router.get('/users', validate({ query: listUsersQuery }), asyncHandler(controller.listUsers));
 router.get('/users/stats', asyncHandler(controller.userStats));
@@ -39,7 +39,12 @@ router.patch(
   validate({ params: idParam }),
   asyncHandler(controller.unsuspend),
 );
-router.patch('/users/:id/approve', validate({ params: idParam }), asyncHandler(controller.approve));
+router.patch(
+  '/users/:id/approve',
+  requirePermission('users', 'approve'),
+  validate({ params: idParam }),
+  asyncHandler(controller.approve),
+);
 router.delete('/users/:id', validate({ params: idParam }), asyncHandler(controller.remove));
 
 export default router;

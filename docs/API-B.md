@@ -32,6 +32,7 @@ npm run dev                                   # server :4000 + client :5173 พ�
 - บัญชี admin: สมัครสมาชิกปกติก่อน แล้วรัน `npm run --workspace server promote -- <email>`
 - บัญชีจาก `seed:demo` (รหัสผ่าน `demo1234` ทุกบัญชี)
   - admin: `demo_admin@demo.local`
+  - พนักงาน (สิทธิ์ละเอียด): `demo_staff@demo.local` (Game Master), `demo_manager@demo.local` (ผู้จัดการร้าน)
   - สมาชิก: `demo_ploy@demo.local`, `demo_ton@demo.local`, `demo_mint@demo.local`, `demo_bank@demo.local`, `demo_fah@demo.local`
 
 ### 2. ลองยิง API ใน Swagger (ไม่ต้องเขียนโค้ด)

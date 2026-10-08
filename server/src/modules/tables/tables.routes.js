@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { validate } from '../../middleware/validate.js';
-import { requireAuth, requireRole } from '../../middleware/auth.js';
+import { requireAuth, requirePermission } from '../../middleware/auth.js';
 import { asyncHandler } from '../../lib/errors.js';
 import {
   floorQuery,
@@ -14,7 +14,7 @@ import {
 import * as controller from './tables.controller.js';
 
 const router = Router();
-const admin = [requireAuth, requireRole('admin')];
+const admin = [requireAuth, requirePermission('floor')];
 
 router.get('/', validate({ query: listQuery }), asyncHandler(controller.list));
 router.get('/floor', validate({ query: floorQuery }), asyncHandler(controller.floor));

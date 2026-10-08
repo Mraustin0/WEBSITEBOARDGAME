@@ -22,6 +22,7 @@ export const RULES = {
   OVERDUE_BLOCK_MIN: 30, // โต๊ะ/เกมที่เล่นเกินเวลายังไม่คืน กันไม่ให้จองช่วงใกล้ ๆ นี้
   CANCEL_CUTOFF_HOURS: 2, // สมาชิกยกเลิกเองได้ถึงก่อนเริ่ม 2 ชม. (0 = ยกเลิกได้ตลอดจนถึงเวลาเริ่ม)
   OPERATING: { enforce: false, days: DEFAULT_DAYS },
+  PEAK: { enabled: false, perPersonHour: 80, start: '17:00', end: '23:00' },
 };
 
 export const PACKAGES = ['hourly', 'flat3h'];
@@ -35,25 +36,61 @@ export function computeEnd(startAt, durationHours) {
  *  - hourly: ชั่วโมง × (ผู้เล่น × ราคา/คน/ชม. + ค่าโต๊ะ/ชม.)
  *  - flat3h: ผู้เล่น × ราคาเหมา + 3 × ค่าโต๊ะ/ชม. (durationHours ต้องเป็น 3)
  */
+const toMin = (hhmm) => {
+  const [h, m] = String(hhmm).split(':').map(Number);
+  return h * 60 + (m || 0);
+};
+
+/**
+ * จำนวนชั่วโมงที่ช่วงจอง [startAt, +durationHours) ทับช่วง peak ของแต่ละวัน (เวลาไทย)
+ * peak: { enabled, start: '17:00', end: '23:00' } — end ≤ start = ข้ามเที่ยงคืน
+ */
+export function peakHoursOf(startAt, durationHours, peak) {
+  if (!peak?.enabled || !startAt) return 0;
+  const s = new Date(startAt).getTime();
+  const e = s + durationHours * HOUR_MS;
+  const ps = toMin(peak.start);
+  let pe = toMin(peak.end);
+  if (pe <= ps) pe += 24 * 60;
+  const TZ_MS = 7 * HOUR_MS;
+  // เที่ยงคืนเวลาไทยของวันก่อนหน้าวันเริ่ม (กันกรณี peak ข้ามเที่ยงคืนจากเมื่อวาน)
+  const dayMs = 24 * HOUR_MS;
+  let day = Math.floor((s + TZ_MS) / dayMs) * dayMs - TZ_MS - dayMs;
+  let overlap = 0;
+  while (day < e) {
+    const a = Math.max(s, day + ps * MINUTE_MS);
+    const b = Math.min(e, day + pe * MINUTE_MS);
+    if (b > a) overlap += b - a;
+    day += dayMs;
+  }
+  return Math.round((overlap / HOUR_MS) * 100) / 100;
+}
+
 export function calcPrice({
   players,
   durationHours,
   tableExtraPerHour = 0,
   pkg = 'hourly',
   rules = RULES,
+  startAt,
 }) {
-  const perHour = players * rules.PRICE_PER_PERSON_HOUR + tableExtraPerHour;
+  const perPerson = rules.PRICE_PER_PERSON_HOUR;
+  // ช่วง peak คิดราคาต่อคนสูงกว่า (เฉพาะรายชั่วโมง, แพ็กเกจเหมาไม่คิด peak)
+  const peakHours = pkg === 'flat3h' ? 0 : peakHoursOf(startAt, durationHours, rules.PEAK);
+  const peakPerPerson = peakHours ? rules.PEAK.perPersonHour : perPerson;
   const total =
     pkg === 'flat3h'
       ? players * rules.FLAT_3H_PER_PERSON + rules.FLAT_HOURS * tableExtraPerHour
-      : perHour * durationHours;
+      : players * (perPerson * (durationHours - peakHours) + peakPerPerson * peakHours) +
+        tableExtraPerHour * durationHours;
   return {
     total: Math.round(total),
     package: pkg,
-    perPersonHour: rules.PRICE_PER_PERSON_HOUR,
+    perPersonHour: perPerson,
     tableExtraPerHour,
     players,
     hours: durationHours,
+    ...(peakHours ? { peakHours, peakPerPersonHour: peakPerPerson } : {}),
   };
 }
 

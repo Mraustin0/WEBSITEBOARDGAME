@@ -10,3 +10,5 @@ export const exportCsv = async (req, res) => {
   res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
   res.send(csv);
 };
+
+export const verify = async (_req, res) => res.json(await service.verify());

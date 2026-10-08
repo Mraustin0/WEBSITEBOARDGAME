@@ -39,4 +39,5 @@ export const PERMISSION_CATALOG = [
   { key: 'settings', label: 'ตั้งค่าร้าน' },
   { key: 'maintenance', label: 'ซ่อมบำรุง' },
   { key: 'roles', label: 'จัดการสิทธิ์' },
+  { key: 'audit', label: 'บันทึกกิจกรรม (Audit)' },
 ];

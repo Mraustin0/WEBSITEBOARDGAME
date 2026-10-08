@@ -39,7 +39,7 @@ export const gameBody = z.object({
   mechanics: z.array(z.string().trim().min(1).max(80)).max(30).optional(),
   designers: z.array(z.string().trim().min(1).max(120)).max(20).optional(),
   status: z.enum(GAME_STATUSES).optional(),
-  copies: z.coerce.number().int().min(0).max(999).optional(),
+  copies: z.coerce.number().int().min(1).max(999).optional(),
   shelf: z.string().trim().max(40).optional(),
   sku: z.string().trim().max(40).optional(),
   barcode: z.string().trim().max(60).optional(),
@@ -50,7 +50,7 @@ export const gameBody = z.object({
 export const gameBodyPartial = gameBody.partial();
 
 export const copiesBody = z.object({
-  copies: z.coerce.number().int().min(0).max(999).optional(),
+  copies: z.coerce.number().int().min(1).max(999).optional(),
   status: z.enum(GAME_STATUSES).optional(),
   shelf: z.string().trim().max(40).optional(),
 });

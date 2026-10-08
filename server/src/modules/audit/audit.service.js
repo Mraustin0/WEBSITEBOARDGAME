@@ -1,4 +1,5 @@
 import { AuditLog } from '../../models/audit.model.js';
+import { GENESIS, flushAudit, hashOf } from '../../lib/audit.js';
 import { localDayRange, toLocalDateString } from '../../lib/time.js';
 
 function buildFilter({ from, to, actor, action, module, q }) {
@@ -91,5 +92,38 @@ export async function exportCsv(query) {
   }
   const from = query.from || 'all';
   const to = query.to || 'all';
-  return { filename: `audit_${from}_${to}.csv`, csv: lines.join('\n') };
+  return { filename: `audit_${from}_${to}.csv`, csv: `\uFEFF${lines.join('\n')}` }; // BOM สำหรับ Excel
+}
+
+/**
+ * ตรวจ hash chain ทั้งหมด (Integrity Verification Badge)
+ * valid = ทุกรายการ hash ถูกต้องและต่อกับรายการก่อนหน้า
+ */
+export async function verify() {
+  await flushAudit();
+  const cursor = AuditLog.find({ seq: { $exists: true } })
+    .sort({ seq: 1 })
+    .select('seq createdAt actor actorName action module targetType targetId summary prevHash hash')
+    .lean()
+    .cursor();
+  let prev = GENESIS;
+  let expectedSeq = null;
+  let checked = 0;
+  for await (const doc of cursor) {
+    const broken =
+      (expectedSeq !== null && doc.seq !== expectedSeq) ||
+      doc.prevHash !== prev ||
+      hashOf(doc, prev) !== doc.hash;
+    if (broken && checked > 0) {
+      return { valid: false, checked, brokenAt: { _id: doc._id, seq: doc.seq }, lastHash: prev };
+    }
+    // รายการแรกที่เจออาจต่อจากข้อมูลเก่าที่ถูกลบตาม retention → เริ่ม chain จากตัวมัน
+    if (broken && hashOf(doc, doc.prevHash) !== doc.hash) {
+      return { valid: false, checked, brokenAt: { _id: doc._id, seq: doc.seq }, lastHash: prev };
+    }
+    prev = doc.hash;
+    expectedSeq = doc.seq + 1;
+    checked += 1;
+  }
+  return { valid: true, checked, brokenAt: null, lastHash: prev };
 }

@@ -2,6 +2,28 @@ import { Role, PERMISSION_CATALOG } from '../../models/role.model.js';
 import { User } from '../../models/user.model.js';
 import { badRequest, conflict, notFound } from '../../lib/errors.js';
 import { logAudit } from '../../lib/audit.js';
+import { clearPermissionCache } from '../../lib/permissions.js';
+
+/** role ที่มีอยู่จริง (ใช้ตอนกำหนด role ให้ผู้ใช้) */
+export async function assertRoleExists(slug) {
+  if (slug === 'user' || slug === 'admin') return;
+  if (!(await Role.exists({ slug }))) throw badRequest(`unknown role: ${slug}`);
+}
+
+/** ห้ามทำให้ร้านไม่เหลือ admin ที่ใช้งานได้ */
+export async function assertNotLastAdmin(userIds) {
+  const ids = (Array.isArray(userIds) ? userIds : [userIds]).map(String);
+  const admins = await User.find({ role: 'admin', status: 'active' }).select('_id').lean();
+  if (admins.length && admins.every((a) => ids.includes(String(a._id)))) {
+    throw badRequest('cannot remove the last active admin');
+  }
+}
+
+const withCounts = async (roles) => {
+  const rows = await User.aggregate([{ $group: { _id: '$role', n: { $sum: 1 } } }]);
+  const counts = new Map(rows.map((r) => [r._id, r.n]));
+  return roles.map((r) => ({ ...r, memberCount: counts.get(r.slug) ?? 0 }));
+};
 
 function slugify(name) {
   return name
@@ -14,7 +36,7 @@ function slugify(name) {
 
 export async function list() {
   const items = await Role.find().sort({ isSystem: -1, name: 1 }).lean();
-  return { items, catalog: PERMISSION_CATALOG };
+  return { items: await withCounts(items), catalog: PERMISSION_CATALOG };
 }
 
 export async function detail(id) {
@@ -24,7 +46,7 @@ export async function detail(id) {
     .select('_id username email displayName avatar status')
     .limit(100)
     .lean();
-  return { ...role, members };
+  return { ...role, memberCount: members.length, members };
 }
 
 export async function create(data, actor, req) {
@@ -57,12 +79,19 @@ export async function update(id, data, actor, req) {
   if (role.isSystem && data.slug && data.slug !== role.slug) {
     throw badRequest('cannot change system role slug');
   }
+  const oldSlug = role.slug;
+  if (data.slug && data.slug !== oldSlug) {
+    if (await Role.exists({ slug: data.slug })) throw conflict('slug already exists');
+  }
   if (data.name) role.name = data.name;
   if (data.slug) role.slug = data.slug;
   if (data.description !== undefined) role.description = data.description;
   if (data.permissions) role.permissions = data.permissions;
   role.updatedBy = actor._id;
   await role.save();
+  // เปลี่ยน slug → ย้ายสมาชิกตามไปด้วย ไม่ให้หลุดบทบาท
+  if (role.slug !== oldSlug) await User.updateMany({ role: oldSlug }, { role: role.slug });
+  clearPermissionCache();
   logAudit({
     req,
     actor,
@@ -86,6 +115,7 @@ export async function remove(id, actor, req) {
   const inUse = await User.countDocuments({ role: role.slug });
   if (inUse > 0) throw conflict(`role is assigned to ${inUse} user(s)`);
   await role.deleteOne();
+  clearPermissionCache();
   logAudit({
     req,
     actor,
@@ -101,9 +131,11 @@ export async function remove(id, actor, req) {
 export async function addMembers(id, userIds, actor, req) {
   const role = await Role.findById(id);
   if (!role) throw notFound('role not found');
+  if (userIds.map(String).includes(String(actor._id))) {
+    throw badRequest('cannot change your own role');
+  }
+  if (role.slug !== 'admin') await assertNotLastAdmin(userIds);
   await User.updateMany({ _id: { $in: userIds } }, { role: role.slug });
-  role.memberCount = await User.countDocuments({ role: role.slug });
-  await role.save();
   logAudit({
     req,
     actor,
@@ -123,10 +155,10 @@ export async function removeMember(id, userId, actor, req) {
   const user = await User.findById(userId);
   if (!user) throw notFound('user not found');
   if (user.role !== role.slug) throw badRequest('user is not in this role');
+  if (String(user._id) === String(actor._id)) throw badRequest('cannot change your own role');
+  if (role.slug === 'admin') await assertNotLastAdmin(user._id);
   user.role = 'user';
   await user.save();
-  role.memberCount = await User.countDocuments({ role: role.slug });
-  await role.save();
   logAudit({
     req,
     actor,
@@ -166,4 +198,37 @@ export async function ensureSystemRoles() {
   for (const d of defaults) {
     await Role.findOneAndUpdate({ slug: d.slug }, d, { upsert: true, new: true });
   }
+  // บทบาทตัวอย่างสำหรับพนักงาน — สร้างครั้งเดียว (แก้ไข/ลบได้ ไม่ทับของที่ admin แก้)
+  const perm = (key, view, edit = false, del = false, approve = false) => ({
+    key,
+    view,
+    edit,
+    del,
+    approve,
+  });
+  const starters = [
+    {
+      name: 'Store Manager',
+      slug: 'manager',
+      description: 'ผู้จัดการร้าน — ทุกอย่างยกเว้นจัดการสิทธิ์',
+      permissions: PERMISSION_CATALOG.map((p) =>
+        p.key === 'roles' ? perm(p.key, true) : perm(p.key, true, true, true, true),
+      ),
+    },
+    {
+      name: 'Game Master',
+      slug: 'staff',
+      description: 'พนักงานหน้าร้าน — ผังโต๊ะ เช็คบิล คลังเกม แจ้งซ่อม',
+      permissions: [
+        perm('floor', true, true),
+        perm('checkout', true, true),
+        perm('inventory', true),
+        perm('maintenance', true, true),
+      ],
+    },
+  ];
+  for (const { slug, ...rest } of starters) {
+    await Role.updateOne({ slug }, { $setOnInsert: rest }, { upsert: true });
+  }
+  clearPermissionCache();
 }
