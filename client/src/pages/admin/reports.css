@@ -1,0 +1,357 @@
+.rp {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.rp-head-actions {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.rp-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md);
+}
+
+.rp-presets {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  gap: 2px;
+}
+
+.rp-preset {
+  height: 34px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-family: var(--font-body);
+  font-size: var(--fs-detail);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.rp-preset:hover {
+  color: var(--color-text);
+}
+
+.rp-preset.active {
+  background: var(--color-primary);
+  color: #fff;
+  font-weight: 600;
+}
+
+.rp-custom {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  align-items: end;
+}
+
+.rp-custom label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--fs-detail);
+  color: var(--color-text-muted);
+}
+
+.rp-custom .input {
+  width: 160px;
+}
+
+.rp-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-md);
+}
+
+.rp-kpi {
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rp-kpi-label {
+  font-size: var(--fs-detail);
+  color: var(--color-text-muted);
+}
+
+.rp-kpi-value {
+  font-family: var(--font-heading);
+  font-size: var(--fs-title-lg);
+  font-weight: 700;
+  color: var(--color-primary);
+  line-height: 1.2;
+}
+
+.rp-pct {
+  font-size: var(--fs-detail);
+  font-weight: 600;
+}
+
+.rp-pct small {
+  font-weight: 400;
+  color: var(--color-text-muted);
+}
+
+.rp-pct.up {
+  color: var(--state-available);
+}
+
+.rp-pct.down {
+  color: var(--state-occupied);
+}
+
+.rp-pct.flat {
+  color: var(--color-text-muted);
+}
+
+.rp-main {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: var(--space-lg);
+  align-items: start;
+}
+
+.rp-section {
+  padding: var(--space-md) var(--space-lg);
+}
+
+.rp-section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.rp-section-head h2 {
+  margin: 0;
+  font-size: var(--fs-body);
+}
+
+.rp-section-wide {
+  grid-column: 1 / -1;
+}
+
+.rp-chart-wrap {
+  width: 100%;
+}
+
+.rp-chart {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.rp-grid {
+  stroke: var(--color-border);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+}
+
+.rp-area {
+  fill: rgba(6, 78, 59, 0.1);
+}
+
+.rp-line {
+  fill: none;
+  stroke: var(--color-primary);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.rp-dot {
+  fill: #fff;
+  stroke: var(--color-primary);
+  stroke-width: 2.5;
+}
+
+.rp-chart-days {
+  display: grid;
+  gap: 4px;
+  margin-top: 8px;
+  text-align: center;
+  font-size: var(--fs-detail);
+  color: var(--color-text-muted);
+}
+
+.rp-chart-days small {
+  display: block;
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.rp-cats {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rp-cat-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: var(--fs-detail);
+  margin-bottom: 4px;
+}
+
+.rp-cat-top span {
+  color: var(--color-text-muted);
+  font-size: var(--fs-detail);
+  white-space: nowrap;
+}
+
+.rp-bar {
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg);
+  overflow: hidden;
+}
+
+.rp-bar i {
+  display: block;
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: var(--radius-full);
+}
+
+.rp-top-games {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rp-top-games li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.rp-rank {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-full);
+  background: var(--color-bg);
+  font-size: var(--fs-detail);
+  font-weight: 700;
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.rp-thumb {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius);
+  object-fit: cover;
+  background: var(--color-bg);
+  flex-shrink: 0;
+}
+
+.rp-thumb.placeholder {
+  display: grid;
+  place-items: center;
+  font-size: var(--fs-sub);
+}
+
+.rp-game-info {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.rp-game-info strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rp-game-info small {
+  color: var(--color-text-muted);
+  font-size: var(--fs-detail);
+}
+
+/* heatmap — ขนาดเล็กลง */
+.rp-heat {
+  overflow-x: auto;
+  font-size: var(--fs-tiny);
+}
+
+.rp-heat-row {
+  display: grid;
+  grid-template-columns: 28px repeat(14, minmax(20px, 1fr));
+  gap: 2px;
+  margin-bottom: 2px;
+}
+
+.rp-heat-label {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 4px;
+  color: var(--color-text-muted);
+  font-weight: 600;
+  font-size: var(--fs-detail);
+}
+
+.rp-heat-cell {
+  aspect-ratio: 1;
+  min-height: 20px; /* เดิม 28px */
+  max-width: 32px; /* จำกัดความกว้างสูงสุด */
+  margin: 0 auto;
+  border-radius: 3px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--color-border);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-tiny);
+}
+
+.rp-heat-row.head .rp-heat-h {
+  text-align: center;
+  color: var(--color-text-muted);
+  font-weight: 600;
+  font-size: var(--fs-tiny);
+}
+.rp .panel {
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+}
+
+@media (max-width: 1100px) {
+  .rp-kpis {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .rp-main {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .rp-kpis {
+    grid-template-columns: 1fr;
+  }
+}

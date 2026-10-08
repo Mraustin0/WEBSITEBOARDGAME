@@ -1,0 +1,123 @@
+.admin-sidebar {
+  display: flex;
+  flex-direction: column;
+}
+.admin-nav {
+  flex: 1;
+  gap: var(--space-md);
+}
+.nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+.nav-label {
+  padding: 0 12px;
+  font-size: var(--fs-detail);
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+}
+.admin-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.nav-ico {
+  width: 20px;
+  text-align: center;
+}
+.session-box {
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: var(--color-bg);
+  color: var(--state-available);
+  font-size: var(--fs-detail);
+}
+/* ขวาสุดของ topbar: กระดิ่ง + เมนูผู้ใช้ */
+.admin-topbar {
+  padding-right: var(--space-md);
+}
+.admin-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-left: auto;
+}
+.user-menu {
+  position: relative;
+}
+.user-menu-trigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 10px 4px 4px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: #fff;
+  cursor: pointer;
+  font: inherit;
+}
+.user-menu-trigger:hover {
+  background: var(--color-bg);
+}
+.user-avatar {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: #fff;
+  font-weight: 700;
+}
+.user-info {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  line-height: 1.2;
+}
+.user-info small {
+  color: var(--color-text-muted);
+}
+.user-caret {
+  font-size: var(--fs-detail);
+  color: var(--color-text-muted);
+  transition: transform 0.15s;
+}
+.user-caret.open {
+  transform: rotate(180deg);
+}
+.user-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  min-width: 190px;
+  padding: 6px;
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 24px rgba(6, 78, 59, 0.12);
+  z-index: 50;
+}
+.user-dropdown-item {
+  display: block;
+  width: 100%;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--color-text);
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.user-dropdown-item:hover {
+  background: var(--color-bg);
+}
+.user-dropdown-item.danger {
+  color: var(--color-error);
+}
+.user-dropdown-item.danger:hover {
+  background: var(--color-error-bg);
+}

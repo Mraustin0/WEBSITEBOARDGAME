@@ -1,0 +1,412 @@
+/* สไตล์หน้า 4 จัดการการจอง — ใช้ตัวแปรสีจาก index.css */
+.reservations-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+.page-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+.page-head h1 {
+  margin: 0 0 4px;
+  font-size: var(--fs-main);
+}
+.muted {
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+.date-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+.date-nav .input {
+  width: auto;
+}
+
+/* ปุ่มเสริม */
+.btn-ghost,
+.btn-danger {
+  height: 36px;
+  padding: 0 14px;
+  border-radius: var(--radius);
+  background: #fff;
+  font-family: var(--font-heading);
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-ghost {
+  border: 1px solid var(--color-border);
+  color: var(--color-primary);
+}
+.btn-ghost:hover {
+  border-color: var(--color-secondary);
+  background: #ecfdf5;
+}
+.btn-danger {
+  border: 1px solid #fecdd3;
+  color: var(--state-occupied);
+}
+.btn-danger:hover {
+  background: #fff1f2;
+}
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* แท็บ */
+.tabs {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+.tab {
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: #fff;
+  color: var(--color-text);
+  cursor: pointer;
+  font-family: var(--font-body);
+}
+.tab.active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
+/* ชิปสถานะ */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: var(--radius-full);
+  font-size: var(--fs-detail);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.chip.tone-available {
+  background: var(--state-available-bg);
+  color: #065f46;
+}
+.chip.tone-reserved {
+  background: var(--state-reserved-bg);
+  color: #92400e;
+}
+.chip.tone-occupied {
+  background: var(--state-occupied-bg);
+  color: #9f1239;
+}
+.chip.tone-maintenance {
+  background: var(--state-maintenance-bg);
+  color: #475569;
+}
+
+/* การ์ดตัวเลข */
+.stat-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-lg);
+}
+.stat-card {
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  box-shadow: var(--shadow-1);
+  border-top: 4px solid var(--color-primary);
+}
+.stat-card.tone-available {
+  border-top-color: var(--state-available);
+}
+.stat-card.tone-occupied {
+  border-top-color: var(--state-occupied);
+}
+.stat-title {
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+.stat-value {
+  font-family: var(--font-heading);
+  font-size: var(--fs-main);
+  font-weight: 700;
+  color: var(--color-primary);
+  line-height: 1.2;
+}
+.stat-unit {
+  font-size: var(--fs-body);
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+.stat-note {
+  color: var(--color-text-muted);
+  font-size: var(--fs-detail);
+}
+
+/* พื้นที่หลัก */
+.res-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: var(--space-lg);
+  align-items: start;
+}
+.panel {
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  box-shadow: var(--shadow-1);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+.panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+.panel-head h2 {
+  margin: 0;
+  font-size: var(--fs-sub-lg);
+}
+.legend {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+/* ตารางเวลา */
+.grid-scroll {
+  overflow-x: auto;
+}
+.grid-inner {
+  min-width: 760px;
+}
+.grid-row {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--color-border);
+}
+.grid-label {
+  width: 130px;
+  flex-shrink: 0;
+  padding: 10px 8px;
+  display: flex;
+  flex-direction: column;
+}
+.grid-label small {
+  color: var(--color-text-muted);
+  font-size: var(--fs-detail);
+}
+.grid-track {
+  position: relative;
+  flex: 1;
+  min-height: 52px;
+  background-image: repeating-linear-gradient(
+    to right,
+    var(--color-border) 0,
+    var(--color-border) 1px,
+    transparent 1px,
+    transparent calc(100% / var(--cols, 14))
+  );
+}
+.grid-head .grid-track {
+  min-height: 28px;
+  background: none;
+}
+.hour-label {
+  position: absolute;
+  top: 6px;
+  transform: translateX(-50%);
+  font-size: var(--fs-detail);
+  color: var(--color-text-muted);
+}
+.sched-block {
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  padding: 0 8px;
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  font-size: var(--fs-detail);
+  font-weight: 600;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.sched-block.tone-available {
+  background: var(--state-available-bg);
+  color: #065f46;
+  border: 1px solid var(--state-available);
+}
+.sched-block.tone-reserved {
+  background: var(--state-reserved-bg);
+  color: #92400e;
+  border: 1px solid var(--state-reserved);
+}
+.sched-block.tone-occupied {
+  background: var(--state-occupied-bg);
+  color: #9f1239;
+  border: 1px solid var(--state-occupied);
+  opacity: 0.6;
+}
+.sched-block.tone-maintenance {
+  background: var(--state-maintenance-bg);
+  color: #475569;
+  border: 1px solid var(--color-border);
+}
+
+/* รายการจอง */
+.res-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  max-height: 640px;
+  overflow-y: auto;
+}
+.res-item {
+  border: 1px solid var(--color-border);
+  border-left: 4px solid var(--state-available);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  background: #fff;
+}
+.res-item.tone-reserved {
+  border-left-color: var(--state-reserved);
+  background: #fffbeb;
+}
+.res-item.tone-occupied {
+  border-left-color: var(--state-occupied);
+}
+.res-item.tone-maintenance {
+  border-left-color: var(--state-maintenance);
+}
+.res-item.is-dim {
+  opacity: 0.7;
+}
+.res-item-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-sm);
+}
+.res-time {
+  font-family: var(--font-heading);
+  font-weight: 700;
+}
+.res-table {
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--state-available-bg);
+  color: #065f46;
+  font-size: var(--fs-detail);
+}
+.res-name {
+  font-weight: 600;
+  margin-top: 4px;
+}
+.res-meta {
+  color: var(--color-text-muted);
+  font-size: var(--fs-detail);
+}
+.res-actions {
+  display: flex;
+  gap: var(--space-sm);
+  justify-content: flex-end;
+  margin-top: var(--space-sm);
+}
+
+/* ฟอร์ม / modal */
+.form-error {
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  background: var(--color-error-bg);
+  color: #93000a;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+.field > span {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: var(--fs-detail);
+}
+.field-row {
+  display: flex;
+  gap: var(--space-md);
+}
+.field-error {
+  color: var(--color-error);
+  font-size: var(--fs-detail);
+}
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(8px);
+  padding: var(--space-md);
+}
+.modal {
+  width: min(520px, 100%);
+  max-height: 90vh;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-3);
+  padding: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+.modal h2 {
+  margin: 0;
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+}
+
+@media (max-width: 1200px) {
+  .res-main {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 768px) {
+  .stat-cards {
+    grid-template-columns: 1fr;
+  }
+  .field-row {
+    flex-direction: column;
+  }
+}

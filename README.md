@@ -33,13 +33,17 @@ Feature-based, layered (routes → controller → service → model). Docker + V
 │   │   ├── config/env.js     Zod-validated env
 │   │   ├── lib/              db, logger (pino), errors, openapi spec
 │   │   ├── middleware/       auth, error, validate (Zod)
-│   │   ├── models/           user, game, collection, play, review (per file)
+│   │   ├── models/           user, game, table, reservation, review, settings, maintenance
 │   │   └── modules/          feature-based
 │   │       ├── auth/         {routes, controller, service, schema}
 │   │       ├── games/
-│   │       ├── collection/
-│   │       ├── plays/
-│   │       ├── reviews/
+│   │       ├── tables/       (B) โต๊ะ + ผังร้าน
+│   │       ├── reservations/ (B) จอง, walk-in, เช็คบิล
+│   │       ├── reviews/      (B)
+│   │       ├── stats/        (B) dashboard + รายงาน
+│   │       ├── settings/     (B) ตั้งค่าร้าน
+│   │       ├── maintenance/  (B) แจ้งซ่อม
+│   │       ├── admin/
 │   │       └── bgg/          BoardGameGeek proxy (external API)
 │   ├── scripts/              seed + promote-admin
 │   └── tests/                vitest + supertest
