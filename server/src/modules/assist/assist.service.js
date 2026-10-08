@@ -2,6 +2,7 @@ import { AssistRequest, ACTIVE_ASSIST_STATUSES } from '../../models/assist.model
 import { Reservation } from '../../models/reservation.model.js';
 import { conflict, notFound } from '../../lib/errors.js';
 import { syncLifecycle } from '../reservations/reservations.lifecycle.js';
+import { can } from '../../lib/permissions.js';
 import { notifyAssist, resolveNotifications } from '../notifications/notifications.service.js';
 
 const POPULATE = [
@@ -16,14 +17,14 @@ const POPULATE = [
   { path: 'resolvedBy', select: 'username' },
 ];
 
-const isAdmin = (user) => user.role === 'admin';
+const isStaff = (user) => can(user, 'floor', 'view');
 const sameId = (a, b) => String(a?._id ?? a) === String(b?._id ?? b);
 
 /** สมาชิกกด "เรียก GM" — ต้องเป็นเจ้าของการจองที่กำลังเล่นอยู่ */
 export async function create(user, { reservation, topic, note }) {
   await syncLifecycle();
   const r = await Reservation.findById(reservation);
-  if (!r || (!isAdmin(user) && !sameId(r.user, user._id))) {
+  if (!r || (!sameId(r.user, user._id) && !(await isStaff(user)))) {
     throw notFound('reservation not found');
   }
   if (r.status !== 'playing') throw conflict('can call staff only while playing');
@@ -57,7 +58,7 @@ export async function listMine(userId, { reservation }) {
 /** สมาชิกยกเลิกคำขอที่ยังไม่เสร็จ */
 export async function cancel(id, user) {
   const doc = await AssistRequest.findById(id);
-  if (!doc || (!isAdmin(user) && !sameId(doc.user, user._id))) {
+  if (!doc || (!sameId(doc.user, user._id) && !(await isStaff(user)))) {
     throw notFound('request not found');
   }
   if (!ACTIVE_ASSIST_STATUSES.includes(doc.status)) {

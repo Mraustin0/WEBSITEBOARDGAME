@@ -103,6 +103,33 @@ export function onGameCopiesChanged(gameId) {
   return refreshGameStatus(gameId, { release: true });
 }
 
+/**
+ * สถานะรายกล่องของเกม (ใช้ในหน้า Inventory) → Map(gameId → { copies, inPlay, inRepair, inVault })
+ * - inPlay   = กล่องที่โต๊ะกำลังเล่นอยู่ตอนนี้
+ * - inRepair = กล่องที่อยู่ในใบแจ้งซ่อม (เกมที่ admin ปิดเองนับทุกกล่องเป็นซ่อม)
+ * - inVault  = กล่องที่อยู่บนชั้น พร้อมให้บริการ
+ */
+export async function copyBreakdown(games) {
+  const ids = games.map((g) => g._id);
+  const [playing, broken] = await Promise.all([
+    Reservation.aggregate([
+      { $match: { status: 'playing', game: { $in: ids } } },
+      { $group: { _id: '$game', n: { $sum: 1 } } },
+    ]),
+    brokenCopies(ids),
+  ]);
+  const playingMap = new Map(playing.map((r) => [String(r._id), r.n]));
+  return new Map(
+    games.map((g) => {
+      const key = String(g._id);
+      const copies = copiesOf(g);
+      const inRepair = g.status === 'maintenance' ? copies : Math.min(copies, broken.get(key) ?? 0);
+      const inPlay = Math.min(copies - inRepair, playingMap.get(key) ?? 0);
+      return [key, { copies, inPlay, inRepair, inVault: copies - inRepair - inPlay }];
+    }),
+  );
+}
+
 /** reservation ทั้งหมดที่ชนกับช่วงเวลา (ใช้ทำ availability / floor plan) */
 export function findBusy({ startAt, endAt }, now = new Date()) {
   return Reservation.find(conflictFilter({ startAt, endAt }, now))

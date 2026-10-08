@@ -1,4 +1,5 @@
 import * as service from './reviews.service.js';
+import { can } from '../../lib/permissions.js';
 
 export const listForGame = async (req, res) =>
   res.json(await service.listForGame(req.params.gameId));
@@ -16,7 +17,7 @@ export const remove = async (req, res) => {
   await service.remove({
     id: req.params.id,
     userId: req.user._id,
-    isAdmin: req.user.role === 'admin',
+    isAdmin: await can(req.user, 'inventory', 'del'),
   });
   res.json({ ok: true });
 };

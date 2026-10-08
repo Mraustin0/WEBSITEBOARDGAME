@@ -8,6 +8,7 @@ const EnvSchema = z.object({
   JWT_SECRET: z.string().min(16, 'JWT_SECRET must be ≥16 chars'),
   CLIENT_ORIGIN: z.string().default('http://localhost:5173'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
+  BGG_TOKEN: z.string().optional().default(''),
 });
 
 const parsed = EnvSchema.safeParse(process.env);

@@ -118,6 +118,7 @@ export const adminListQuery = z
     source: z.enum(SOURCES).optional(),
     payment: z.enum(['unpaid', 'paid']).optional(),
     q: z.string().trim().min(1).max(80).optional(), // ค้นชื่อ/เบอร์ลูกค้า walk-in
+    confirmed: z.enum(['true', 'false']).optional(), // false = การจองออนไลน์ที่ยังไม่ได้ยืนยัน
     ...pagination,
   })
   .refine((o) => !o.from || !o.to || o.from <= o.to, 'from must be <= to');

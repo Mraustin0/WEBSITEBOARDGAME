@@ -8,6 +8,7 @@ const day = z.object({
   open: hhmm,
   close: hhmm,
   closed: z.boolean().default(false),
+  label: z.string().max(40).optional(),
 });
 
 export const settingsBody = z
@@ -21,7 +22,17 @@ export const settingsBody = z
       })
       .partial(),
     pricing: z
-      .object({ perPersonHour: money, flat3hPerPerson: money, revenueTargetPerDay: money })
+      .object({
+        perPersonHour: money,
+        flat3hPerPerson: money,
+        revenueTargetPerDay: money,
+        peakEnabled: z.boolean(),
+        peakPerPersonHour: money,
+        peakStart: hhmm,
+        peakEnd: hhmm,
+        studentDiscountEnabled: z.boolean(),
+        studentDiscountPercent: z.coerce.number().min(0).max(100),
+      })
       .partial(),
     booking: z
       .object({
@@ -46,7 +57,17 @@ export const settingsBody = z
       .object({
         graceMin: z.coerce.number().int().min(0).max(240),
         depositPerPerson: money,
+        depositPerTable: money,
         suspendAfter: z.coerce.number().int().min(0).max(100),
+        autoRefundDeposit: z.boolean(),
+        notifyEnabled: z.boolean(),
+      })
+      .partial(),
+    notifications: z
+      .object({
+        bookingReminderHours: z.coerce.number().min(0).max(48),
+        smsEnabled: z.boolean(),
+        lineNotifyEnabled: z.boolean(),
       })
       .partial(),
   })

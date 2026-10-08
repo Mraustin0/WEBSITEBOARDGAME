@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 import { env } from '../config/env.js';
 import { User } from '../models/user.model.js';
 import { forbidden, unauthorized } from '../lib/errors.js';
+import { actionOf, can } from '../lib/permissions.js';
 
 const TOKEN_TTL = '7d';
 
@@ -19,8 +20,12 @@ export async function requireAuth(req, _res, next) {
     const token = header.startsWith('Bearer ') ? header.slice(7) : null;
     if (!token) throw unauthorized('no token');
     const payload = jwt.verify(token, env.JWT_SECRET);
-    const user = await User.findById(payload.sub).select('_id username email role');
+    const user = await User.findById(payload.sub).select(
+      '_id username email role status tier displayName phone lineId avatar noShowCount playCount',
+    );
     if (!user) throw unauthorized('user not found');
+    if (user.status === 'suspended') throw forbidden('account suspended');
+    if (user.status === 'pending') throw forbidden('account pending approval');
     req.user = user;
     next();
   } catch (err) {
@@ -36,5 +41,32 @@ export function requireRole(role) {
     if (!req.user) return next(unauthorized());
     if (req.user.role !== role) return next(forbidden());
     next();
+  };
+}
+
+/** admin หรือ role ที่อยู่ในรายการ */
+export function requireAnyRole(...roles) {
+  return (req, _res, next) => {
+    if (!req.user) return next(unauthorized());
+    if (!roles.includes(req.user.role)) return next(forbidden());
+    next();
+  };
+}
+
+/**
+ * ตรวจสิทธิ์ตาม permission matrix ของบทบาท (admin ผ่านเสมอ)
+ * action: 'view' | 'edit' | 'del' | 'approve' | 'auto' (เดาจาก HTTP method)
+ * ใช้หลัง requireAuth เช่น router.use(requireAuth, requirePermission('maintenance'))
+ */
+export function requirePermission(key, action = 'auto') {
+  return async (req, _res, next) => {
+    try {
+      if (!req.user) return next(unauthorized());
+      const act = action === 'auto' ? actionOf(req.method) : action;
+      if (await can(req.user, key, act)) return next();
+      next(forbidden(`no permission: ${key}:${act}`));
+    } catch (err) {
+      next(err);
+    }
   };
 }

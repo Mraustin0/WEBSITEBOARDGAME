@@ -39,6 +39,8 @@ const ReservationSchema = new Schema(
       tableExtraPerHour: Number,
       players: Number,
       hours: Number,
+      peakHours: Number, // ชั่วโมงที่อยู่ในช่วง peak (คิดราคา peak)
+      peakPerPersonHour: Number,
     },
     status: { type: String, enum: RESERVATION_STATUSES, default: 'booked' },
     note: { type: String, default: '' },
@@ -49,6 +51,9 @@ const ReservationSchema = new Schema(
     cancelledBy: { type: Types.ObjectId, ref: 'User' },
     cancelReason: { type: String, default: '' },
     noShowAt: Date,
+    // พนักงานกดยืนยันการจองออนไลน์แล้ว (การจองยังใช้ได้ทันที — เป็นการรับทราบ/ตรวจสอบ)
+    confirmedAt: Date,
+    confirmedBy: { type: Types.ObjectId, ref: 'User' },
     // ต่อเวลาระหว่างเล่น (ปุ่ม "ขอต่อเวลา") — ราคาเพิ่มถูกรวมเข้า price.total แล้ว
     extensions: { type: [ExtensionSchema], default: [] },
     // เช็คบิลตอนคืนเกม

@@ -18,6 +18,8 @@ import {
 import { syncLifecycle } from '../reservations/reservations.lifecycle.js';
 import { openHoursOfDay } from '../reservations/reservations.rules.js';
 import { getRules } from '../settings/settings.service.js';
+import { AssistRequest, ACTIVE_ASSIST_STATUSES } from '../../models/assist.model.js';
+import { list as listShifts } from '../shifts/shifts.service.js';
 
 // นับเฉพาะการใช้บริการจริง (ไม่รวมยกเลิก / no-show)
 const NOT_CANCELLED = { status: { $nin: NOT_SERVED } };
@@ -627,5 +629,205 @@ export async function exportCsv(query) {
     filename: `reservations_${from}_${to}.csv`,
     // BOM ให้ Excel อ่านภาษาไทยถูก
     csv: '\uFEFF' + [header.join(','), ...lines].join('\r\n') + '\r\n',
+  };
+}
+
+const PRIORITY_RANK = { high: 0, medium: 1, low: 2 };
+const byPriority = (a, b) =>
+  (PRIORITY_RANK[a.priority] ?? 3) - (PRIORITY_RANK[b.priority] ?? 3) || a.createdAt - b.createdAt;
+
+/**
+ * รายการที่ต้องจัดการด่วน (Action Needed) — ใช้ทั้งหน้า Dashboard และ /stats/alerts
+ * แต่ละรายการ: { type, severity: high|medium|low, title, count, link }
+ */
+async function actionItems(now = new Date()) {
+  const { start, end } = localDayRange(toLocalDateString(now));
+  const rules = await getRules();
+  const [
+    overdue,
+    endingSoon,
+    noShows,
+    openAssists,
+    pendingConfirm,
+    tickets,
+    pendingUsers,
+    noShowRows,
+  ] = await Promise.all([
+    Reservation.countDocuments({ status: 'playing', endAt: { $lt: now } }),
+    Reservation.countDocuments({
+      status: 'playing',
+      endAt: { $gte: now, $lte: new Date(now.getTime() + 15 * 60 * 1000) },
+    }),
+    Reservation.countDocuments({ status: 'no_show', startAt: { $gte: start, $lt: end } }),
+    AssistRequest.countDocuments({ status: { $in: ACTIVE_ASSIST_STATUSES } }),
+    Reservation.countDocuments({
+      source: 'online',
+      confirmedAt: null,
+      status: { $in: ['booked', 'playing'] },
+    }),
+    MaintenanceTicket.find({ status: { $in: OPEN_TICKET_STATUSES } })
+      .select('title priority itemType createdAt')
+      .lean(),
+    User.countDocuments({ status: 'pending' }),
+    rules.NO_SHOW_SUSPEND_AFTER > 0
+      ? Reservation.aggregate([
+          { $match: { status: 'no_show', user: { $ne: null } } },
+          { $group: { _id: '$user', n: { $sum: 1 } } },
+          { $match: { n: { $gte: rules.NO_SHOW_SUSPEND_AFTER } } },
+          { $lookup: { from: 'users', localField: '_id', foreignField: '_id', as: 'u' } },
+          { $unwind: '$u' },
+          { $match: { 'u.status': 'active' } },
+          { $count: 'n' },
+        ])
+      : [],
+  ]);
+  const suspendCandidates = noShowRows[0]?.n ?? 0;
+  const highTickets = tickets.filter((t) => t.priority === 'high').length;
+
+  const items = [
+    overdue && {
+      type: 'overdue',
+      severity: 'high',
+      title: `โต๊ะเลยเวลายังไม่คืนเกม ${overdue} โต๊ะ`,
+      count: overdue,
+      link: '/api/reservations/admin?status=playing',
+    },
+    openAssists && {
+      type: 'assist',
+      severity: 'high',
+      title: `ลูกค้าเรียกพนักงาน ${openAssists} รายการ`,
+      count: openAssists,
+      link: '/api/assist',
+    },
+    endingSoon && {
+      type: 'ending_soon',
+      severity: 'medium',
+      title: `โต๊ะใกล้หมดเวลา ${endingSoon} โต๊ะ`,
+      count: endingSoon,
+      link: '/api/reservations/admin?status=playing',
+    },
+    pendingConfirm && {
+      type: 'pending_confirm',
+      severity: 'medium',
+      title: `การจองออนไลน์รอยืนยัน ${pendingConfirm} รายการ`,
+      count: pendingConfirm,
+      link: '/api/reservations/admin?confirmed=false',
+    },
+    tickets.length && {
+      type: 'maintenance',
+      severity: highTickets ? 'high' : 'medium',
+      title: `งานซ่อมค้าง ${tickets.length} รายการ${highTickets ? ` (ด่วน ${highTickets})` : ''}`,
+      count: tickets.length,
+      link: '/api/maintenance',
+    },
+    noShows && {
+      type: 'no_show',
+      severity: 'medium',
+      title: `No-show วันนี้ ${noShows} รายการ`,
+      count: noShows,
+      link: '/api/reservations/admin?status=no_show',
+    },
+    suspendCandidates && {
+      type: 'suspend_candidate',
+      severity: 'medium',
+      title: `สมาชิก no-show ครบ ${rules.NO_SHOW_SUSPEND_AFTER} ครั้ง ${suspendCandidates} คน — ควรพิจารณาระงับ`,
+      count: suspendCandidates,
+      link: '/api/admin/users',
+    },
+    pendingUsers && {
+      type: 'pending_user',
+      severity: 'low',
+      title: `บัญชีรออนุมัติ ${pendingUsers} บัญชี`,
+      count: pendingUsers,
+      link: '/api/admin/users?status=pending',
+    },
+  ].filter(Boolean);
+  return { items, openTickets: tickets.sort(byPriority).slice(0, 5) };
+}
+
+/** รวมข้อมูลสำหรับหน้า Dashboard ภาพรวมร้าน (หน้า 12) */
+export async function dashboard({ date } = {}) {
+  const ov = await overview({ date });
+  const now = new Date();
+  const day = date ?? toLocalDateString(now);
+  const { end } = localDayRange(day);
+  const today = toLocalDateString(now);
+
+  const [revenueTrend, topGames, upcoming, pendingConfirm, action, shifts] = await Promise.all([
+    daily({ from: addDays(day, -6), to: day }),
+    popularGames({ from: addDays(day, -6), to: day, limit: 5 }),
+    Reservation.find({ status: 'booked', startAt: { $gte: now, $lt: end } })
+      .populate('table', 'code zone')
+      .populate('game', 'name')
+      .populate('user', 'username')
+      .sort({ startAt: 1 })
+      .limit(10)
+      .lean(),
+    Reservation.find({
+      source: 'online',
+      confirmedAt: null,
+      status: { $in: ['booked', 'playing'] },
+    })
+      .populate('table', 'code')
+      .populate('user', 'username')
+      .sort({ startAt: 1 })
+      .limit(5)
+      .lean(),
+    actionItems(now),
+    listShifts({ date: day }),
+  ]);
+
+  return {
+    ...ov,
+    revenueTrend, // 7 วันล่าสุด (รายได้รายวัน)
+    topGames,
+    upcoming,
+    pendingConfirm,
+    alerts: action.items,
+    openTickets: action.openTickets,
+    shifts: shifts.items, // กะพนักงานของวัน
+    onDutyNow: day === today ? shifts.onDutyNow : 0,
+  };
+}
+
+/** รายการที่ต้องทำ (Action Needed) + รายละเอียด */
+export async function alerts() {
+  await syncLifecycle();
+  const now = new Date();
+  const { start, end } = localDayRange(toLocalDateString(now));
+  const [action, noShows, endingSoon, overduePlaying] = await Promise.all([
+    actionItems(now),
+    Reservation.find({ status: 'no_show', startAt: { $gte: start, $lt: end } })
+      .populate('table', 'code zone')
+      .populate('user', 'username')
+      .limit(20)
+      .lean(),
+    Reservation.find({
+      status: 'playing',
+      endAt: { $gte: now, $lte: new Date(now.getTime() + 15 * 60 * 1000) },
+    })
+      .populate('table', 'code')
+      .populate('game', 'name')
+      .limit(10)
+      .lean(),
+    Reservation.find({ status: 'playing', endAt: { $lt: now } })
+      .populate('table', 'code')
+      .populate('game', 'name')
+      .limit(10)
+      .lean(),
+  ]);
+  return {
+    items: action.items,
+    noShows,
+    openTickets: action.openTickets,
+    endingSoon,
+    overduePlaying,
+    counts: {
+      noShows: noShows.length,
+      openTickets: action.openTickets.length,
+      endingSoon: endingSoon.length,
+      overduePlaying: overduePlaying.length,
+      total: action.items.reduce((n, a) => n + a.count, 0),
+    },
   };
 }

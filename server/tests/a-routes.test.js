@@ -12,6 +12,19 @@ describe('A routes require auth where expected', () => {
     ['get', '/api/admin/users'],
     ['put', '/api/admin/users/64b000000000000000000000/role'],
     ['delete', '/api/admin/users/64b000000000000000000000'],
+    ['put', '/api/auth/me'],
+    ['get', '/api/admin/users/stats'],
+    ['patch', '/api/admin/users/64b000000000000000000000/suspend'],
+    ['get', '/api/games/stats'],
+    ['patch', '/api/games/64b000000000000000000000/copies'],
+    ['get', '/api/roles'],
+    ['put', '/api/roles/64b000000000000000000000/permissions'],
+    ['get', '/api/audit'],
+    ['get', '/api/audit/verify'],
+    ['get', '/api/shifts'],
+    ['post', '/api/shifts'],
+    ['get', '/api/stats/dashboard'],
+    ['patch', '/api/reservations/admin/64b000000000000000000000/confirm'],
   ];
   it.each(cases)('%s %s → 401 without token', async (method, path) => {
     const res = await request(app)[method](path).send({});
