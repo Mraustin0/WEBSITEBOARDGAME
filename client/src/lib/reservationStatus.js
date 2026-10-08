@@ -31,13 +31,16 @@ export function displayStatus(r) {
 }
 
 // ชื่อลูกค้า: สมาชิก -> displayName / username, walk-in -> ชื่อ / เบอร์
+// รองรับทั้ง object จาก admin list และ string จาก /tables/schedule
 export function customerName(r) {
-  const u = r?.user;
+  if (!r) return 'ไม่ระบุชื่อ';
+  const u = r.user;
   if (u && typeof u === 'object') {
     const name = (u.displayName || u.username || '').trim();
     if (name) return name;
   }
-  const c = r?.customer;
+  const c = r.customer;
+  if (typeof c === 'string' && c.trim()) return c.trim();
   if (c && typeof c === 'object') {
     const name = (c.name || '').trim();
     if (name) return name;

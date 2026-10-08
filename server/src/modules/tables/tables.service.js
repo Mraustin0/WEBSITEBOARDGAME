@@ -121,7 +121,7 @@ export async function schedule({ date }) {
     })
       .sort({ startAt: 1 })
       .populate('game', 'name thumbnail')
-      .populate('user', 'username')
+      .populate('user', 'username displayName phone')
       .lean(),
   ]);
 
@@ -129,6 +129,9 @@ export async function schedule({ date }) {
   for (const r of reservations) {
     const key = String(r.table);
     if (!byTable.has(key)) byTable.set(key, []);
+    const u = r.user;
+    const c = r.customer;
+    const customerName = (u && (u.displayName || u.username)) || (c && (c.name || c.phone)) || '';
     byTable.get(key).push({
       reservationId: r._id,
       status: r.status,
@@ -137,7 +140,9 @@ export async function schedule({ date }) {
       endAt: r.endAt,
       players: r.players,
       game: r.game,
-      customer: r.user?.username || r.customer?.name || r.customer?.phone || '',
+      // string สำหรับตารางเวลา + object เผื่อ client ใช้ customerName()
+      customer: customerName || (c && typeof c === 'object' ? c : null) || '',
+      user: u || undefined,
       paid: r.payment?.status === 'paid',
     });
   }
