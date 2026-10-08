@@ -1,30 +1,64 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import {
+  Bell,
+  Settings,
+  Calendar,
+  CloseCircle,
+  Danger,
+  ClockCircle,
+  UserSpeak,
+  Tuning,
+  CheckCircle,
+  Refresh,
+} from 'reicon-react';
 import { api } from '../../lib/api.js';
 import './notification.css';
 
 // ประเภทแจ้งเตือนจาก server (NOTIFICATION_TYPES) → ไอคอน / สี / ชื่อไทย / หน้าปลายทาง
 const TYPE_META = {
-  booking_new: { icon: '📅', tone: 'book', label: 'การจองใหม่', href: '/admin/reservations' },
+  booking_new: { Icon: Calendar, tone: 'book', label: 'การจองใหม่', href: '/admin/reservations' },
   booking_cancelled: {
-    icon: '✕',
+    Icon: CloseCircle,
     tone: 'noshow',
     label: 'ยกเลิกการจอง',
     href: '/admin/reservations',
   },
   booking_affected: {
-    icon: '⚠',
+    Icon: Danger,
     tone: 'noshow',
     label: 'การจองที่ได้รับผลกระทบ',
     href: '/admin/maintenance',
   },
-  time_ending: { icon: '⏱', tone: 'fix', label: 'ใกล้หมดเวลา', href: '/admin/reservations' },
-  time_overdue: { icon: '⏰', tone: 'noshow', label: 'เลยเวลา', href: '/admin/reservations' },
-  assist: { icon: '🙋', tone: 'noshow', label: 'เรียกพนักงาน', href: '/admin/reservations' },
-  maintenance_new: { icon: '🔧', tone: 'fix', label: 'แจ้งซ่อมใหม่', href: '/admin/maintenance' },
-  maintenance_done: { icon: '✅', tone: 'play', label: 'ซ่อมเสร็จ', href: '/admin/maintenance' },
+  time_ending: {
+    Icon: ClockCircle,
+    tone: 'fix',
+    label: 'ใกล้หมดเวลา',
+    href: '/admin/reservations',
+  },
+  time_overdue: {
+    Icon: ClockCircle,
+    tone: 'noshow',
+    label: 'เลยเวลา',
+    href: '/admin/reservations',
+  },
+  assist: { Icon: UserSpeak, tone: 'noshow', label: 'เรียกพนักงาน', href: '/admin/reservations' },
+  maintenance_new: { Icon: Tuning, tone: 'fix', label: 'แจ้งซ่อมใหม่', href: '/admin/maintenance' },
+  maintenance_done: {
+    Icon: CheckCircle,
+    tone: 'play',
+    label: 'ซ่อมเสร็จ',
+    href: '/admin/maintenance',
+  },
 };
 const TYPES = Object.keys(TYPE_META);
+
+function TypeIcon({ type, size = 14 }) {
+  const meta = TYPE_META[type];
+  if (!meta?.Icon) return null;
+  const I = meta.Icon;
+  return <I size={size} />;
+}
 
 const GROUPS = [
   { key: 'today', label: 'วันนี้ (TODAY)' },
@@ -169,13 +203,13 @@ export default function NotificationPanel({ open, onClose, onCountChange }) {
               title="ตั้งค่าการแจ้งเตือน"
               aria-pressed={showPrefs}
             >
-              ⚙
+              <Settings size={18} />
             </button>
             <button type="button" className="nf-icon-btn" onClick={() => load()} title="รีเฟรช">
-              ↻
+              <Refresh size={18} />
             </button>
             <button type="button" className="nf-icon-btn" onClick={onClose} aria-label="ปิด">
-              ✕
+              <CloseCircle size={18} />
             </button>
           </div>
         </header>
@@ -191,7 +225,10 @@ export default function NotificationPanel({ open, onClose, onCountChange }) {
                   onChange={() => togglePref(t)}
                 />
                 <span>
-                  {TYPE_META[t].icon} {TYPE_META[t].label}
+                  <span className="nf-type-ico">
+                    <TypeIcon type={t} size={14} />
+                  </span>{' '}
+                  {TYPE_META[t].label}
                 </span>
               </label>
             ))}
@@ -267,14 +304,17 @@ export default function NotificationPanel({ open, onClose, onCountChange }) {
 }
 
 function NotifItem({ item, busyKey, onRead, onAction, onClose }) {
-  const meta = TYPE_META[item.type] ?? { icon: '•', tone: 'book', href: '/admin' };
+  const meta = TYPE_META[item.type] ?? { Icon: Bell, tone: 'book', href: '/admin' };
+  const Icon = meta.Icon || Bell;
   // action แบบ GET = ไปดูรายละเอียด (ยังไม่มีหน้าเฉพาะ → พาไปหน้ารวม), อื่น ๆ = ยิง API ตรง ๆ
   const doable = (item.actions ?? []).filter((a) => a.method && a.method !== 'GET');
   const hasView = (item.actions ?? []).some((a) => a.method === 'GET') || doable.length === 0;
 
   return (
     <article className={'nf-item' + (item.read ? ' read' : '') + (item.important ? ' urgent' : '')}>
-      <div className={'nf-ico nf-ico-' + meta.tone}>{meta.icon}</div>
+      <div className={'nf-ico nf-ico-' + meta.tone}>
+        <Icon size={18} />
+      </div>
       <div className="nf-body">
         <div className="nf-item-top">
           <strong>{item.title}</strong>
@@ -325,7 +365,7 @@ function NotifItem({ item, busyKey, onRead, onAction, onClose }) {
 export function NotificationBell({ onClick, count }) {
   return (
     <button type="button" className="nf-bell" onClick={onClick} aria-label="การแจ้งเตือน">
-      🔔
+      <Bell size={22} />
       {count > 0 && <span className="nf-bell-badge">{count > 9 ? '9+' : count}</span>}
     </button>
   );

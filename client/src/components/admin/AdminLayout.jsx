@@ -1,29 +1,44 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
+import {
+  Widget2,
+  Calendar,
+  Chair,
+  Gamepad,
+  Tuning,
+  Users,
+  User,
+  ShieldCheck,
+  GraphUp,
+  ClipboardList,
+  Settings,
+  Logout2,
+} from 'reicon-react';
 // นำเข้า Notification component ตามที่คุณระบุไว้
 import NotificationPanel, { NotificationBell } from './NotificationPanel.jsx';
 import { api } from '../../lib/api.js';
 import './adminLayout.css';
 
-// เมนูแบ่งกลุ่มตามภาพ design
+// เมนูแบ่งกลุ่มตามภาพ design — ไอคอน Reicon SVG
 const MENU = [
   {
     group: 'FLOOR & PLAY',
     items: [
-      { to: '/admin', icon: '▦', label: 'ภาพรวม (Overview)', end: true },
-      { to: '/admin/reservations', icon: '🗓', label: 'ผังโต๊ะ & การจอง' },
-      { to: '/admin/inventory', icon: '🎲', label: 'คลังบอร์ดเกม (Inventory)' },
-      { to: '/admin/maintenance', icon: '🛠', label: 'ซ่อมบำรุง (Maintenance)' },
+      { to: '/admin', Icon: Widget2, label: 'ภาพรวม (Overview)', end: true },
+      { to: '/admin/reservations', Icon: Calendar, label: 'ผังโต๊ะ & การจอง' },
+      { to: '/admin/tables', Icon: Chair, label: 'จัดการโต๊ะ (Tables)' },
+      { to: '/admin/inventory', Icon: Gamepad, label: 'คลังบอร์ดเกม (Inventory)' },
+      { to: '/admin/maintenance', Icon: Tuning, label: 'ซ่อมบำรุง (Maintenance)' },
     ],
   },
   {
     group: 'MANAGEMENT',
     items: [
-      { to: '/admin/users', icon: '👥', label: 'จัดการผู้ใช้ (Users)' },
-      { to: '/admin/roles', icon: '🔐', label: 'สิทธิ์การเข้าถึง (Roles)' },
-      { to: '/admin/reports', icon: '📈', label: 'รายงาน (Reports)' },
-      { to: '/admin/audit', icon: '📋', label: 'บันทึกกิจกรรม (Audit)' },
-      { to: '/admin/settings', icon: '⚙', label: 'ตั้งค่า (Settings)' },
+      { to: '/admin/users', Icon: Users, label: 'จัดการผู้ใช้ (Users)' },
+      { to: '/admin/roles', Icon: ShieldCheck, label: 'สิทธิ์การเข้าถึง (Roles)' },
+      { to: '/admin/reports', Icon: GraphUp, label: 'รายงาน (Reports)' },
+      { to: '/admin/audit', Icon: ClipboardList, label: 'บันทึกกิจกรรม (Audit)' },
+      { to: '/admin/settings', Icon: Settings, label: 'ตั้งค่า (Settings)' },
     ],
   },
 ];
@@ -91,7 +106,7 @@ function UserMenu({ user, onLogout }) {
             className="user-dropdown-item"
             onClick={() => setOpen(false)}
           >
-            👤 โปรไฟล์ของฉัน
+            <User size={16} /> โปรไฟล์ของฉัน
           </Link>
           <button
             type="button"
@@ -99,7 +114,7 @@ function UserMenu({ user, onLogout }) {
             className="user-dropdown-item danger"
             onClick={onLogout}
           >
-            ⎋ ออกจากระบบ
+            <Logout2 size={16} /> ออกจากระบบ
           </button>
         </div>
       )}
@@ -161,7 +176,7 @@ export default function AdminLayout() {
                   className={({ isActive }) => 'admin-nav-item' + (isActive ? ' active' : '')}
                 >
                   <span className="nav-ico" aria-hidden="true">
-                    {m.icon}
+                    <m.Icon size={20} />
                   </span>
                   {m.label}
                 </NavLink>

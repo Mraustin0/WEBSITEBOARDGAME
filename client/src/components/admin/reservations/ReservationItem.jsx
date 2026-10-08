@@ -2,19 +2,21 @@ import { timeTH } from '../../../lib/date.js';
 import {
   customerName,
   customerPhone,
+  displayStatus,
   endAtOf,
   gameName,
-  statusOf,
+  needsConfirm,
   tableCode,
 } from '../../../lib/reservationStatus.js';
 
 // การ์ดหนึ่งรายการในรายการจอง
-// 1. เพิ่ม onCheckout เข้ามาใน Props
-export default function ReservationItem({ r, busy, onCancel, onNoShow, onCheckout }) {
-  const st = statusOf(r.status);
+// รองรับ onConfirm ตาม API Develop: PATCH /reservations/admin/:id/confirm
+export default function ReservationItem({ r, busy, onCancel, onNoShow, onCheckout, onConfirm }) {
+  const st = displayStatus(r);
+  const canConfirm = needsConfirm(r);
   const canCancel = r.status === 'booked' || r.status === 'playing';
   const canNoShow = r.status === 'booked';
-  const canCheckout = r.status === 'playing'; // 2. เพิ่มเงื่อนไขให้เช็คบิลได้เฉพาะโต๊ะที่กำลังเล่น
+  const canCheckout = r.status === 'playing';
   const dim = r.status === 'cancelled' || r.status === 'no_show';
 
   return (
@@ -34,10 +36,19 @@ export default function ReservationItem({ r, busy, onCancel, onNoShow, onCheckou
         {gameName(r) && <span> • {gameName(r)}</span>}
       </div>
 
-      {/* 3. อัปเดตให้แสดงกล่องปุ่มเมื่อมีสิทธิเช็คบิล */}
-      {(canCancel || canNoShow || canCheckout) && (
+      {(canConfirm || canCancel || canNoShow || canCheckout) && (
         <div className="res-actions">
-          {/* ปุ่มเช็คบิล (แสดงเฉพาะตอนกำลังเล่น) */}
+          {canConfirm && (
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={busy}
+              onClick={() => onConfirm?.(r)}
+            >
+              ยืนยันการจอง
+            </button>
+          )}
+
           {canCheckout && (
             <button
               type="button"

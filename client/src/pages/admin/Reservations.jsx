@@ -92,6 +92,12 @@ export default function Reservations() {
     runAction(r, `/reservations/admin/${r._id}/no-show`, { method: 'PATCH' });
   }
 
+  // API Develop: PATCH /reservations/admin/:id/confirm
+  function onConfirm(r) {
+    if (!window.confirm(`ยืนยันการจองของ ${customerName(r)}?`)) return;
+    runAction(r, `/reservations/admin/${r._id}/confirm`, { method: 'PATCH' });
+  }
+
   const step = range === 'day' ? 1 : range === 'week' ? 7 : 30;
 
   return (
@@ -157,7 +163,8 @@ export default function Reservations() {
           onSearch={setQ}
           onCancel={onCancel}
           onNoShow={onNoShow}
-          onCheckout={(r) => setCheckoutReservation(r)} /* <-- เพิ่มบรรทัดนี้ลงไปครับ */
+          onConfirm={onConfirm}
+          onCheckout={(r) => setCheckoutReservation(r)}
         />
       </div>
 
@@ -182,7 +189,6 @@ export default function Reservations() {
         />
       )}
 
-      {/* <-- เพิ่ม CheckoutModal ตรงนี้ --> */}
       <CheckoutModal
         isOpen={!!checkoutReservation}
         reservation={checkoutReservation}

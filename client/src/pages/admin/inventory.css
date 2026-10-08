@@ -550,6 +550,30 @@
   font-size: var(--fs-detail); /* Details */
 }
 
+/* Powered by BGG — required attribution for public-facing BGG data use */
+.bgg-powered {
+  display: inline-flex;
+  align-items: center;
+  margin: 4px 0 12px;
+  line-height: 0;
+  opacity: 0.92;
+  transition: opacity 0.15s ease;
+}
+.bgg-powered:hover {
+  opacity: 1;
+}
+.bgg-powered img {
+  display: block;
+  height: 28px;
+  width: auto;
+}
+.gd-status-row .bgg-powered {
+  margin: 0 0 0 4px;
+}
+.gd-status-row .bgg-powered img {
+  height: 24px;
+}
+
 .gd-title {
   margin: 0 0 6px;
   font-size: var(--fs-main); /* Main title */
@@ -936,4 +960,25 @@
   font-size: 0.875rem;
   color: #0f766e;
   font-weight: 600;
+}
+
+.inv-kpi-ico {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+  opacity: 0.7;
+}
+.inv-kpi-ico svg {
+  display: block;
+}
+.inv-card-ph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  opacity: 0.55;
+}
+.inv-card-ph svg {
+  display: block;
 }

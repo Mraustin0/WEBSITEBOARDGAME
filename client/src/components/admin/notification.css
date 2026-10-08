@@ -304,6 +304,16 @@
   display: grid;
   place-items: center;
 }
+.nf-bell svg {
+  display: block;
+  width: 22px;
+  height: 22px;
+}
+.nf-icon-btn svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+}
 
 .nf-bell:hover {
   border-color: var(--color-secondary);
@@ -355,4 +365,21 @@
 .nf-action:disabled {
   opacity: 0.6;
   cursor: wait;
+}
+
+.nf-ico {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.nf-ico svg {
+  display: block;
+}
+.nf-type-ico {
+  display: inline-flex;
+  vertical-align: middle;
+  margin-right: 4px;
+}
+.nf-type-ico svg {
+  display: block;
 }

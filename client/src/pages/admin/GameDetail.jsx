@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Gamepad } from 'reicon-react';
 import { api } from '../../lib/api.js';
 import { timeTH } from '../../lib/date.js';
 import './inventory.css';
@@ -166,7 +167,9 @@ export default function GameDetail() {
             {img ? (
               <img src={img} alt="" className="gd-cover" />
             ) : (
-              <div className="gd-cover ph">🎲</div>
+              <div className="gd-cover ph">
+                <Gamepad size={64} />
+              </div>
             )}
             {game.yearPublished && <span className="gd-year-pill">{game.yearPublished}</span>}
           </div>
@@ -190,6 +193,15 @@ export default function GameDetail() {
                   ดูบน BoardGameGeek ↗
                 </a>
               )}
+              <a
+                className="bgg-powered"
+                href="https://boardgamegeek.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Powered by BoardGameGeek"
+              >
+                <img src="/powered-by-bgg.png" alt="Powered by BGG" height={24} />
+              </a>
             </div>
 
             <h1 className="gd-title">{game.name}</h1>

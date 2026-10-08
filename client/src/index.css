@@ -45,22 +45,14 @@
   --font-heading: 'Kanit', sans-serif;
   --font-body: 'Kanit', sans-serif;
 
-  /* Typography scale (ยึดตามนี้เท่านั้น)
-   *   Main title  38–42px
-   *   Title       24–28px
-   *   Sub title   18–20px
-   *   Body text   16px
-   *   Details     12px
-   *   Smallest    10px
-   */
-  --fs-main: 40px;
-  --fs-title-lg: 28px;
+  --fs-main: 40px; /* Main title 38–42 */
+  --fs-title-lg: 28px; /* Title 24–28 */
   --fs-title: 24px;
-  --fs-sub-lg: 20px;
+  --fs-sub-lg: 20px; /* Sub title 18–20 */
   --fs-sub: 18px;
-  --fs-body: 16px;
-  --fs-detail: 12px;
-  --fs-tiny: 10px;
+  --fs-body: 16px; /* Body */
+  --fs-detail: 12px; /* Details */
+  --fs-tiny: 10px; /* Smallest */
 }
 
 * {
