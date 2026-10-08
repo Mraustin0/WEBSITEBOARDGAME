@@ -59,7 +59,7 @@ export default function Roles() {
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
   useEffect(() => {
     if (selected) loadDetail(selected);
   }, [selected, catalog, loadDetail]);
