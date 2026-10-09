@@ -58,6 +58,9 @@ export function mapGameToUI(g) {
         : g.bggRating != null
           ? g.bggRating.toFixed(1)
           : '-',
+    bggId: g.bggId,
+    bggAverage: g.bggAverage,
+    bggWeight: g.bggWeight,
     stockCount: vaultCopies,
     inUseTables: [],
     status: vaultCopies > 0 ? 'available' : g.status === 'in_use' ? 'in-use' : 'waitlist',
@@ -65,6 +68,18 @@ export function mapGameToUI(g) {
     copiesInPlay: g.copiesInPlay,
     copiesInRepair: g.copiesInRepair,
   };
+}
+
+export async function searchBGG(q) {
+  return api('/bgg/search', { query: { q } });
+}
+
+export async function fetchBGGGame(bggId) {
+  return api(`/bgg/game/${bggId}`);
+}
+
+export async function fetchBGGHot() {
+  return api('/bgg/hot');
 }
 
 export async function fetchGames(params = {}) {

@@ -21,9 +21,7 @@ export default function GameCatalog({
           setGames(data);
         }
       })
-      .catch((err) => {
-        console.warn('API games load failed, using fallback:', err);
-      });
+      .catch(() => {});
     return () => {
       active = false;
     };
@@ -71,7 +69,8 @@ export default function GameCatalog({
       return matchSearch && matchCat && matchPax;
     });
 
-    if (sortOrder === 'rating') result.sort((a, b) => parseFloat(b.rating) - parseFloat(a.rating));
+    if (sortOrder === 'rating')
+      result.sort((a, b) => (parseFloat(b.rating) || 0) - (parseFloat(a.rating) || 0));
     else if (sortOrder === 'a-z') result.sort((a, b) => a.title.localeCompare(b.title));
 
     return result;
@@ -279,9 +278,21 @@ export default function GameCatalog({
                       <i className={`fa-solid ${game.icon}`}></i>
                     </div>
 
-                    <span className="absolute top-2 right-2 bg-slate-900/90 text-amber-300 border border-slate-700 text-xs px-2.5 py-1 rounded-full font-bold flex items-center gap-1 shadow-sm">
-                      <span className="text-amber-400">★</span> {game.rating}
-                    </span>
+                    {game.bggId ? (
+                      <a
+                        href={`https://boardgamegeek.com/boardgame/${game.bggId}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        title={`ดูข้อมูล #${game.bggId} บน BoardGameGeek`}
+                        className="absolute top-2 right-2 bg-slate-900/90 text-amber-300 border border-slate-700 text-xs px-2.5 py-1 rounded-full font-bold flex items-center gap-1 shadow-sm hover:scale-105 transition"
+                      >
+                        <span className="text-amber-400">★</span> {game.rating}
+                      </a>
+                    ) : (
+                      <span className="absolute top-2 right-2 bg-slate-900/90 text-amber-300 border border-slate-700 text-xs px-2.5 py-1 rounded-full font-bold flex items-center gap-1 shadow-sm">
+                        <span className="text-amber-400">★</span> {game.rating}
+                      </span>
+                    )}
                     <span
                       className={`absolute top-2 left-2 text-white text-xs px-2.5 py-1 rounded-full font-semibold shadow-sm flex items-center gap-1 ${isAvailable ? 'bg-emerald-600' : 'bg-amber-600'}`}
                     >

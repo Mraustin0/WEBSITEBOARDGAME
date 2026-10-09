@@ -29,13 +29,13 @@ export default function FloorPlan({ initialGame, clearInitialGame }) {
       .then((t) => {
         if (active && t && t.length > 0) setTables(t);
       })
-      .catch((err) => console.warn('Load tables failed, using fallback:', err));
+      .catch(() => {});
 
     fetchGames()
       .then((g) => {
         if (active && g && g.length > 0) setGames(g);
       })
-      .catch((err) => console.warn('Load games failed, using fallback:', err));
+      .catch(() => {});
 
     return () => {
       active = false;

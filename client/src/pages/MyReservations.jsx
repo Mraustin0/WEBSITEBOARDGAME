@@ -510,9 +510,7 @@ export default function MyReservations() {
           );
         }
       })
-      .catch((err) => {
-        console.warn('Could not load user reservations:', err);
-      });
+      .catch(() => {});
   };
 
   useEffect(() => {
