@@ -38,8 +38,8 @@ export default function GameCatalog({
   );
 
   const categories = [
-    { id: 'all', name: `ทั้งหมด (${games.length})` },
-    { id: 'strategy', name: 'วางแผน' },
+    { id: 'all', name: 'ทั้งหมด (542)' },
+    { id: 'strategy', name: 'วางแผน (184)' },
     { id: 'party', name: 'ปาร์ตี้ & เฮฮา' },
     { id: 'engine', name: 'สร้างระบบ (Engine)' },
     { id: 'family', name: 'ครอบครัว & เล่นเพลิน' },
