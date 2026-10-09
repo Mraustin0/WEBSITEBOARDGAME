@@ -1,4 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
+import {
+  fetchMyReservations,
+  cancelReservation,
+  extendReservation,
+  returnGame,
+  callGM,
+} from '../services/api.js';
 
 /* ---------- Tiny inline icon set ---------- */
 const ICONS = {
@@ -392,6 +399,124 @@ export default function MyReservations() {
 
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const loadUserReservations = () => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    fetchMyReservations()
+      .then((res) => {
+        const items = res?.items || (Array.isArray(res) ? res : []);
+        if (items.length === 0) return;
+
+        // Playing reservation -> activeSession
+        const playing = items.find((r) => r.status === 'playing');
+        if (playing) {
+          const startTime = new Date(playing.startAt).toLocaleTimeString('th-TH', {
+            hour: '2-digit',
+            minute: '2-digit',
+          });
+          const endTime = new Date(playing.endAt).toLocaleTimeString('th-TH', {
+            hour: '2-digit',
+            minute: '2-digit',
+          });
+          setActiveSession({
+            _id: playing._id,
+            id: `#BM-${playing._id.slice(-4).toUpperCase()}`,
+            table: `โต๊ะ ${playing.table?.code || playing.table?.name || 'T-04'}`,
+            zone: playing.table?.zone || 'Main Zone',
+            status: 'กำลังเล่น',
+            timeRemaining: `${playing.durationHours}h`,
+            endTime: `${endTime} น.`,
+            duration: `${startTime} - ${endTime} น.`,
+            orderId: `#ORD-${playing._id.slice(-4).toUpperCase()}`,
+            currentGame: {
+              id: playing.game?._id || 'game_01',
+              name: playing.game?.name || 'บอร์ดเกมที่เลือก',
+              publisher: 'STORE VAULT',
+              details: 'ฉบับแปลไทย • ใส่ซองกันรอยครบ',
+              image:
+                playing.game?.image ||
+                playing.game?.thumbnail ||
+                'https://images.unsplash.com/photo-1610890716171-6b1bb98ffd09?w=300',
+              rating: playing.game?.bggAverage || 8.0,
+              borrowedTime: `${startTime} น.`,
+              pax: `${playing.players} Pax`,
+              duration: `${playing.durationHours * 60}m`,
+            },
+          });
+        }
+
+        // Booked reservations -> upcomingReservations
+        const booked = items.filter((r) => r.status === 'booked');
+        if (booked.length > 0) {
+          setUpcomingReservations(
+            booked.map((b) => {
+              const d = new Date(b.startAt);
+              const startTime = d.toLocaleTimeString('th-TH', {
+                hour: '2-digit',
+                minute: '2-digit',
+              });
+              const endTime = new Date(b.endAt).toLocaleTimeString('th-TH', {
+                hour: '2-digit',
+                minute: '2-digit',
+              });
+              return {
+                _id: b._id,
+                id: `RES-${b._id.slice(-4).toUpperCase()}`,
+                icon: 'stool',
+                iconStyle: 'bg-slate-100 text-slate-700',
+                tableName: `โต๊ะ ${b.table?.code || b.table?.name || 'T-01'}`,
+                badge: b.confirmedAt ? 'ยืนยันแล้ว' : 'รอการยืนยัน',
+                zone: b.table?.zone || 'โซนมาตรฐาน',
+                countdown: d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }),
+                date: d.toLocaleDateString('th-TH', {
+                  weekday: 'long',
+                  day: 'numeric',
+                  month: 'short',
+                  year: 'numeric',
+                }),
+                time: `${startTime} - ${endTime} น. (${b.durationHours} ชั่วโมง)`,
+                gameName: b.game?.name || 'ไม่ได้เลือกเกมล่วงหน้า',
+                pax: `${b.players} คน`,
+              };
+            }),
+          );
+        }
+
+        // Completed/past -> historyRows
+        const past = items.filter((r) => ['completed', 'cancelled', 'no_show'].includes(r.status));
+        if (past.length > 0) {
+          setHistoryRows(
+            past.map((p) => {
+              const d = new Date(p.startAt);
+              return {
+                _id: p._id,
+                id: `#BM-${p._id.slice(-4).toUpperCase()}`,
+                table: `โต๊ะ ${p.table?.code || p.table?.name || 'T-01'}`,
+                zone: p.table?.zone || 'Main Zone',
+                game: p.game?.name || 'บอร์ดเกม',
+                date: `${d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })} • ${d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.`,
+                status:
+                  p.status === 'completed'
+                    ? 'คืนเกมแล้ว'
+                    : p.status === 'cancelled'
+                      ? 'ยกเลิก'
+                      : 'ไม่มาตามนัด',
+                pts: '+15 pts',
+              };
+            }),
+          );
+        }
+      })
+      .catch((err) => {
+        console.warn('Could not load user reservations:', err);
+      });
+  };
+
+  useEffect(() => {
+    loadUserReservations();
   }, []);
 
   const handleTabClick = (key) => {
@@ -409,14 +534,20 @@ export default function MyReservations() {
   };
 
   // Actions
-  const handleConfirmReturn = () => {
+  const handleConfirmReturn = async () => {
     setLoading(true);
-    setTimeout(() => {
+    try {
+      if (activeSession?._id) {
+        await returnGame(activeSession._id);
+      }
       setActiveSession(null);
+      alert('คืนบอร์ดเกมเข้าคลังเรียบร้อย สถานะถูกเปลี่ยนเป็น available แล้ว');
+    } catch (err) {
+      alert(`คืนเกมไม่สำเร็จ: ${err.message}`);
+    } finally {
       setLoading(false);
       setActiveModal(null);
-      alert('คืนบอร์ดเกมเข้าคลังเรียบร้อย สถานะถูกเปลี่ยนเป็น available แล้ว');
-    }, 600);
+    }
   };
 
   const handleConfirmSwitchGame = (gameName) => {
@@ -461,29 +592,47 @@ export default function MyReservations() {
     }, 600);
   };
 
-  const handleConfirmCancel = () => {
+  const handleConfirmCancel = async () => {
     setLoading(true);
-    setTimeout(() => {
-      if (selectedReservation) {
-        setUpcomingReservations((prev) => prev.filter((r) => r.id !== selectedReservation.id));
+    try {
+      if (selectedReservation?._id) {
+        await cancelReservation(selectedReservation._id);
       }
+      if (selectedReservation) {
+        setUpcomingReservations((prev) =>
+          prev.filter((r) => r.id !== selectedReservation.id && r._id !== selectedReservation._id),
+        );
+      }
+      alert('ยกเลิกการจองเรียบร้อย คืนสิทธิ์โต๊ะเข้าสู่ระบบแล้ว');
+    } catch (err) {
+      alert(`ยกเลิกไม่สำเร็จ: ${err.message}`);
+    } finally {
       setLoading(false);
       setActiveModal(null);
-      alert('ยกเลิกการจองเรียบร้อย คืนสิทธิ์โต๊ะเข้าสู่ระบบแล้ว');
-    }, 600);
+    }
   };
 
-  const handleConfirmRequest = () => {
+  const handleConfirmRequest = async () => {
     setLoading(true);
-    setTimeout(() => {
+    try {
+      if (requestType === 'extend') {
+        const hours = 1;
+        if (activeSession?._id) {
+          await extendReservation(activeSession._id, hours);
+        }
+        alert('ส่งคำขอต่อเวลาเรียบร้อยแล้ว');
+      } else {
+        if (activeSession?._id) {
+          await callGM(activeSession._id, 'issue', 'เรียก GM ช่วยสอนเล่นที่โต๊ะ');
+        }
+        alert('เรียก GM เรียบร้อยแล้ว! เจ้าหน้าที่จะมาที่โต๊ะในสักครู่');
+      }
+    } catch (err) {
+      alert(`ดำเนินการไม่สำเร็จ: ${err.message}`);
+    } finally {
       setLoading(false);
       setActiveModal(null);
-      alert(
-        requestType === 'extend'
-          ? 'ส่งคำขอต่อเวลาเรียบร้อยแล้ว เจ้าหน้าที่กำลังดำเนินการ'
-          : 'เรียก GM เรียบร้อยแล้ว! เจ้าหน้าที่จะมาที่โต๊ะ T-04 ในสักครู่',
-      );
-    }, 600);
+    }
   };
 
   const handleCreateBooking = (e) => {
