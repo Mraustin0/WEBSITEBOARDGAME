@@ -1,624 +1,390 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
-import { GAME_DATA, TIME_SLOTS } from '../data/mockData';
-import { fetchGames, searchBGG, fetchBGGGame } from '../services/api.js';
+// คลังบอร์ดเกม (สมาชิก / ผู้เยี่ยมชม) — ข้อมูลเกมจาก DB ของร้าน (GET /api/games) ไม่เรียก BGG ตรง
+// สถานะบนการ์ด = "ตอนนี้" (กล่องบนชั้น/กำลังเล่น/ส่งซ่อม) หรือ "ช่วงเวลาที่เลือก" เมื่อเช็กล่วงหน้า
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { fetchGames, fetchRules } from '../services/api.js';
+import { thaiError } from '../lib/booking.js';
+import { useToast } from '../components/user/Toast.jsx';
+import AvailabilityChecker from '../components/user/catalog/AvailabilityChecker.jsx';
+import GameCard from '../components/user/catalog/GameCard.jsx';
+import GameDetailModal from '../components/user/catalog/GameDetailModal.jsx';
+import { useSlotAvailability } from '../components/user/catalog/useSlotAvailability.js';
+import {
+  PAX_OPTIONS,
+  SORT_OPTIONS,
+  categoryCounts,
+  fitsPlayers,
+  nowStatus,
+  slotStatus,
+  sortGames,
+} from '../components/user/catalog/catalogUtils.js';
 
-export default function GameCatalog({
-  selectedGame: _selectedGame,
-  setSelectedGame,
-  onGoToFloorPlan,
-}) {
-  const [games, setGames] = useState(GAME_DATA);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [sortOrder, setSortOrder] = useState('popular');
-  const [selectedCat, setSelectedCat] = useState('all');
-  const [selectedPax, setSelectedPax] = useState('all');
+const PAGE_LIMIT = 200; // สูงสุดที่ GET /games รับ
+const MAX_PAGES = 10;
+const TOP_CATEGORIES = 10;
+const EMPTY_SLOT = { ymd: '', time: '', hours: 2, players: '' };
 
-  // BGG live search state
-  const [showBgg, setShowBgg] = useState(false);
-  const [bggQ, setBggQ] = useState('');
-  const [bggLoading, setBggLoading] = useState(false);
-  const [bggResults, setBggResults] = useState([]);
-  const [bggGame, setBggGame] = useState(null);
-  const [bggDetailLoading, setBggDetailLoading] = useState(false);
-  const [bggError, setBggError] = useState('');
-  const bggInputRef = useRef(null);
-
-  async function doBggSearch(e) {
-    e?.preventDefault();
-    if (!bggQ.trim()) return;
-    setBggLoading(true);
-    setBggError('');
-    setBggResults([]);
-    setBggGame(null);
-    try {
-      const results = await searchBGG(bggQ.trim());
-      setBggResults(results || []);
-      if (!results?.length) setBggError('ไม่พบเกมใน BGG');
-    } catch {
-      setBggError('ค้นหาไม่สำเร็จ ลองใหม่อีกครั้ง');
-    } finally {
-      setBggLoading(false);
-    }
+/** โหลดเกมทั้งคลัง (ทีละ 200 จนหมด) */
+async function fetchAllGames() {
+  const all = [];
+  for (let page = 1; page <= MAX_PAGES; page += 1) {
+    const items = await fetchGames({ page, limit: PAGE_LIMIT, sort: 'name', order: 'asc' });
+    all.push(...items);
+    if (items.length < PAGE_LIMIT) break;
   }
+  return all;
+}
 
-  async function viewBggGame(bggId) {
-    setBggDetailLoading(true);
-    setBggGame(null);
-    try {
-      const g = await fetchBGGGame(bggId);
-      setBggGame(g);
-    } catch {
-      setBggError('โหลดข้อมูลเกมไม่สำเร็จ');
-    } finally {
-      setBggDetailLoading(false);
-    }
-  }
+function SkeletonCard() {
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex flex-col gap-3 animate-pulse">
+      <div className="h-44 rounded-xl bg-slate-100"></div>
+      <div className="h-3 w-1/3 rounded bg-slate-100"></div>
+      <div className="h-4 w-2/3 rounded bg-slate-200"></div>
+      <div className="h-12 rounded-xl bg-slate-100"></div>
+      <div className="h-9 rounded-xl bg-slate-100"></div>
+    </div>
+  );
+}
 
-  function closeBggModal() {
-    setBggGame(null);
-  }
+export default function GameCatalog() {
+  const [toastEl, notify] = useToast();
+
+  // ---------- เกม ----------
+  const [games, setGames] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
-    let active = true;
-    fetchGames()
-      .then((data) => {
-        if (active && data && data.length > 0) {
-          setGames(data);
-        }
+    let cancelled = false;
+    setLoading(true);
+    setLoadError('');
+    fetchAllGames()
+      .then((items) => {
+        if (!cancelled) setGames(items);
       })
-      .catch(() => {});
+      .catch((err) => {
+        if (!cancelled) setLoadError(thaiError(err));
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
     return () => {
-      active = false;
+      cancelled = true;
+    };
+  }, [reloadKey]);
+
+  // ---------- กฎร้าน + ช่วงเวลาที่เช็ก ----------
+  const [rules, setRules] = useState(null);
+  const [rulesError, setRulesError] = useState('');
+  const [slot, setSlot] = useState(EMPTY_SLOT);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchRules()
+      .then((r) => {
+        if (cancelled) return;
+        setRules(r);
+        // ระยะเวลาเริ่มต้น: 2 ชม. ถ้าอยู่ในช่วงที่ร้านอนุญาต
+        const min = r?.MIN_HOURS ?? 1;
+        const max = r?.MAX_HOURS ?? 6;
+        setSlot((s) => ({ ...s, hours: Math.min(max, Math.max(min, s.hours)) }));
+      })
+      .catch((err) => {
+        if (!cancelled) setRulesError(thaiError(err));
+      });
+    return () => {
+      cancelled = true;
     };
   }, []);
 
-  // States สำหรับ Checker ฟอร์ม
-  const [arrivalDate, setArrivalDate] = useState('วันนี้');
-  const [sessionWindow, setSessionWindow] = useState(TIME_SLOTS[0]);
-  const [partySize, setPartySize] = useState('4 ท่าน');
-  const [vaultStatus, setVaultStatus] = useState(
-    'วันนี้, 14:00 - 17:00 • มีเกมพร้อมเล่น 42 เกม (กำลังเล่น 6 เกม)',
+  const availability = useSlotAvailability(slot);
+  const slotActive = Boolean(availability.byGame); // เลือกเวลาครบ + จองได้ + โหลดเสร็จ
+
+  const clearSlot = useCallback(() => {
+    setSlot((s) => ({ ...EMPTY_SLOT, hours: s.hours }));
+  }, []);
+
+  // ---------- ตัวกรอง ----------
+  const [search, setSearch] = useState('');
+  const [sort, setSort] = useState('rating');
+  const [category, setCategory] = useState('all');
+  const [pax, setPax] = useState('all');
+  const [onlyFree, setOnlyFree] = useState(false);
+
+  const categories = useMemo(() => categoryCounts(games), [games]);
+  const topCategories = categories.slice(0, TOP_CATEGORIES);
+  const otherCategories = categories.slice(TOP_CATEGORIES);
+
+  // สถานะของแต่ละเกม (ช่วงที่เลือก ถ้ามี — ไม่งั้น "ตอนนี้")
+  const statusOf = useCallback(
+    (g) => {
+      const entry = availability.byGame?.get(String(g._id));
+      return entry ? slotStatus(entry) : nowStatus(g);
+    },
+    [availability.byGame],
   );
 
-  const categories = [
-    { id: 'all', name: 'ทั้งหมด (542)' },
-    { id: 'strategy', name: 'วางแผน (184)' },
-    { id: 'party', name: 'ปาร์ตี้ & เฮฮา' },
-    { id: 'engine', name: 'สร้างระบบ (Engine)' },
-    { id: 'family', name: 'ครอบครัว & เล่นเพลิน' },
-    { id: 'coop', name: 'ร่วมมือกัน (Co-op)' },
-    { id: 'heavy', name: 'ยูโรเกม (Heavy)' },
-  ];
-
-  const paxOptions = [
-    { id: 'all', name: 'ไม่ระบุ' },
-    { id: '1-2', name: '1-2 ท่าน' },
-    { id: '3-4', name: '3-4 ท่าน' },
-    { id: '5+', name: '5+ ท่าน' },
-  ];
-
-  const filteredGames = useMemo(() => {
-    let result = games.filter((game) => {
-      const matchSearch =
-        searchTerm === '' ||
-        game.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        game.publisher.toLowerCase().includes(searchTerm.toLowerCase());
-
-      const matchCat = selectedCat === 'all' || game.categories.includes(selectedCat);
-
-      let matchPax = true;
-      if (selectedPax === '1-2') matchPax = game.minPlayers <= 2;
-      else if (selectedPax === '3-4') matchPax = game.maxPlayers >= 3 && game.minPlayers <= 4;
-      else if (selectedPax === '5+') matchPax = game.maxPlayers >= 5;
-
-      return matchSearch && matchCat && matchPax;
+  const visible = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const range = PAX_OPTIONS.find((p) => p.id === pax) ?? PAX_OPTIONS[0];
+    const list = games.filter((g) => {
+      if (q) {
+        const hay = [g.name, ...(g.designers ?? [])].join(' ').toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      if (category !== 'all' && !(g.categories ?? []).includes(category)) return false;
+      if (!fitsPlayers(g, range.lo, range.hi)) return false;
+      if (onlyFree && !statusOf(g).ok) return false;
+      return true;
     });
+    return sortGames(list, sort);
+  }, [games, search, category, pax, onlyFree, sort, statusOf]);
 
-    if (sortOrder === 'rating')
-      result.sort((a, b) => (parseFloat(b.rating) || 0) - (parseFloat(a.rating) || 0));
-    else if (sortOrder === 'a-z') result.sort((a, b) => a.title.localeCompare(b.title));
+  const freeNow = useMemo(() => games.filter((g) => nowStatus(g).ok).length, [games]);
+  const filtersOn = Boolean(search.trim()) || category !== 'all' || pax !== 'all' || onlyFree;
 
-    return result;
-  }, [games, searchTerm, sortOrder, selectedCat, selectedPax]);
+  function resetFilters() {
+    setSearch('');
+    setCategory('all');
+    setPax('all');
+    setOnlyFree(false);
+  }
 
-  const handleCheckVault = () => {
-    const time = sessionWindow.split(' (')[0];
-    setVaultStatus(`${arrivalDate}, ${time} • มีเกมพร้อมเล่น 42 เกม (กำลังเล่น 6 เกม)`);
-  };
+  // ---------- modal ----------
+  const [openId, setOpenId] = useState(null);
+  const openGame = useMemo(
+    () => (openId ? (games.find((g) => g._id === openId) ?? null) : null),
+    [games, openId],
+  );
+  const closeModal = useCallback(() => setOpenId(null), []);
 
-  const handleBook = (game) => {
-    setSelectedGame(game);
-    onGoToFloorPlan(); // ฟังก์ชันนี้จะทำหน้าที่เปลี่ยนหน้ากลับไปที่ Floor Plan
-  };
+  const chipCls = (on) =>
+    `shrink-0 px-3.5 py-1.5 rounded-full font-semibold text-xs transition-all shadow-sm whitespace-nowrap ${
+      on ? 'bg-emerald-700 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+    }`;
 
   return (
-    <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col gap-6 font-sans">
+    <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 flex flex-col gap-5 sm:gap-6 font-sans min-w-0">
       <div className="flex flex-wrap items-center justify-between gap-4 pb-1">
-        <h1 className="font-heading font-bold text-3xl sm:text-4xl text-slate-900 tracking-tight">
+        <h1 className="font-heading font-bold text-2xl sm:text-4xl text-slate-900 tracking-tight">
           คลังบอร์ดเกม (Game Vault)
         </h1>
-        <div className="bg-white border border-slate-200 shadow-sm px-4 py-2 rounded-2xl flex items-center gap-3">
-          <span className="relative flex h-2.5 w-2.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-600"></span>
-          </span>
-          <div className="flex flex-col">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-              สถานะคลังเกม
+        {!loading && !loadError && games.length > 0 && (
+          <div className="bg-white border border-slate-200 shadow-sm px-4 py-2 rounded-2xl flex items-center gap-3">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-600"></span>
             </span>
-            <span className="text-sm font-bold text-emerald-950">
-              ลงทะเบียน {games.length} • ว่าง {games.filter((g) => g.status === 'available').length}
-            </span>
+            <div className="flex flex-col">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                สถานะคลังเกมตอนนี้
+              </span>
+              <span className="text-sm font-bold text-emerald-950">
+                ทั้งหมด {games.length} เกม • ว่างตอนนี้ {freeNow} เกม
+              </span>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
-      <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-2">
-        <div className="flex flex-col gap-5">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-2 border-b border-slate-100">
-            <div>
-              <h2 className="font-heading font-bold text-xl sm:text-2xl text-slate-900">
-                เช็กสถานะบอร์ดเกมที่พร้อมเล่น
-              </h2>
-            </div>
-            <div className="self-start md:self-auto bg-slate-50 border border-slate-200/90 shadow-sm px-4 py-2 rounded-xl flex items-center gap-2 text-slate-800">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span className="text-xs font-medium">{vaultStatus}</span>
-            </div>
-          </div>
+      <AvailabilityChecker
+        rules={rules}
+        rulesError={rulesError}
+        slot={slot}
+        onChange={setSlot}
+        onClear={clearSlot}
+        result={availability}
+        totalGames={games.length}
+      />
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end pt-1">
-            <div className="lg:col-span-4 flex flex-col gap-1.5">
-              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                วันที่เข้าใช้บริการ
-              </label>
-              <div className="grid grid-cols-3 gap-2">
-                {['วันนี้', 'พรุ่งนี้', 'มะรืนนี้'].map((date) => (
-                  <button
-                    key={date}
-                    onClick={() => setArrivalDate(date)}
-                    type="button"
-                    className={`py-2.5 px-3 rounded-xl font-semibold text-xs text-center shadow-sm transition-all ${arrivalDate === date ? 'bg-emerald-700 text-white border border-emerald-600' : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'}`}
-                  >
-                    {date}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="lg:col-span-4 flex flex-col gap-1.5">
-              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                รอบเวลา
-              </label>
-              <div className="relative">
-                <select
-                  value={sessionWindow}
-                  onChange={(e) => setSessionWindow(e.target.value)}
-                  className="w-full bg-slate-50/80 border border-slate-200 text-slate-800 rounded-xl py-2.5 pl-3.5 pr-8 text-xs font-semibold focus:outline-none focus:border-emerald-600 focus:bg-white appearance-none transition"
-                >
-                  {TIME_SLOTS.map((slot) => (
-                    <option key={slot} value={slot}>
-                      {slot}
-                    </option>
-                  ))}
-                </select>
-                <i className="fa-solid fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] pointer-events-none"></i>
-              </div>
-            </div>
-
-            <div className="lg:col-span-2 flex flex-col gap-1.5">
-              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                จำนวนผู้เล่น
-              </label>
-              <div className="relative">
-                <select
-                  value={partySize}
-                  onChange={(e) => setPartySize(e.target.value)}
-                  className="w-full bg-slate-50/80 border border-slate-200 text-slate-800 rounded-xl py-2.5 pl-3.5 pr-8 text-xs font-semibold focus:outline-none focus:border-emerald-600 focus:bg-white appearance-none transition"
-                >
-                  <option>2 ท่าน</option>
-                  <option>4 ท่าน</option>
-                  <option>5 ท่าน</option>
-                  <option>6+ กิลด์</option>
-                </select>
-                <i className="fa-solid fa-users absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] pointer-events-none"></i>
-              </div>
-            </div>
-
-            <div className="lg:col-span-2">
-              <button
-                onClick={handleCheckVault}
-                type="button"
-                className="w-full h-[38px] bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl px-5 font-semibold text-xs transition-all flex items-center justify-center gap-2 shadow-sm active:scale-95"
-              >
-                <i className="fa-solid fa-clock"></i> ตรวจสอบสถานะ
-              </button>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="sticky top-[69px] z-30 bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex flex-col gap-3.5">
+      <section className="md:sticky md:top-20 z-30 bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex flex-col gap-3.5 min-w-0">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
-          <div className="md:col-span-8 relative">
-            <i className="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-lg"></i>
+          <div className="md:col-span-7 relative">
+            <i className="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
             <input
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              type="text"
-              placeholder="ค้นหาเกมกว่า 500+ เกม จากชื่อ, นักออกแบบ หรือธีม..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              type="search"
+              aria-label="ค้นหาเกม"
+              placeholder="ค้นหาจากชื่อเกม หรือผู้ออกแบบ..."
               className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-600 focus:bg-white text-slate-800 placeholder-slate-400 rounded-xl text-xs font-medium pl-10 pr-4 py-2.5 focus:outline-none transition"
             />
           </div>
-          <div className="md:col-span-4 flex items-center justify-between md:justify-end gap-3">
+          <div className="md:col-span-5 flex flex-wrap items-center justify-between md:justify-end gap-3">
+            <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={onlyFree}
+                onChange={(e) => setOnlyFree(e.target.checked)}
+                className="w-4 h-4 accent-emerald-700"
+              />
+              {slotActive ? 'เฉพาะที่ว่างช่วงนี้' : 'เฉพาะที่ว่างตอนนี้'}
+            </label>
             <span className="text-xs text-slate-500 whitespace-nowrap">
-              แสดง <strong className="text-emerald-950 font-bold">{filteredGames.length}</strong>{' '}
-              เกม
+              แสดง <strong className="text-emerald-950 font-bold">{visible.length}</strong> เกม
             </span>
             <div className="relative">
               <select
-                value={sortOrder}
-                onChange={(e) => setSortOrder(e.target.value)}
-                className="bg-white border border-slate-200 shadow-sm text-slate-700 font-semibold text-xs py-2 pl-3 pr-8 rounded-xl focus:outline-none appearance-none transition"
+                value={sort}
+                onChange={(e) => setSort(e.target.value)}
+                aria-label="เรียงลำดับ"
+                className="bg-white border border-slate-200 shadow-sm text-slate-700 font-semibold text-xs py-2 pl-3 pr-8 rounded-xl focus:outline-none focus:border-emerald-600 appearance-none transition"
               >
-                <option value="popular">ยอดนิยมในร้าน</option>
-                <option value="rating">คะแนน BGG สูงสุด</option>
-                <option value="a-z">ตัวอักษร ก-ฮ / A-Z</option>
+                {SORT_OPTIONS.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.label}
+                  </option>
+                ))}
               </select>
               <i className="fa-solid fa-sort absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] pointer-events-none"></i>
             </div>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-2.5 pt-2 border-t border-slate-100">
-          <div className="flex flex-wrap items-center gap-1.5">
-            {categories.map((cat) => (
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5 pt-2 border-t border-slate-100 min-w-0">
+          <div
+            className="flex items-center gap-1.5 overflow-x-auto pb-1 -mb-1 min-w-0"
+            role="group"
+            aria-label="หมวดหมู่"
+          >
+            <button
+              type="button"
+              aria-pressed={category === 'all'}
+              onClick={() => setCategory('all')}
+              className={chipCls(category === 'all')}
+            >
+              ทั้งหมด ({games.length})
+            </button>
+            {topCategories.map((c) => (
               <button
-                key={cat.id}
-                onClick={() => setSelectedCat(cat.id)}
-                className={`px-3.5 py-1.5 rounded-full font-semibold text-xs transition-all shadow-sm ${selectedCat === cat.id ? 'bg-emerald-700 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`}
+                key={c.name}
+                type="button"
+                aria-pressed={category === c.name}
+                onClick={() => setCategory(c.name)}
+                className={chipCls(category === c.name)}
               >
-                {cat.name}
+                {c.name} ({c.count})
               </button>
             ))}
+            {otherCategories.length > 0 && (
+              <select
+                value={otherCategories.some((c) => c.name === category) ? category : ''}
+                onChange={(e) => setCategory(e.target.value || 'all')}
+                aria-label="หมวดหมู่อื่น ๆ"
+                className={`shrink-0 rounded-full text-xs font-semibold py-1.5 pl-3 pr-2 border focus:outline-none ${
+                  otherCategories.some((c) => c.name === category)
+                    ? 'bg-emerald-700 text-white border-emerald-700'
+                    : 'bg-slate-100 text-slate-700 border-slate-200'
+                }`}
+              >
+                <option value="">หมวดอื่น ๆ…</option>
+                {otherCategories.map((c) => (
+                  <option key={c.name} value={c.name}>
+                    {c.name} ({c.count})
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
-          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-full border border-slate-200/80">
-            {paxOptions.map((p) => (
+          <div
+            className="flex items-center gap-1 bg-slate-100 p-1 rounded-full border border-slate-200/80 self-start lg:self-auto shrink-0 max-w-full overflow-x-auto"
+            role="group"
+            aria-label="จำนวนผู้เล่น"
+          >
+            {PAX_OPTIONS.map((p) => (
               <button
                 key={p.id}
-                onClick={() => setSelectedPax(p.id)}
-                className={`px-3 py-1 rounded-full font-semibold text-xs transition ${selectedPax === p.id ? 'bg-emerald-700 text-white shadow-sm' : 'text-slate-700 hover:bg-white'}`}
+                type="button"
+                aria-pressed={pax === p.id}
+                onClick={() => setPax(p.id)}
+                className={`shrink-0 px-3 py-1 rounded-full font-semibold text-xs transition whitespace-nowrap ${
+                  pax === p.id
+                    ? 'bg-emerald-700 text-white shadow-sm'
+                    : 'text-slate-700 hover:bg-white'
+                }`}
               >
-                {p.name}
+                {p.label}
               </button>
             ))}
           </div>
         </div>
       </section>
 
-      {/* BGG Live Search Panel */}
-      <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <button
-          onClick={() => {
-            setShowBgg((v) => !v);
-            if (!showBgg) setTimeout(() => bggInputRef.current?.focus(), 50);
-          }}
-          className="w-full flex items-center justify-between px-5 py-3.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition"
-        >
-          <span className="flex items-center gap-2.5">
-            <span className="w-7 h-7 rounded-lg bg-[#063b2d] flex items-center justify-center text-white text-xs shrink-0">
-              <i className="fa-solid fa-dice"></i>
-            </span>
-            ค้นหาเกมจาก BoardGameGeek
-            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
-              LIVE API
-            </span>
-          </span>
-          <i
-            className={`fa-solid fa-chevron-down text-slate-400 text-xs transition-transform ${showBgg ? 'rotate-180' : ''}`}
-          ></i>
-        </button>
-
-        {showBgg && (
-          <div className="px-5 pb-5 border-t border-slate-100">
-            <form onSubmit={doBggSearch} className="flex gap-2 mt-4">
-              <div className="relative flex-1">
-                <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
-                <input
-                  ref={bggInputRef}
-                  value={bggQ}
-                  onChange={(e) => setBggQ(e.target.value)}
-                  type="text"
-                  placeholder="ชื่อเกม เช่น Catan, Wingspan, Pandemic..."
-                  className="w-full border border-slate-200 rounded-xl pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={bggLoading || !bggQ.trim()}
-                className="px-5 py-2.5 bg-[#064e3b] text-white rounded-xl text-sm font-semibold hover:bg-emerald-900 disabled:opacity-50 transition shrink-0 flex items-center gap-2"
-              >
-                {bggLoading ? (
-                  <i className="fa-solid fa-spinner fa-spin"></i>
-                ) : (
-                  <i className="fa-solid fa-search"></i>
-                )}
-                ค้นหา BGG
-              </button>
-            </form>
-
-            {bggError && (
-              <p className="mt-3 text-sm text-red-500 flex items-center gap-1.5">
-                <i className="fa-solid fa-circle-exclamation"></i> {bggError}
-              </p>
-            )}
-
-            {bggResults.length > 0 && (
-              <div className="mt-4">
-                <p className="text-xs text-slate-500 mb-2">
-                  พบ <strong>{bggResults.length}</strong> เกม — คลิกเพื่อดูรายละเอียด
-                </p>
-                <div className="max-h-64 overflow-y-auto divide-y divide-slate-100 rounded-xl border border-slate-200">
-                  {bggResults.map((r) => (
-                    <button
-                      key={r.bggId}
-                      onClick={() => viewBggGame(r.bggId)}
-                      className="w-full flex items-center justify-between px-4 py-3 hover:bg-emerald-50 transition text-left"
-                    >
-                      <div>
-                        <span className="text-sm font-semibold text-slate-800">{r.name}</span>
-                        {r.yearPublished && (
-                          <span className="text-xs text-slate-400 ml-2">({r.yearPublished})</span>
-                        )}
-                      </div>
-                      <span className="text-xs text-slate-400 shrink-0 ml-2">BGG #{r.bggId}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </section>
-
-      {/* BGG Game Detail Modal */}
-      {(bggGame || bggDetailLoading) && (
+      {loadError ? (
         <div
-          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
-          onClick={closeBggModal}
+          role="alert"
+          className="bg-red-50 border border-red-200 text-red-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3"
         >
-          <div
-            className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
+          <span className="text-sm font-semibold flex items-center gap-2">
+            <i className="fa-solid fa-circle-exclamation"></i> โหลดคลังเกมไม่สำเร็จ: {loadError}
+          </span>
+          <button
+            type="button"
+            onClick={() => setReloadKey((k) => k + 1)}
+            className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold"
           >
-            {bggDetailLoading ? (
-              <div className="flex items-center justify-center p-16 text-slate-400">
-                <i className="fa-solid fa-spinner fa-spin text-3xl"></i>
-              </div>
-            ) : (
-              bggGame && (
-                <>
-                  <div className="relative h-52 bg-slate-100">
-                    {bggGame.image ? (
-                      <img
-                        src={bggGame.image}
-                        alt={bggGame.name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-5xl text-slate-300">
-                        <i className="fa-solid fa-chess"></i>
-                      </div>
-                    )}
-                    <button
-                      onClick={closeBggModal}
-                      className="absolute top-3 right-3 w-8 h-8 bg-black/60 hover:bg-black/80 text-white rounded-full flex items-center justify-center transition"
-                    >
-                      <i className="fa-solid fa-xmark text-sm"></i>
-                    </button>
-                    {bggGame.bggAverage && (
-                      <span className="absolute bottom-3 right-3 bg-slate-900/90 text-amber-300 text-xs px-2.5 py-1 rounded-full font-bold flex items-center gap-1">
-                        <span className="text-amber-400">★</span> {bggGame.bggAverage?.toFixed(1)}
-                      </span>
-                    )}
-                  </div>
-                  <div className="p-5 space-y-3">
-                    <div>
-                      <h3 className="font-bold text-lg text-slate-900">{bggGame.name}</h3>
-                      {bggGame.yearPublished && (
-                        <p className="text-sm text-slate-400">{bggGame.yearPublished}</p>
-                      )}
-                    </div>
-                    <div className="grid grid-cols-3 gap-2 bg-slate-50 rounded-xl p-3 text-center">
-                      <div>
-                        <span className="text-[10px] text-slate-500 uppercase font-semibold block">
-                          ผู้เล่น
-                        </span>
-                        <span className="text-xs font-bold">
-                          {bggGame.minPlayers}–{bggGame.maxPlayers} คน
-                        </span>
-                      </div>
-                      <div className="border-x border-slate-200">
-                        <span className="text-[10px] text-slate-500 uppercase font-semibold block">
-                          เวลา
-                        </span>
-                        <span className="text-xs font-bold">{bggGame.playtimeMin} นาที</span>
-                      </div>
-                      <div>
-                        <span className="text-[10px] text-slate-500 uppercase font-semibold block">
-                          ความยาก
-                        </span>
-                        <span className="text-xs font-bold">
-                          {bggGame.bggWeight?.toFixed(1) ?? '-'} / 5
-                        </span>
-                      </div>
-                    </div>
-                    {bggGame.categories?.length > 0 && (
-                      <div className="flex flex-wrap gap-1">
-                        {bggGame.categories.slice(0, 5).map((c) => (
-                          <span
-                            key={c}
-                            className="text-[11px] bg-emerald-50 border border-emerald-200 text-emerald-800 px-2 py-0.5 rounded-md font-medium"
-                          >
-                            {c}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    <a
-                      href={`https://boardgamegeek.com/boardgame/${bggGame.bggId}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="block w-full text-center py-2.5 border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-50 transition"
-                    >
-                      <i className="fa-solid fa-arrow-up-right-from-square mr-1.5"></i>
-                      ดูบน BoardGameGeek
-                    </a>
-                  </div>
-                </>
-              )
-            )}
-          </div>
+            <i className="fa-solid fa-rotate-right mr-1"></i> ลองใหม่
+          </button>
         </div>
-      )}
-
-      {filteredGames.length > 0 ? (
+      ) : loading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 py-2" aria-busy="true">
+          {Array.from({ length: 8 }, (_, i) => (
+            <SkeletonCard key={i} />
+          ))}
+        </div>
+      ) : games.length === 0 ? (
+        <div className="bg-white rounded-3xl p-10 sm:p-16 flex flex-col items-center justify-center text-center border border-slate-200 shadow-sm">
+          <i className="fa-solid fa-box-open text-5xl text-slate-300 mb-4"></i>
+          <h3 className="font-heading font-bold text-xl text-slate-800 mb-2">ยังไม่มีเกมในคลัง</h3>
+          <p className="text-sm text-slate-500">
+            ร้านกำลังเพิ่มเกมเข้าคลัง แวะกลับมาดูใหม่เร็ว ๆ นี้
+          </p>
+        </div>
+      ) : visible.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 py-2">
-          {filteredGames.map((game) => {
-            const isAvailable = game.status === 'available';
-            const isWaitlist = game.status === 'waitlist';
-            const isInUse = game.status === 'in-use';
-
-            return (
-              <article
-                key={game.id}
-                className={`bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex flex-col justify-between group ${!isInUse && 'hover:-translate-y-1 hover:shadow-md transition-all duration-300'} ${isInUse && 'opacity-80'}`}
-              >
-                <div className="flex flex-col gap-3">
-                  <div className="relative w-full h-44 rounded-xl overflow-hidden bg-slate-100 border border-slate-100">
-                    <img
-                      src={game.cover}
-                      alt={game.title}
-                      className={`w-full h-full object-cover ${!isInUse && 'group-hover:scale-105 transition-transform duration-500'}`}
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                        e.target.nextSibling.style.display = 'flex';
-                      }}
-                    />
-                    <div className="absolute inset-0 hidden items-center justify-center text-4xl text-slate-400">
-                      <i className={`fa-solid ${game.icon}`}></i>
-                    </div>
-
-                    {game.bggId ? (
-                      <a
-                        href={`https://boardgamegeek.com/boardgame/${game.bggId}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        title={`ดูข้อมูล #${game.bggId} บน BoardGameGeek`}
-                        className="absolute top-2 right-2 bg-slate-900/90 text-amber-300 border border-slate-700 text-xs px-2.5 py-1 rounded-full font-bold flex items-center gap-1 shadow-sm hover:scale-105 transition"
-                      >
-                        <span className="text-amber-400">★</span> {game.rating}
-                      </a>
-                    ) : (
-                      <span className="absolute top-2 right-2 bg-slate-900/90 text-amber-300 border border-slate-700 text-xs px-2.5 py-1 rounded-full font-bold flex items-center gap-1 shadow-sm">
-                        <span className="text-amber-400">★</span> {game.rating}
-                      </span>
-                    )}
-                    <span
-                      className={`absolute top-2 left-2 text-white text-xs px-2.5 py-1 rounded-full font-semibold shadow-sm flex items-center gap-1 ${isAvailable ? 'bg-emerald-600' : 'bg-amber-600'}`}
-                    >
-                      <span className="w-1.5 h-1.5 rounded-full bg-white"></span>
-                      {isAvailable
-                        ? `ว่าง ${game.stockCount} กล่อง`
-                        : isWaitlist
-                          ? `กำลังเล่น (${game.inUseTables.join(', ')})`
-                          : `กำลังเล่น (โต๊ะ ${game.inUseTables[0]})`}
-                    </span>
-                  </div>
-
-                  <div>
-                    <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block">
-                      {game.publisher}
-                    </span>
-                    <h3 className="font-heading font-bold text-base text-slate-900 line-clamp-1">
-                      {game.title}
-                    </h3>
-                  </div>
-
-                  <div className="flex flex-wrap gap-1">
-                    {game.tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className={`border text-[11px] px-2 py-0.5 rounded-md font-medium ${isAvailable ? 'bg-emerald-50 border-emerald-200/60 text-emerald-800' : 'bg-slate-100 border-slate-200 text-slate-700'}`}
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-
-                  <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-2.5 my-1 grid grid-cols-3 text-center">
-                    <div>
-                      <span className="text-[10px] text-slate-500 uppercase font-semibold block">
-                        ผู้เล่น
-                      </span>
-                      <span className="text-xs font-bold text-slate-900">
-                        {game.minPlayers}–{game.maxPlayers} คน
-                      </span>
-                    </div>
-                    <div className="border-x border-slate-200">
-                      <span className="text-[10px] text-slate-500 uppercase font-semibold block">
-                        เวลา
-                      </span>
-                      <span className="text-xs font-bold text-slate-900">
-                        {game.timeMin}–{game.timeMax} นาที
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-slate-500 uppercase font-semibold block">
-                        ความยาก
-                      </span>
-                      <span className="text-xs font-bold text-slate-900">{game.weight} / 5</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="pt-3">
-                  {isAvailable && (
-                    <button
-                      onClick={() => handleBook(game)}
-                      className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-semibold py-2.5 px-4 rounded-xl flex items-center justify-center gap-1.5 transition-all text-xs shadow-sm"
-                    >
-                      <span>จองโต๊ะพร้อมเกมนี้</span> <i className="fa-solid fa-arrow-right"></i>
-                    </button>
-                  )}
-                  {isWaitlist && (
-                    <button className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 font-semibold py-2.5 px-4 rounded-xl flex items-center justify-center gap-1.5 transition text-xs shadow-sm">
-                      <i className="fa-solid fa-lock"></i> จองคิวเล่นต่อ (18:00)
-                    </button>
-                  )}
-                  {isInUse && (
-                    <button
-                      disabled
-                      className="w-full bg-slate-100 text-slate-500 border border-slate-200 font-medium py-2.5 px-4 rounded-xl flex items-center justify-center gap-1.5 cursor-not-allowed text-xs"
-                    >
-                      <i className="fa-solid fa-hourglass-half"></i> กำลังใช้งาน (โต๊ะ{' '}
-                      {game.inUseTables[0]})
-                    </button>
-                  )}
-                </div>
-              </article>
-            );
-          })}
+          {visible.map((game) => (
+            <GameCard
+              key={game._id}
+              game={game}
+              status={statusOf(game)}
+              slot={slotActive ? slot : null}
+              onOpen={(g) => setOpenId(g._id)}
+            />
+          ))}
         </div>
       ) : (
-        <div className="bg-white rounded-3xl p-16 flex flex-col items-center justify-center text-center border border-slate-200 shadow-sm">
+        <div className="bg-white rounded-3xl p-10 sm:p-16 flex flex-col items-center justify-center text-center border border-slate-200 shadow-sm">
           <i className="fa-solid fa-ghost text-5xl text-slate-300 mb-4"></i>
           <h3 className="font-heading font-bold text-xl text-slate-800 mb-2">
-            ไม่พบเกมที่คุณค้นหา
+            ไม่พบเกมที่ตรงกับตัวกรอง
           </h3>
-          <p className="text-sm text-slate-500">ลองเปลี่ยนคำค้นหา หรือปรับตัวกรองดูใหม่อีกครั้ง</p>
+          <p className="text-sm text-slate-500 mb-4">
+            ลองเปลี่ยนคำค้นหา หรือปรับตัวกรองดูใหม่อีกครั้ง
+          </p>
+          {filtersOn && (
+            <button
+              type="button"
+              onClick={resetFilters}
+              className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold"
+            >
+              ล้างตัวกรอง
+            </button>
+          )}
         </div>
       )}
+
+      {openGame && (
+        <GameDetailModal
+          game={openGame}
+          slot={slotActive ? slot : null}
+          slotEntry={availability.byGame?.get(String(openGame._id)) ?? null}
+          onClose={closeModal}
+          notify={notify}
+        />
+      )}
+
+      {toastEl}
     </main>
   );
 }

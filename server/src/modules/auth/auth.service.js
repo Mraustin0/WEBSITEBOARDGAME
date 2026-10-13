@@ -6,11 +6,18 @@ import { logAudit } from '../../lib/audit.js';
 
 const BCRYPT_ROUNDS = 10;
 
-export async function register({ username, email, password }) {
+export async function register({ username, email, password, displayName = '', phone = '' }) {
   const exists = await User.findOne({ $or: [{ email }, { username }] });
   if (exists) throw conflict('username or email already used');
   const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
-  const user = await User.create({ username, email, passwordHash, tier: 'new' });
+  const user = await User.create({
+    username,
+    email,
+    passwordHash,
+    tier: 'new',
+    displayName,
+    phone,
+  });
   return { token: signToken(user), user: user.toPublic() };
 }
 

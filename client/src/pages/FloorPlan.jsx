@@ -1,846 +1,933 @@
-import { useState, useMemo, useEffect } from 'react';
-import { TABLE_DATA, GAME_DATA, BOOKING_DATA, TIME_SLOTS, DATES } from '../data/mockData';
-import { fetchTables, fetchGames, submitBooking } from '../services/api.js';
+// หน้าจองโต๊ะ (/booking): เลือกวัน-เวลา → เลือกโต๊ะจากผังจริง → เลือกเกมให้ร้านเตรียม → ดูราคา → ยืนยัน
+// ข้อมูลทั้งหมดมาจาก server: rules, /tables/floor, /reservations/availability, /reservations/quote
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import {
+  createBooking,
+  fetchAvailability,
+  fetchFloor,
+  fetchGame,
+  fetchRules,
+  quoteBooking,
+} from '../services/api.js';
+import {
+  bookingDates,
+  durationOptions,
+  hoursLabel,
+  startISO,
+  startTimes,
+  thaiError,
+} from '../lib/booking.js';
+import { formatThaiDate, timeTH } from '../lib/date.js';
+import { useSession } from '../lib/session.js';
+import { useToast } from '../components/user/Toast.jsx';
+import FloorMap, { FloorLegend, tableBlock } from '../components/user/booking/FloorMap.jsx';
+import GamePanel from '../components/user/booking/GamePanel.jsx';
+import GamePickerModal from '../components/user/booking/GamePickerModal.jsx';
+import PriceBreakdown from '../components/user/booking/PriceBreakdown.jsx';
+import { baht, estimatePrice } from '../components/user/booking/pricing.js';
 
-export default function FloorPlan({ initialGame, clearInitialGame }) {
-  const [tables, setTables] = useState(TABLE_DATA);
-  const [games, setGames] = useState(GAME_DATA);
-  const [submitting, setSubmitting] = useState(false);
+const REFRESH_MS = 30_000;
+const STEP_MIN = 30;
+const HOUR_MS = 3600_000;
+const DEFAULT_HOURS = 2;
+const DEFAULT_PLAYERS = 2;
 
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [isGameModalOpen, setIsGameModalOpen] = useState(false);
+const card = 'bg-white rounded-2xl border border-slate-200 shadow-sm';
+const labelCls = 'block text-xs font-bold text-slate-700 mb-2 font-heading';
+const selectCls =
+  'w-full appearance-none bg-[#f8fafc] border border-slate-300 rounded-xl text-sm font-bold text-[#064e3b] pl-4 pr-10 py-2.5 outline-none cursor-pointer focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed';
 
-  const [selectedTableId, setSelectedTableId] = useState('');
-  const [selectedDate, setSelectedDate] = useState(DATES[0].id);
-  const [selectedSlots, setSelectedSlots] = useState([]);
-  const [players, setPlayers] = useState(4);
-  const [selectedGame, setSelectedGame] = useState(initialGame || null);
-
-  const [filterDate, setFilterDate] = useState(DATES[0].id);
-  const [filterSlot, setFilterSlot] = useState(TIME_SLOTS[0]);
-
-  const selectedTableData = tables.find((t) => t.id === selectedTableId) || tables[0];
-  const ratePerHour = 120;
-  const totalCost = players * selectedSlots.length * ratePerHour;
-
-  useEffect(() => {
-    let active = true;
-    fetchTables()
-      .then((t) => {
-        if (active && t && t.length > 0) setTables(t);
-      })
-      .catch(() => {});
-
-    fetchGames()
-      .then((g) => {
-        if (active && g && g.length > 0) setGames(g);
-      })
-      .catch(() => {});
-
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (initialGame) {
-      setSelectedGame(initialGame);
-      clearInitialGame();
-    }
-  }, [initialGame, clearInitialGame]);
-
-  const floorPlanStatuses = useMemo(() => {
-    const statuses = {};
-    tables.forEach((t) => {
-      const booking = BOOKING_DATA.find(
-        (b) => b.tableId === t.id && b.date === filterDate && b.slots.includes(filterSlot),
-      );
-      statuses[t.id] = booking ? { status: booking.status } : { status: t.status || 'available' };
-    });
-    return statuses;
-  }, [tables, filterDate, filterSlot]);
-
-  const getTableStatus = (tableId) => {
-    if (selectedTableId === tableId) return 'selected';
-    return floorPlanStatuses[tableId]?.status || 'available';
-  };
-
-  const getTableBgColor = (tableId) => {
-    const status = getTableStatus(tableId);
-    if (status === 'selected')
-      return 'bg-white border-[#064e3b] ring-4 ring-[#064e3b]/20 shadow-md scale-[1.02] z-10';
-    if (status === 'in-play') return 'bg-rose-50 border-rose-300';
-    if (status === 'reserved') return 'bg-amber-50 border-amber-300';
-    return 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-sm';
-  };
-
-  const getTableBadge = (tableId, isSmall = false) => {
-    const status = getTableStatus(tableId);
-    const baseClass = `font-semibold rounded-full ${isSmall ? 'text-[10px] px-1.5 py-0.5' : 'text-xs px-2.5 py-0.5'}`;
-    if (status === 'selected')
-      return (
-        <span className={`${baseClass} bg-emerald-100 text-emerald-800 border border-emerald-300`}>
-          เลือกอยู่
-        </span>
-      );
-    if (status === 'in-play')
-      return (
-        <span className={`${baseClass} bg-rose-100 text-rose-700 border border-rose-200`}>
-          กำลังเล่น
-        </span>
-      );
-    if (status === 'reserved')
-      return (
-        <span className={`${baseClass} bg-amber-100 text-amber-800 border border-amber-300`}>
-          จองแล้ว
-        </span>
-      );
-    return (
-      <span className={`${baseClass} bg-slate-100 text-slate-700 border border-slate-200`}>
-        ว่าง
+function ErrorBanner({ message, onRetry }) {
+  return (
+    <div
+      role="alert"
+      className="rounded-2xl bg-red-50 border border-red-200 text-red-700 text-sm p-3.5 flex items-center justify-between gap-3"
+    >
+      <span className="min-w-0">
+        <i className="fa-solid fa-circle-exclamation mr-1.5"></i>
+        {message}
       </span>
-    );
-  };
+      {onRetry && (
+        <button
+          type="button"
+          onClick={onRetry}
+          className="text-xs font-bold px-3 py-1.5 rounded-lg bg-white border border-red-200 hover:bg-red-100 shrink-0"
+        >
+          <i className="fa-solid fa-rotate-right mr-1"></i>ลองใหม่
+        </button>
+      )}
+    </div>
+  );
+}
 
-  const handleTableClick = (tableId) => {
-    const table = tables.find((t) => t.id === tableId) || tables[0];
-    setSelectedTableId(tableId);
-    setPlayers(Math.min(Math.max(players, table.capMin), table.capMax));
-    setIsDrawerOpen(true);
-  };
+function SelectBox({ id, label, value, onChange, disabled, children }) {
+  return (
+    <div className="min-w-0">
+      <label htmlFor={id} className={labelCls}>
+        {label}
+      </label>
+      <div className="relative">
+        <select id={id} value={value} onChange={onChange} disabled={disabled} className={selectCls}>
+          {children}
+        </select>
+        <i className="fa-solid fa-chevron-down absolute right-3.5 top-1/2 -translate-y-1/2 text-[#064e3b] text-[10px] pointer-events-none"></i>
+      </div>
+    </div>
+  );
+}
 
-  const toggleTimeSlot = (slot) => {
-    if (selectedSlots.includes(slot))
-      setSelectedSlots(selectedSlots.filter((s) => s !== slot).sort());
-    else setSelectedSlots([...selectedSlots, slot].sort());
-  };
+function SummaryRow({ icon, label, children }) {
+  return (
+    <div className="flex items-start gap-3 text-sm">
+      <span className="w-8 h-8 rounded-xl bg-emerald-50 text-[#064e3b] flex items-center justify-center shrink-0">
+        <i className={`fa-solid ${icon} text-xs`}></i>
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-[11px] text-slate-400">{label}</p>
+        <div className="font-semibold text-slate-800 break-words">{children}</div>
+      </div>
+    </div>
+  );
+}
 
-  const handleConfirmBooking = async () => {
-    if (!selectedTableId) {
-      alert('กรุณาเลือกโต๊ะ');
-      return;
-    }
-    if (selectedSlots.length === 0) {
-      alert('กรุณาเลือกช่วงเวลา');
-      return;
-    }
-    const token = localStorage.getItem('token');
-    if (!token) {
-      alert('กรุณาเข้าสู่ระบบก่อนทำการจอง');
-      window.location.assign('/login');
-      return;
-    }
+export default function FloorPlan() {
+  const user = useSession();
+  const loggedIn = Boolean(user);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const gameId = searchParams.get('game') || null;
+  const [toastEl, showToast] = useToast();
 
-    const payload = {
-      tableId: selectedTableId,
-      date: selectedDate,
-      slots: selectedSlots,
-      guests: players,
-      gameId: selectedGame?.id || selectedGame?._id,
-      totalCost,
+  // ---------- กฎร้าน ----------
+  const [rules, setRules] = useState(null);
+  const [rulesError, setRulesError] = useState(null);
+  const loadRules = useCallback(() => {
+    setRulesError(null);
+    fetchRules()
+      .then(setRules)
+      .catch((err) => setRulesError(thaiError(err)));
+  }, []);
+  useEffect(loadRules, [loadRules]);
+
+  // นาฬิกาสำหรับตัดรอบเวลาที่ผ่านไปแล้ว (อัปเดตพร้อมการรีเฟรชผัง)
+  const [clock, setClock] = useState(() => Date.now());
+
+  // ---------- ค่าที่ผู้ใช้เลือก (raw) → ค่าที่ใช้จริงคำนวณด้านล่าง (clamp ให้ถูกกฎเสมอ) ----------
+  // วัน/เวลา/ชม./คน/โต๊ะ/เกม เก็บใน URL (?date=&time=&hours=&players=&table=<code>&game=)
+  // → ลิงก์จากหน้าคลังเกม และการกลับมาจาก /signin ได้ค่าที่เลือกไว้ครบ; ค่าผิดกฎจะถูกแทนด้วยค่าเริ่มต้นด้านล่าง
+  const rawDate = searchParams.get('date');
+  const rawTime = searchParams.get('time');
+  const hoursParam = Number(searchParams.get('hours'));
+  const rawDuration = hoursParam > 0 ? hoursParam : DEFAULT_HOURS;
+  const playersParam = Number(searchParams.get('players'));
+  const rawPlayers =
+    Number.isInteger(playersParam) && playersParam >= 1 ? playersParam : DEFAULT_PLAYERS;
+  const tableCode = searchParams.get('table') || null;
+
+  /** แก้ query หลายค่าในครั้งเดียว (null = ลบ) แบบ replace — เรียกครั้งเดียวต่อ 1 การกระทำ */
+  const updateParams = useCallback(
+    (patch) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          for (const [k, v] of Object.entries(patch)) {
+            if (v === null || v === undefined || v === '') next.delete(k);
+            else next.set(k, String(v));
+          }
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
+  const [rawPkg, setRawPkg] = useState('hourly');
+  const [rawStudent, setRawStudent] = useState(false);
+  const [note, setNote] = useState('');
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
+  const [done, setDone] = useState(null);
+
+  const dates = useMemo(() => {
+    if (!rules) return [];
+    const now = new Date(clock);
+    return bookingDates(rules).map((d) => ({
+      ...d,
+      times: d.closed ? [] : startTimes(rules, d.ymd, { stepMin: STEP_MIN, now }),
+    }));
+  }, [rules, clock]);
+
+  const dateInfo =
+    dates.find((d) => d.ymd === rawDate && d.times.length) ||
+    dates.find((d) => d.times.length) ||
+    null;
+  const date = dateInfo?.ymd ?? null;
+  const times = dateInfo?.times ?? [];
+  const time = rawTime && times.includes(rawTime) ? rawTime : (times[0] ?? null);
+
+  const durations = useMemo(
+    () => (rules && date && time ? durationOptions(rules, date, time) : []),
+    [rules, date, time],
+  );
+  const duration = durations.includes(rawDuration)
+    ? rawDuration
+    : (durations.filter((h) => h <= rawDuration).pop() ?? durations[0] ?? null);
+
+  const flatHours = rules?.FLAT_HOURS ?? 3;
+  const canFlat =
+    (rules?.PACKAGES ?? ['hourly', 'flat3h']).includes('flat3h') && durations.includes(flatHours);
+  const pkg = rawPkg === 'flat3h' && canFlat && duration === flatHours ? 'flat3h' : 'hourly';
+  const studentEnabled = Boolean(rules?.STUDENT?.enabled);
+  const student = studentEnabled && rawStudent;
+
+  const startAt = date && time ? startISO(date, time) : null;
+  const endAt =
+    startAt && duration ? new Date(Date.parse(startAt) + duration * HOUR_MS).toISOString() : null;
+  const slotKey = startAt && duration ? `${startAt}|${duration}` : null;
+  const slotText = startAt && endAt ? `${formatThaiDate(date)} · ${time}–${timeTH(endAt)}` : '';
+
+  // ---------- ผังโต๊ะ ----------
+  const [floor, setFloor] = useState(null); // { key, tables, zones }
+  const [floorError, setFloorError] = useState(null);
+  const [floorLoading, setFloorLoading] = useState(false);
+  const floorReq = useRef(0);
+
+  const loadFloor = useCallback(() => {
+    if (!startAt || !duration) return;
+    const id = ++floorReq.current;
+    const key = `${startAt}|${duration}`;
+    setFloorLoading(true);
+    fetchFloor({ startAt, durationHours: duration })
+      .then((data) => {
+        if (id !== floorReq.current) return;
+        setFloor({ key, tables: data?.tables ?? [], zones: data?.zones ?? [] });
+        setFloorError(null);
+      })
+      .catch((err) => {
+        if (id === floorReq.current) setFloorError(thaiError(err));
+      })
+      .finally(() => {
+        if (id === floorReq.current) setFloorLoading(false);
+      });
+  }, [startAt, duration]);
+  useEffect(loadFloor, [loadFloor]);
+
+  const floorFresh = Boolean(floor && floor.key === slotKey);
+  const maxCap = floor?.tables?.length
+    ? Math.max(1, ...floor.tables.map((t) => Number(t.capacity) || 0))
+    : 10;
+  const players = Math.min(Math.max(1, rawPlayers), maxCap);
+  const selectedTable = (tableCode && floor?.tables?.find((t) => t.code === tableCode)) || null;
+  const tableId = selectedTable?._id ?? null;
+  // เลือกโต๊ะแล้ว → เพิ่มคนได้ไม่เกินที่นั่งของโต๊ะนั้น
+  const playerMax = selectedTable ? Math.max(1, Number(selectedTable.capacity) || 1) : maxCap;
+
+  // ---------- ความว่างของโต๊ะ/เกม (ตามจำนวนคน) ----------
+  const [avail, setAvail] = useState(null); // { key, ...data }
+  const [availError, setAvailError] = useState(null);
+  const [availLoading, setAvailLoading] = useState(false);
+  const availReq = useRef(0);
+
+  const loadAvail = useCallback(() => {
+    if (!startAt || !duration) return;
+    const id = ++availReq.current;
+    const key = `${startAt}|${duration}|${players}`;
+    setAvailLoading(true);
+    fetchAvailability({ startAt, durationHours: duration, players })
+      .then((data) => {
+        if (id !== availReq.current) return;
+        setAvail({ ...data, key });
+        setAvailError(null);
+      })
+      .catch((err) => {
+        if (id === availReq.current) setAvailError(thaiError(err));
+      })
+      .finally(() => {
+        if (id === availReq.current) setAvailLoading(false);
+      });
+  }, [startAt, duration, players]);
+  // หน่วงเล็กน้อย เผื่อกดเพิ่ม/ลดจำนวนคนรัว ๆ
+  useEffect(() => {
+    const t = setTimeout(loadAvail, 250);
+    return () => clearTimeout(t);
+  }, [loadAvail]);
+
+  const availNow = avail && avail.key === `${slotKey}|${players}` ? avail : null;
+
+  // รีเฟรชอัตโนมัติทุก 30 วิ และเมื่อกลับมาที่หน้าต่างนี้
+  useEffect(() => {
+    const refresh = () => {
+      setClock(Date.now());
+      loadFloor();
+      loadAvail();
     };
+    const timer = setInterval(refresh, REFRESH_MS);
+    window.addEventListener('focus', refresh);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('focus', refresh);
+    };
+  }, [loadFloor, loadAvail]);
 
+  // โต๊ะที่เลือกไว้ไม่ว่างแล้ว (มีคนจองตัดหน้า / เปลี่ยนเวลา / คนเกินที่นั่ง) → ล้างแล้วแจ้ง
+  useEffect(() => {
+    if (!tableCode || !floor || floor.key !== slotKey) return;
+    const t = floor.tables.find((x) => x.code === tableCode);
+    const block = tableBlock(t, players);
+    if (!block) return;
+    updateParams({ table: null });
+    if (!t) return; // รหัสโต๊ะใน URL ไม่มีจริง → ทิ้งเงียบ ๆ
+    showToast(
+      block === 'too_small'
+        ? `โต๊ะ ${t.code} นั่งได้ไม่เกิน ${t.capacity} คน — กรุณาเลือกโต๊ะใหม่`
+        : `โต๊ะ ${t.code} ไม่ว่างในช่วงเวลานี้แล้ว — กรุณาเลือกโต๊ะใหม่`,
+      false,
+    );
+  }, [floor, slotKey, tableCode, players, showToast, updateParams]);
+
+  // ---------- เกมที่เลือก (?game=) ----------
+  const [gameData, setGameData] = useState(null);
+  const [gameMissingId, setGameMissingId] = useState(null);
+  useEffect(() => {
+    if (!gameId) return undefined;
+    let alive = true;
+    fetchGame(gameId)
+      .then((g) => {
+        if (alive) setGameData(g);
+      })
+      .catch(() => {
+        if (alive) setGameMissingId(gameId);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [gameId]);
+
+  const gameAvail = availNow?.games?.find((g) => g._id === gameId) ?? null;
+  const game = gameId
+    ? { ...(gameData?._id === gameId ? gameData : null), ...gameAvail, _id: gameId }
+    : null;
+  const gameMissing = Boolean(gameId) && gameMissingId === gameId && !gameAvail;
+
+  const pickGame = useCallback(
+    (g) => {
+      setPickerOpen(false);
+      if (g) setGameData(g);
+      updateParams({ game: g?._id ?? null });
+    },
+    [updateParams],
+  );
+  const closePicker = useCallback(() => setPickerOpen(false), []);
+
+  // ---------- ราคา (quote จาก server, หน่วง 300ms) ----------
+  const quoteBody = useMemo(
+    () =>
+      tableId && startAt && duration
+        ? {
+            table: tableId,
+            game: gameId,
+            players,
+            startAt,
+            durationHours: duration,
+            package: pkg,
+            student,
+          }
+        : null,
+    [tableId, gameId, players, startAt, duration, pkg, student],
+  );
+  const quoteKey = quoteBody ? JSON.stringify(quoteBody) : null;
+  const [quote, setQuote] = useState({ key: null, data: null, error: null });
+  const [quoteNonce, setQuoteNonce] = useState(0);
+  const quoteReq = useRef(0);
+
+  useEffect(() => {
+    if (!loggedIn || !quoteBody) return undefined;
+    const id = ++quoteReq.current;
+    const key = JSON.stringify(quoteBody);
+    const timer = setTimeout(() => {
+      quoteBooking(quoteBody)
+        .then((data) => {
+          if (id === quoteReq.current) setQuote({ key, data, error: null });
+        })
+        .catch((err) => {
+          if (id === quoteReq.current) setQuote({ key, data: null, error: thaiError(err) });
+        });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [loggedIn, quoteBody, quoteNonce]);
+
+  const quoteNow = loggedIn && quoteKey && quote.key === quoteKey ? quote : null;
+  const quoting = loggedIn && Boolean(quoteBody) && !quoteNow;
+  const estimate = useMemo(
+    () =>
+      duration
+        ? estimatePrice({
+            rules,
+            players,
+            hours: pkg === 'flat3h' ? flatHours : duration,
+            pkg,
+            extraPerHour: Number(selectedTable?.extraPerHour) || 0,
+            student,
+          })
+        : null,
+    [rules, players, pkg, flatHours, duration, selectedTable?.extraPerHour, student],
+  );
+
+  // ---------- handlers ----------
+  function chooseDate(ymd) {
+    const d = dates.find((x) => x.ymd === ymd);
+    updateParams({ date: ymd, time: d?.times[0] ?? null }); // เปลี่ยนวัน → เริ่มที่รอบแรกที่จองได้
+    setDone(null);
+  }
+
+  function chooseDuration(h) {
+    updateParams({ hours: h });
+    if (h !== flatHours) setRawPkg('hourly');
+  }
+
+  function choosePackage(p) {
+    setRawPkg(p);
+    if (p === 'flat3h') updateParams({ hours: flatHours });
+  }
+
+  function chooseTable(id) {
+    const t = floor?.tables?.find((x) => x._id === id);
+    if (t) updateParams({ table: t.code === tableCode ? null : t.code });
+    setSubmitError(null);
+    setDone(null);
+  }
+
+  function changePlayers(delta) {
+    updateParams({ players: Math.min(playerMax, Math.max(1, players + delta)) });
+  }
+
+  function goSignin() {
+    navigate('/signin', { state: { from: '/booking' + location.search } });
+  }
+
+  async function confirm() {
+    if (!loggedIn) {
+      goSignin();
+      return;
+    }
+    if (!quoteBody || submitting) return;
+    setSubmitting(true);
+    setSubmitError(null);
+    const code = selectedTable?.code ?? '';
     try {
-      setSubmitting(true);
-      await submitBooking(payload);
-      alert(`จองโต๊ะ ${selectedTableId} สำเร็จเรียบร้อย!`);
-      setIsDrawerOpen(false);
-      setSelectedSlots([]);
+      const r = await createBooking({ ...quoteBody, note });
+      const bookedCode = r?.table?.code ?? code;
+      showToast(`จองโต๊ะ ${bookedCode} สำเร็จ`);
+      setDone({
+        code: bookedCode,
+        when: slotText,
+        game: r?.game?.name ?? game?.name ?? null,
+        total: r?.price?.total ?? quoteNow?.data?.price?.total ?? null,
+      });
+      updateParams({ table: null });
+      setNote('');
+      loadFloor();
+      loadAvail();
     } catch (err) {
-      alert(`การจองไม่สำเร็จ: ${err.message}`);
+      const msg = thaiError(err);
+      showToast(msg, false);
+      if (err?.status === 409) {
+        // มีคนจองตัดหน้า → โหลดสถานะใหม่ (ถ้าโต๊ะไม่ว่างแล้วจะถูกล้างอัตโนมัติ)
+        setQuote({ key: null, data: null, error: null });
+        setQuoteNonce((n) => n + 1);
+        loadFloor();
+        loadAvail();
+      }
+      setSubmitError(msg);
     } finally {
       setSubmitting(false);
     }
-  };
+  }
+
+  // ---------- render ----------
+  if (!rules) {
+    return (
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 py-8">
+        {rulesError ? (
+          <ErrorBanner message={`โหลดข้อมูลร้านไม่สำเร็จ: ${rulesError}`} onRetry={loadRules} />
+        ) : (
+          <div className="flex items-center justify-center py-24 text-slate-400">
+            <i className="fa-solid fa-spinner fa-spin mr-2"></i> กำลังโหลด...
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  const windowError = availNow && availNow.bookable === false ? availNow.reason : null;
+  const confirmDisabled = loggedIn
+    ? !quoteBody ||
+      !floorFresh ||
+      submitting ||
+      quoting ||
+      Boolean(quoteNow?.error) ||
+      Boolean(windowError)
+    : false;
+  const cutoff = rules.CANCEL_CUTOFF_HOURS ?? 0;
 
   return (
-    <>
-      <main className="flex-1 relative overflow-auto p-4 sm:p-6 md:p-8 flex items-center justify-center floor-grid-blueprint">
-        <div className="relative w-full max-w-7xl bg-white/95 rounded-3xl border border-slate-200/90 shadow-xl p-6 sm:p-8 md:p-10 flex flex-col gap-7 backdrop-blur-sm">
-          {/* Dropdowns & Legend */}
-          <div className="flex flex-col gap-4 border-b border-slate-100 pb-5">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <div className="flex flex-col">
-                  <label className="text-[11px] font-bold text-slate-500 mb-1.5">วันที่</label>
-                  <div className="relative">
-                    <select
-                      value={filterDate}
-                      onChange={(e) => setFilterDate(e.target.value)}
-                      className="appearance-none bg-[#f8fafc] border border-slate-300 rounded-xl text-sm font-bold text-[#064e3b] pl-4 pr-10 py-2.5 outline-none cursor-pointer"
-                    >
-                      {DATES.map((d) => (
-                        <option key={d.id} value={d.id}>
-                          {d.display}
-                        </option>
-                      ))}
-                    </select>
-                    <i className="fa-solid fa-chevron-down absolute right-3.5 top-1/2 -translate-y-1/2 text-[#064e3b] text-[10px] pointer-events-none"></i>
-                  </div>
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-[11px] font-bold text-slate-500 mb-1.5">เวลา</label>
-                  <div className="relative">
-                    <select
-                      value={filterSlot}
-                      onChange={(e) => setFilterSlot(e.target.value)}
-                      className="appearance-none bg-[#f8fafc] border border-slate-300 rounded-xl text-sm font-bold text-[#064e3b] pl-4 pr-10 py-2.5 outline-none cursor-pointer"
-                    >
-                      {TIME_SLOTS.map((s) => (
-                        <option key={s} value={s}>
-                          {s}
-                        </option>
-                      ))}
-                    </select>
-                    <i className="fa-solid fa-chevron-down absolute right-3.5 top-1/2 -translate-y-1/2 text-[#064e3b] text-[10px] pointer-events-none"></i>
-                  </div>
-                </div>
-              </div>
+    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 py-6 flex flex-col gap-5">
+      <div className="flex flex-col gap-1">
+        <h1 className="text-2xl font-heading font-bold text-[#064e3b] flex items-center gap-2">
+          <i className="fa-solid fa-layer-group text-emerald-600 text-xl"></i> จองโต๊ะ
+        </h1>
+        <p className="text-xs sm:text-sm text-slate-500">
+          จองล่วงหน้าได้ไม่เกิน {rules.MAX_ADVANCE_DAYS} วัน · ครั้งละ {rules.MIN_HOURS}–
+          {rules.MAX_HOURS} ชม.
+        </p>
+      </div>
 
-              <div className="flex flex-wrap items-center gap-3.5 text-[11px] font-bold text-slate-700 bg-[#f8fafc] px-4 py-2.5 rounded-2xl border border-slate-200">
-                <div className="flex items-center gap-1.5">
-                  <span className="w-4 h-4 rounded bg-white border-2 border-[#064e3b] flex items-center justify-center">
-                    <i className="fa-solid fa-check text-[8px] text-[#064e3b]"></i>
-                  </span>
-                  <span className="text-[#064e3b]">เลือกอยู่</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-4 h-4 rounded bg-white border border-slate-300"></span>
-                  <span>ว่าง</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-4 h-4 rounded bg-rose-200 border border-rose-400"></span>
-                  <span>กำลังเล่น</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-4 h-4 rounded bg-amber-200 border border-amber-400"></span>
-                  <span>จองแล้ว</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-4 h-4 rounded bg-blue-100 border border-blue-400"></span>
-                  <span>เคาน์เตอร์</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="w-full flex flex-col gap-6 sm:gap-7">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 lg:gap-6">
-              {['T-03', 'T-04', 'T-05'].map((id) => {
-                const t = tables.find((x) => x.id === id) || { id, capMin: 2, capMax: 6, desc: '' };
-                return (
-                  <div
-                    key={id}
-                    onClick={() => handleTableClick(id)}
-                    className={`group relative border-2 rounded-2xl p-5 min-h-[175px] flex flex-col justify-between transition-all duration-300 cursor-pointer ${getTableBgColor(id)}`}
-                  >
-                    <div className="flex items-start justify-between">
-                      <span
-                        className={`w-9 h-9 rounded-full ${getTableStatus(id) === 'selected' ? 'bg-[#064e3b] text-white' : 'bg-purple-100 border border-purple-300 text-purple-900'} font-heading font-bold text-base flex items-center justify-center shadow-xs`}
-                      >
-                        {id.replace('T-0', '')}
-                      </span>
-                      {getTableBadge(id)}
-                    </div>
-                    <div className="flex justify-center items-center gap-3 my-3 py-3 bg-slate-50/70 rounded-xl border border-dashed border-slate-200">
-                      <span className="w-3 h-3 rounded-full bg-slate-400"></span>
-                      <span className="w-3 h-3 rounded-full bg-slate-400"></span>
-                      <span className="w-3 h-3 rounded-full bg-slate-400"></span>
-                      <span className="w-3 h-3 rounded-full bg-slate-400"></span>
-                      <span className="w-3 h-3 rounded-full bg-slate-400"></span>
-                      <span className="w-3 h-3 rounded-full bg-slate-400"></span>
-                    </div>
-                    <div className="flex justify-between items-baseline text-xs">
-                      <div>
-                        <h4
-                          className={`font-bold text-sm transition ${getTableStatus(id) === 'selected' ? 'text-[#064e3b]' : 'text-slate-800'}`}
-                        >
-                          {t.name || `Table ${id.replace('T-0', '')}`}{' '}
-                          {getTableStatus(id) === 'selected' && (
-                            <i className="fa-solid fa-circle-check text-[#064e3b] ml-1"></i>
-                          )}
-                        </h4>
-                        <p className="text-xs text-slate-500 mt-0.5">
-                          ({t.capMin}-{t.capMax} คน)
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="grid grid-cols-12 gap-5 lg:gap-6 items-stretch">
-              <div
-                onClick={() => handleTableClick('T-02')}
-                className={`group col-span-12 md:col-span-3 border-2 rounded-2xl p-5 min-h-[185px] flex flex-col justify-between transition-all duration-300 cursor-pointer ${getTableBgColor('T-02')}`}
-              >
-                <div className="flex items-start justify-between">
-                  <span
-                    className={`w-9 h-9 rounded-full ${getTableStatus('T-02') === 'selected' ? 'bg-[#064e3b] text-white' : 'bg-purple-100 border border-purple-300 text-purple-900'} font-heading font-bold text-base flex items-center justify-center shadow-xs`}
-                  >
-                    2
-                  </span>
-                  {getTableBadge('T-02')}
-                </div>
-                <div className="grid grid-cols-2 gap-3 my-3 py-3 px-3 bg-slate-50/50 rounded-xl border border-dashed border-slate-200 place-items-center">
-                  <span className="w-3 h-3 rounded-full bg-slate-400"></span>
-                  <span className="w-3 h-3 rounded-full bg-slate-400"></span>
-                  <span className="w-3 h-3 rounded-full bg-slate-400"></span>
-                  <span className="w-3 h-3 rounded-full bg-slate-400"></span>
-                </div>
-                <div className="text-xs">
-                  <h4
-                    className={`font-bold text-sm transition ${getTableStatus('T-02') === 'selected' ? 'text-[#064e3b]' : 'text-slate-800 group-hover:text-[#064e3b]'}`}
-                  >
-                    Table 02{' '}
-                    {getTableStatus('T-02') === 'selected' && (
-                      <i className="fa-solid fa-circle-check text-[#064e3b] ml-1"></i>
-                    )}
-                  </h4>
-                  <p className="text-xs text-slate-500 mt-0.5">(4-6 คน)</p>
-                </div>
-              </div>
-
-              <div className="col-span-12 md:col-span-6 grid grid-cols-3 gap-3 sm:gap-4 bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
-                {['T-10', 'T-09', 'T-08'].map((id) => (
-                  <div
-                    key={id}
-                    onClick={() => handleTableClick(id)}
-                    className={`group border-2 rounded-xl p-3.5 flex flex-col justify-between min-h-[175px] cursor-pointer transition-all duration-200 ${getTableBgColor(id)}`}
-                  >
-                    <div className="flex justify-between items-start">
-                      <span
-                        className={`w-8 h-8 rounded-full ${getTableStatus(id) === 'selected' ? 'bg-[#064e3b] text-white' : 'bg-purple-100 border border-purple-300 text-purple-900'} font-heading font-bold text-xs flex items-center justify-center`}
-                      >
-                        {id.split('-')[1]}
-                      </span>
-                      {getTableBadge(id, true)}
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 my-auto py-2.5 place-items-center">
-                      <span className="w-3 h-3 rounded-full bg-slate-400"></span>
-                      <span className="w-3 h-3 rounded-full bg-slate-400"></span>
-                      <span className="w-3 h-3 rounded-full bg-slate-400"></span>
-                      <span className="w-3 h-3 rounded-full bg-slate-400"></span>
-                    </div>
-                    <div className="text-left">
-                      <span
-                        className={`block text-xs font-bold transition ${getTableStatus(id) === 'selected' ? 'text-[#064e3b]' : 'text-slate-800 group-hover:text-[#064e3b]'}`}
-                      >
-                        {id}{' '}
-                        {getTableStatus(id) === 'selected' && (
-                          <i className="fa-solid fa-circle-check text-[#064e3b] ml-0.5"></i>
-                        )}
-                      </span>
-                      <span className="text-[11px] text-slate-500">2-4 ที่นั่ง</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div
-                onClick={() => handleTableClick('T-06')}
-                className={`group col-span-12 md:col-span-3 border-2 rounded-2xl p-5 min-h-[185px] flex flex-col justify-between transition-all duration-300 cursor-pointer ${getTableBgColor('T-06')}`}
-              >
-                <div className="flex items-start justify-between">
-                  <span
-                    className={`w-9 h-9 rounded-full ${getTableStatus('T-06') === 'selected' ? 'bg-[#064e3b] text-white' : 'bg-purple-100 border border-purple-300 text-purple-900'} font-heading font-bold text-base flex items-center justify-center shadow-xs`}
-                  >
-                    6
-                  </span>
-                  {getTableBadge('T-06')}
-                </div>
-                <div className="grid grid-cols-2 gap-3 my-3 py-3 px-3 bg-slate-50/50 rounded-xl border border-dashed border-slate-200 place-items-center">
-                  <span className="w-3 h-3 rounded-full bg-slate-400"></span>
-                  <span className="w-3 h-3 rounded-full bg-slate-400"></span>
-                  <span className="w-3 h-3 rounded-full bg-slate-400"></span>
-                  <span className="w-3 h-3 rounded-full bg-slate-400"></span>
-                </div>
-                <div className="text-xs">
-                  <h4
-                    className={`font-bold text-sm transition ${getTableStatus('T-06') === 'selected' ? 'text-[#064e3b]' : 'text-slate-800 group-hover:text-[#064e3b]'}`}
-                  >
-                    Table 06{' '}
-                    {getTableStatus('T-06') === 'selected' && (
-                      <i className="fa-solid fa-circle-check text-[#064e3b] ml-1"></i>
-                    )}
-                  </h4>
-                  <p className="text-xs text-slate-500 mt-0.5">(4-6 คน)</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-12 gap-5 lg:gap-6 items-stretch">
-              <div
-                onClick={() => handleTableClick('T-01')}
-                className={`group col-span-12 md:col-span-3 border-2 rounded-2xl p-5 min-h-[175px] flex flex-col justify-between transition-all duration-300 cursor-pointer ${getTableBgColor('T-01')}`}
-              >
-                <div className="flex items-start justify-between">
-                  <span
-                    className={`w-9 h-9 rounded-full ${getTableStatus('T-01') === 'selected' ? 'bg-[#064e3b] text-white' : 'bg-purple-100 border border-purple-300 text-purple-900'} font-heading font-bold text-base flex items-center justify-center shadow-xs`}
-                  >
-                    1
-                  </span>
-                  {getTableBadge('T-01')}
-                </div>
-                <div className="grid grid-cols-2 gap-3 my-3 py-3 place-items-center bg-slate-50/50 rounded-xl">
-                  <span className="w-3 h-3 rounded-full bg-slate-400"></span>
-                  <span className="w-3 h-3 rounded-full bg-slate-400"></span>
-                  <span className="w-3 h-3 rounded-full bg-slate-400"></span>
-                  <span className="w-3 h-3 rounded-full bg-slate-400"></span>
-                </div>
-                <div className="text-xs">
-                  <h4
-                    className={`font-bold text-sm transition ${getTableStatus('T-01') === 'selected' ? 'text-[#064e3b]' : 'text-slate-800 group-hover:text-[#064e3b]'}`}
-                  >
-                    Table 01{' '}
-                    {getTableStatus('T-01') === 'selected' && (
-                      <i className="fa-solid fa-circle-check text-[#064e3b] ml-1"></i>
-                    )}
-                  </h4>
-                  <p className="text-xs text-slate-500 mt-0.5">(2-4 คน)</p>
-                </div>
-              </div>
-
-              {/* Cashier Station */}
-              <div className="col-span-12 md:col-span-6 relative bg-blue-50/80 border-2 border-blue-500 rounded-2xl flex flex-col justify-between overflow-hidden shadow-xs min-h-[175px]">
-                <div className="pt-4 pb-2 px-5 text-center">
-                  <div className="inline-flex items-center gap-2.5 bg-blue-100 text-blue-950 border border-blue-300 px-4 py-1.5 rounded-full text-xs font-heading font-bold tracking-wide uppercase">
-                    <i className="fa-solid fa-mug-hot text-blue-600 text-sm"></i> โซนใต้: จุดเช็กอิน
-                    & บาริสต้า
-                  </div>
-                  <p className="text-xs text-blue-800 mt-1.5 font-medium">
-                    จุดรับคำแนะนำบอร์ดเกมและบริการเครื่องดื่มพิเศษ
-                  </p>
-                </div>
-                <div className="flex items-end justify-between px-8 w-full h-16">
-                  <div className="w-24 h-12 bg-blue-200 border-t-2 border-r-2 border-blue-400 rounded-tr-lg flex flex-col items-center justify-center text-xs text-blue-900 font-semibold shadow-inner">
-                    <i className="fa-solid fa-cash-register text-xs mb-0.5"></i> POS 1
-                  </div>
-                  <div className="flex-1 mx-4 h-12 flex items-center justify-center border-b-2 border-dashed border-blue-300 text-xs text-blue-500 font-mono">
-                    ทางเดินพนักงาน
-                  </div>
-                  <div className="w-24 h-12 bg-blue-200 border-t-2 border-l-2 border-blue-400 rounded-tl-lg flex flex-col items-center justify-center text-xs text-blue-900 font-semibold shadow-inner">
-                    <i className="fa-solid fa-coffee text-xs mb-0.5"></i> บาริสต้า
-                  </div>
-                </div>
-              </div>
-
-              <div
-                onClick={() => handleTableClick('T-07')}
-                className={`group col-span-12 md:col-span-3 border-2 rounded-2xl p-5 min-h-[175px] flex flex-col justify-between transition-all duration-300 cursor-pointer ${getTableBgColor('T-07')}`}
-              >
-                <div className="flex items-start justify-between">
-                  <span
-                    className={`w-9 h-9 rounded-full ${getTableStatus('T-07') === 'selected' ? 'bg-[#064e3b] text-white' : 'bg-rose-100 border border-rose-300 text-rose-800'} font-heading font-bold text-base flex items-center justify-center shadow-xs`}
-                  >
-                    7
-                  </span>
-                  {getTableBadge('T-07')}
-                </div>
-                <div className="grid grid-cols-2 gap-3 my-3 py-3 place-items-center bg-rose-100/40 rounded-xl">
-                  <span className="w-3 h-3 rounded-full bg-rose-400"></span>
-                  <span className="w-3 h-3 rounded-full bg-rose-400"></span>
-                  <span className="w-3 h-3 rounded-full bg-rose-400"></span>
-                  <span className="w-3 h-3 rounded-full bg-rose-400"></span>
-                </div>
-                <div className="text-xs">
-                  <h4
-                    className={`font-bold text-sm transition ${getTableStatus('T-07') === 'selected' ? 'text-[#064e3b]' : 'text-slate-800'}`}
-                  >
-                    Table 07{' '}
-                    {getTableStatus('T-07') === 'selected' && (
-                      <i className="fa-solid fa-circle-check text-[#064e3b] ml-1"></i>
-                    )}
-                  </h4>
-                  <p className="text-xs text-slate-500 mt-0.5">(4-6 คน)</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between text-xs text-slate-500 font-sans">
-            <div className="flex items-center gap-2">
-              <i className="fa-solid fa-door-open text-[#064e3b] text-base"></i>
-              <span>ทางเข้าหลัก (MAIN ENTRANCE - ตรงข้ามเคาน์เตอร์บาริสต้า)</span>
-            </div>
-          </div>
-        </div>
-      </main>
-
-      {/* 3. Drawer Backdrop */}
-      {isDrawerOpen && (
-        <div
-          className="fixed inset-0 bg-black/25 backdrop-blur-[2px] z-40 transition-opacity"
-          onClick={() => setIsDrawerOpen(false)}
-        ></div>
-      )}
-
-      {/* 4. Right Slide-Over Drawer */}
-      <aside
-        className={`fixed top-0 right-0 h-full w-full md:w-[460px] bg-white shadow-2xl z-50 flex flex-col transform transition-transform duration-300 ease-in-out ${isDrawerOpen ? 'translate-x-0' : 'translate-x-full'}`}
-      >
-        {/* Drawer Header */}
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-              <h2 className="text-xl font-heading font-bold text-[#064e3b]">
-                โต๊ะ {selectedTableId}
-              </h2>
-              <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                พร้อมจอง
-              </span>
-            </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              {selectedTableData.desc} • พร้อมสิ่งอำนวยความสะดวกครบครัน
-            </p>
-          </div>
-          <button
-            onClick={() => setIsDrawerOpen(false)}
-            className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 transition"
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_380px] gap-5 items-start">
+        <div className="min-w-0 flex flex-col gap-5">
+          {/* 1. วันและเวลา */}
+          <section
+            className={`${card} p-4 sm:p-5 flex flex-col gap-4`}
+            aria-label="เลือกวันและเวลา"
           >
-            <i className="fa-solid fa-xmark"></i>
-          </button>
-        </div>
-
-        {/* Drawer Content Body */}
-        <div className="p-6 flex flex-col gap-5 overflow-y-auto flex-1">
-          <div className="grid grid-cols-2 gap-3 text-xs">
-            <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col gap-0.5">
-              <span className="text-slate-400 block text-[11px]">ความจุโต๊ะ</span>
-              <span className="font-bold text-slate-800 flex items-center gap-1.5 text-sm">
-                <i className="fa-solid fa-users text-[#064e3b]"></i> {selectedTableData.capMin}-
-                {selectedTableData.capMax} ท่าน
-              </span>
-            </div>
-            {/* เปลี่ยน bg, border และสีตัวหนังสือของกล่องนี้ให้เหมือนกล่องซ้าย */}
-            <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col gap-0.5">
-              <span className="text-slate-400 block text-[11px]">อัตราค่าบริการ</span>
-              <span className="font-bold text-[#064e3b] flex items-baseline gap-1 text-sm">
-                ฿120 <span className="font-normal text-[10px] text-slate-500">/ คน / ชม.</span>
-              </span>
-            </div>
-          </div>
-
-          {/* Date Selection */}
-          <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 font-heading">
-              1. เลือกวันที่ต้องการเล่น
-            </label>
-            <div className="grid grid-cols-3 gap-2">
-              {DATES.map((date) => {
-                const isSelected = selectedDate === date.id;
-                return (
-                  <button
-                    key={date.id}
-                    onClick={() => setSelectedDate(date.id)}
-                    className={`py-2.5 px-3 rounded-xl border flex flex-col items-center transition ${isSelected ? 'bg-[#064e3b] text-white border-[#064e3b] shadow-xs' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'}`}
-                  >
-                    <span
-                      className={`text-[10px] uppercase ${isSelected ? 'text-emerald-200 font-normal' : 'text-slate-400'}`}
-                    >
-                      {date.shortLabel}
-                    </span>
-                    <span className="font-bold text-sm">{date.display}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Time Selector */}
-          <div className="p-4 rounded-2xl flex flex-col gap-3 border-transparent bg-slate-50">
-            <div className="flex flex-col gap-0.5">
-              <label className="text-xs font-bold text-slate-800 uppercase tracking-wider font-heading flex items-center justify-between">
-                <span>2. เลือกรอบเวลา</span>
-                <span className="text-[10px] font-normal text-emerald-800 lowercase bg-emerald-100/70 px-2 py-0.5 rounded-full">
-                  เลือกต่อเนื่องได้
-                </span>
-              </label>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2">
-              {TIME_SLOTS.map((slot) => {
-                const isBooked = BOOKING_DATA.some(
-                  (b) =>
-                    b.tableId === selectedTableId &&
-                    b.date === selectedDate &&
-                    b.slots.includes(slot),
-                );
-                const isSelected = selectedSlots.includes(slot);
-
-                if (isBooked) {
+            <div>
+              <span className={labelCls}>1. วันที่</span>
+              <div className="grid grid-cols-4 gap-2">
+                {dates.map((d) => {
+                  const active = d.ymd === date;
+                  const off = !d.times.length;
                   return (
                     <button
-                      key={slot}
-                      disabled
-                      className="text-[11px] py-2 px-1 rounded-xl border border-slate-200 bg-slate-200 text-slate-400 font-medium flex flex-col items-center justify-center cursor-not-allowed opacity-60"
+                      key={d.ymd}
+                      type="button"
+                      disabled={off}
+                      aria-pressed={active}
+                      onClick={() => chooseDate(d.ymd)}
+                      className={`py-2 px-1 rounded-xl border flex flex-col items-center transition min-w-0 ${
+                        active
+                          ? 'bg-[#064e3b] text-white border-[#064e3b] shadow-sm'
+                          : off
+                            ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
+                            : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
+                      }`}
                     >
-                      <span className="line-through">{slot}</span>
-                      <span className="text-[9px] text-rose-500 mt-0.5 font-bold">ไม่ว่าง</span>
+                      <span
+                        className={`text-[10px] truncate max-w-full ${active ? 'text-emerald-200' : 'text-slate-400'}`}
+                      >
+                        {d.label}
+                      </span>
+                      <span className="font-bold text-sm truncate max-w-full">{d.display}</span>
+                      {off && (
+                        <span className="text-[9px] font-bold text-rose-500">
+                          {d.closed ? 'ร้านปิด' : 'หมดรอบ'}
+                        </span>
+                      )}
                     </button>
                   );
-                }
-
-                return (
-                  <button
-                    key={slot}
-                    onClick={() => toggleTimeSlot(slot)}
-                    className={`text-xs py-2 px-1 rounded-xl transition-all shadow-xs border text-center font-medium ${isSelected ? 'bg-[#064e3b] text-white border-transparent shadow-md font-semibold' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'}`}
-                  >
-                    {slot}
-                  </button>
-                );
-              })}
+                })}
+              </div>
             </div>
 
-            {selectedSlots.length > 0 && (
-              <div className="bg-white border border-emerald-200/90 rounded-xl p-3.5 mt-1 flex flex-col gap-2.5 shadow-xs">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-800 font-heading flex items-center gap-1.5">
-                    <i className="fa-regular fa-calendar-check text-[#064e3b]"></i>{' '}
-                    สรุปรายการที่เลือก
-                  </span>
-                  <span className="text-[11px] text-slate-500 font-medium">
-                    เลือกแล้ว {selectedSlots.length} รอบ
-                  </span>
+            {date ? (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <SelectBox
+                    id="booking-start"
+                    label="2. เวลาเริ่ม"
+                    value={time ?? ''}
+                    onChange={(e) => {
+                      updateParams({ time: e.target.value });
+                      setDone(null);
+                    }}
+                  >
+                    {times.map((t) => (
+                      <option key={t} value={t}>
+                        {t} น.
+                      </option>
+                    ))}
+                  </SelectBox>
+                  <SelectBox
+                    id="booking-duration"
+                    label="3. ระยะเวลา"
+                    value={duration ?? ''}
+                    onChange={(e) => chooseDuration(Number(e.target.value))}
+                    disabled={pkg === 'flat3h'}
+                  >
+                    {durations.map((h) => (
+                      <option key={h} value={h}>
+                        {hoursLabel(h)}
+                      </option>
+                    ))}
+                  </SelectBox>
                 </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {selectedSlots.map((slot) => (
-                    <span
-                      key={slot}
-                      className="inline-flex items-center gap-1 pl-2.5 pr-1.5 py-1 rounded-full bg-emerald-100/80 border border-emerald-200 text-emerald-950 text-[11px] font-medium shadow-xs"
-                    >
-                      {slot}
-                      <button
-                        type="button"
-                        onClick={() => toggleTimeSlot(slot)}
-                        className="ml-0.5 w-4 h-4 hover:bg-emerald-200 rounded-full inline-flex items-center justify-center text-emerald-800 transition"
-                      >
-                        <i className="fa-solid fa-xmark text-[9px]"></i>
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              </div>
+                {endAt && (
+                  <p className="text-xs text-slate-500 -mt-1">
+                    <i className="fa-regular fa-clock mr-1"></i>
+                    {slotText}
+                    {pkg === 'flat3h' && ' (แพ็กเกจเหมา)'}
+                  </p>
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-slate-500 bg-slate-50 rounded-xl p-3">
+                ช่วงนี้ไม่มีรอบเวลาที่จองได้ ลองกลับมาใหม่ภายหลัง
+              </p>
             )}
-          </div>
 
-          {/* Player Stepper */}
-          <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 font-heading">
-              3. จำนวนผู้เล่น
-            </label>
-            <div className="flex items-center justify-between bg-slate-50 p-2.5 rounded-2xl border border-slate-200">
-              <div className="pl-2">
-                <span className="text-xs font-semibold text-slate-800 block">
-                  จำนวนผู้เล่นทั้งหมด
+            <div className="flex items-center justify-between gap-3 bg-slate-50 p-2.5 rounded-2xl border border-slate-200">
+              <div className="pl-1 min-w-0">
+                <span className="text-xs font-bold text-slate-800 block font-heading">
+                  4. จำนวนผู้เล่น
                 </span>
-                <span className="text-[10px] text-slate-400">
-                  โต๊ะนี้รองรับได้สูงสุด {selectedTableData.capMax} ท่าน
+                <span className="text-[10px] text-slate-500">
+                  {selectedTable
+                    ? `โต๊ะ ${selectedTable.code} นั่งได้ ${selectedTable.capacity} คน` +
+                      (players >= playerMax && playerMax < maxCap
+                        ? ' — เลือกโต๊ะใหญ่ขึ้นเพื่อเพิ่มคน'
+                        : '')
+                    : `สูงสุด ${maxCap} คน (ตามโต๊ะที่ใหญ่ที่สุด)`}
                 </span>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 shrink-0">
                 <button
-                  onClick={() => setPlayers(Math.max(1, players - 1))}
-                  className="w-8 h-8 rounded-xl bg-white border border-slate-300 text-slate-600 hover:bg-slate-100 active:scale-95 flex items-center justify-center font-bold transition shadow-xs"
+                  type="button"
+                  onClick={() => changePlayers(-1)}
+                  disabled={players <= 1}
+                  aria-label="ลดจำนวนผู้เล่น"
+                  className="w-9 h-9 rounded-xl bg-white border border-slate-300 text-slate-600 hover:bg-slate-100 active:scale-95 flex items-center justify-center transition disabled:opacity-40"
                 >
-                  -
+                  <i className="fa-solid fa-minus text-xs"></i>
                 </button>
-                <span className="font-heading font-bold text-base text-[#064e3b] w-5 text-center">
+                <span
+                  className="font-heading font-bold text-lg text-[#064e3b] w-6 text-center"
+                  aria-live="polite"
+                >
                   {players}
                 </span>
                 <button
-                  onClick={() => setPlayers(Math.min(selectedTableData.capMax, players + 1))}
-                  className="w-8 h-8 rounded-xl bg-[#064e3b] text-white flex items-center justify-center font-bold hover:bg-[#065f46] active:scale-95 transition shadow-xs"
+                  type="button"
+                  onClick={() => changePlayers(1)}
+                  disabled={players >= playerMax}
+                  aria-label="เพิ่มจำนวนผู้เล่น"
+                  className="w-9 h-9 rounded-xl bg-[#064e3b] text-white flex items-center justify-center hover:bg-[#065f46] active:scale-95 transition disabled:opacity-40"
                 >
-                  +
+                  <i className="fa-solid fa-plus text-xs"></i>
                 </button>
               </div>
             </div>
-          </div>
 
-          {/* Game Selector Trigger */}
-          <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 font-heading">
-              4. บอร์ดเกมเตรียมพร้อมล่วงหน้า
-            </label>
-            <div className="flex items-center gap-3 p-3 rounded-2xl border border-slate-200 bg-white shadow-sm">
-              {selectedGame ? (
-                <>
-                  <div className="w-11 h-11 rounded-xl bg-[#064e3b] text-emerald-300 flex items-center justify-center text-lg font-bold shrink-0 shadow-inner">
-                    <i className={`fa-solid ${selectedGame.icon}`}></i>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h5 className="text-xs font-bold text-slate-900 truncate">
-                      {selectedGame.title}
-                    </h5>
-                    <p className="text-[11px] text-slate-500">
-                      {selectedGame.publisher || selectedGame.desc}
-                    </p>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="w-11 h-11 rounded-xl border-2 border-dashed border-slate-300 flex items-center justify-center text-slate-400 shrink-0">
-                    <i className="fa-solid fa-box-open"></i>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h5 className="text-xs font-bold text-slate-600">ยังไม่เลือกเกม</h5>
-                    <p className="text-[11px] text-slate-500 font-medium">
-                      เลือกที่ร้านได้เลย ไม่ต้องระบุล่วงหน้า
-                    </p>
-                  </div>
-                </>
-              )}
-              <button
-                onClick={() => setIsGameModalOpen(true)}
-                className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-white border text-[#064e3b] hover:bg-emerald-50 active:scale-95 transition shadow-xs border-slate-200"
-              >
-                {selectedGame ? 'เปลี่ยนเกม' : 'เลือกเกม'}
-              </button>
-            </div>
-          </div>
-        </div>
+            {windowError && (
+              <p className="text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3">
+                <i className="fa-solid fa-triangle-exclamation mr-1.5"></i>
+                {thaiError({ message: windowError })}
+              </p>
+            )}
+          </section>
 
-        {/* Footer CTA */}
-        <div className="p-6 pt-3 border-t border-slate-100 bg-white flex flex-col gap-3 mt-auto">
-          <div className="flex justify-between items-baseline">
-            <span className="text-xs text-slate-500">ยอดรวมทั้งหมด</span>
-            <span className="text-2xl font-heading font-bold text-[#064e3b]">
-              ฿{totalCost.toLocaleString()}
-            </span>
-          </div>
-          <button
-            disabled={selectedSlots.length === 0 || submitting}
-            onClick={handleConfirmBooking}
-            className="w-full py-3.5 px-4 rounded-xl disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed bg-[#064e3b] hover:bg-[#065f46] active:scale-[0.99] text-white font-heading font-bold text-sm tracking-wide shadow-lg shadow-[#064e3b]/20 transition flex items-center justify-center gap-2"
-          >
-            <span>{submitting ? 'กำลังส่งคำขอ...' : 'ยืนยันการจองโต๊ะ'}</span>
-          </button>
-          <p className="text-[10px] text-center text-slate-400">
-            ยกเลิกได้ฟรีก่อนถึงเวลาจอง 2 ชั่วโมง • ไม่มีค่ามัดจำล่วงหน้า
-          </p>
-        </div>
-      </aside>
-
-      {/* 5. Game Selection Modal (For Drawer) */}
-      {isGameModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div
-            className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity"
-            onClick={() => setIsGameModalOpen(false)}
-          ></div>
-          <div className="relative bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden z-10">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
-              <div>
-                <h3 className="text-base font-heading font-bold text-[#064e3b] flex items-center gap-2">
-                  <i className="fa-solid fa-dice text-emerald-600"></i> เลือกบอร์ดเกมที่ต้องการเล่น
-                </h3>
-                <p className="text-xs text-slate-500">
-                  ทางร้านจะจัดเตรียมอุปกรณ์เกมไว้ที่โต๊ะก่อนที่คุณจะมาถึง
+          {/* 2. ผังโต๊ะ */}
+          <section className={`${card} p-4 sm:p-5 flex flex-col gap-4`} aria-label="ผังโต๊ะ">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="text-base font-heading font-bold text-slate-800">5. เลือกโต๊ะ</h2>
+                <p className="text-[11px] text-slate-500">
+                  สถานะ ณ {slotText || '-'} · อัปเดตอัตโนมัติทุก 30 วินาที
                 </p>
               </div>
               <button
-                onClick={() => setIsGameModalOpen(false)}
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition"
+                type="button"
+                onClick={() => {
+                  loadFloor();
+                  loadAvail();
+                }}
+                disabled={!slotKey || floorLoading}
+                className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 shrink-0"
               >
-                <i className="fa-solid fa-xmark text-sm"></i>
+                <i className={`fa-solid fa-rotate-right mr-1 ${floorLoading ? 'fa-spin' : ''}`}></i>
+                รีเฟรช
               </button>
             </div>
 
-            <div className="p-4 border-b border-slate-100 flex flex-col gap-2.5 bg-white">
-              <div className="relative">
-                <i className="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
-                <input
-                  className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 focus:border-emerald-600 text-xs text-slate-800 bg-slate-50 placeholder-slate-400 outline-none"
-                  placeholder="ค้นหาชื่อเกม เช่น Wingspan, Catan..."
-                  type="text"
+            <FloorLegend />
+
+            {floorError && (
+              <ErrorBanner message={`โหลดผังโต๊ะไม่สำเร็จ: ${floorError}`} onRetry={loadFloor} />
+            )}
+
+            {!slotKey ? null : !floor ? (
+              !floorError && (
+                <div className="flex items-center justify-center py-16 text-slate-400 text-sm">
+                  <i className="fa-solid fa-spinner fa-spin mr-2"></i> กำลังโหลดผังโต๊ะ...
+                </div>
+              )
+            ) : floor.tables.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-14 text-slate-400 gap-2">
+                <i className="fa-solid fa-chair text-3xl"></i>
+                <p className="text-sm font-semibold">ร้านยังไม่ได้เพิ่มโต๊ะ</p>
+              </div>
+            ) : (
+              <div
+                className={`relative transition-opacity ${floorFresh ? '' : 'opacity-50 pointer-events-none'}`}
+                aria-busy={!floorFresh}
+              >
+                <FloorMap
+                  tables={floor.tables}
+                  zones={floor.zones}
+                  players={players}
+                  selectedId={tableId}
+                  onSelect={chooseTable}
                 />
               </div>
-            </div>
+            )}
 
-            <div className="p-4 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[50vh]">
-              {games.map((game, index) => {
-                const isSelected = selectedGame?.title === game.title;
-                const isDisabled = game.status === 'in-use';
-
-                if (isDisabled) {
-                  return (
-                    <div
-                      key={index}
-                      className="border border-slate-200 bg-slate-50 rounded-xl p-3 flex flex-col justify-between opacity-60"
-                    >
-                      <div className="flex items-start gap-2.5">
-                        <div
-                          className={`w-9 h-9 rounded-lg bg-slate-200 text-slate-400 flex items-center justify-center text-sm`}
-                        >
-                          <i className={`fa-solid ${game.icon}`}></i>
-                        </div>
-                        <div>
-                          <h4 className="text-xs font-bold text-slate-600">{game.title}</h4>
-                          <p className="text-[11px] text-slate-400">
-                            {game.timeMin}-{game.timeMax}m
-                          </p>
-                        </div>
-                      </div>
-                      <button
-                        disabled
-                        className="mt-2.5 w-full py-1.5 px-3 rounded-lg bg-slate-200 text-slate-500 font-semibold text-xs border border-slate-300"
-                      >
-                        กำลังมีผู้เล่นใช้งาน
-                      </button>
-                    </div>
-                  );
-                }
-                return (
-                  <div
-                    key={index}
-                    onClick={() => {
-                      setSelectedGame(game);
-                      setIsGameModalOpen(false);
-                    }}
-                    className={`border rounded-xl p-3 flex flex-col justify-between transition cursor-pointer ${isSelected ? 'border-2 border-emerald-500 bg-emerald-50/40' : 'border-slate-200 bg-white hover:border-emerald-500'}`}
-                  >
-                    <div className="flex items-start gap-2.5">
-                      <div
-                        className={`w-9 h-9 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center text-sm`}
-                      >
-                        <i className={`fa-solid ${game.icon}`}></i>
-                      </div>
-                      <div>
-                        <h4 className="text-xs font-bold text-slate-900">{game.title}</h4>
-                        <p className="text-[11px] text-slate-500">
-                          {game.timeMin}-{game.timeMax}m
-                        </p>
-                      </div>
-                    </div>
-                    {isSelected ? (
-                      <button className="mt-2.5 w-full py-1.5 px-3 rounded-lg bg-emerald-600 text-white font-semibold text-xs">
-                        เลือกแล้ว
-                      </button>
-                    ) : (
-                      <button className="mt-2.5 w-full py-1.5 px-3 rounded-lg bg-slate-100 hover:bg-[#064e3b] hover:text-white text-slate-700 font-semibold text-xs transition">
-                        เลือก
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
+            <div className="pt-3 border-t border-slate-100 text-xs text-slate-500 flex items-center gap-2">
+              <i className="fa-solid fa-door-open text-[#064e3b] text-base"></i>
+              <span>ทางเข้าหลัก · เช็กอินที่เคาน์เตอร์บาริสต้า</span>
             </div>
-
-            <div className="px-6 py-3 border-t border-slate-100 flex items-center justify-end bg-slate-50/50">
-              <button
-                onClick={() => setIsGameModalOpen(false)}
-                className="px-4 py-1.5 rounded-xl border border-slate-300 font-medium text-slate-600 hover:bg-slate-100 text-xs transition"
-              >
-                ปิดหน้าต่าง
-              </button>
-            </div>
-          </div>
+          </section>
         </div>
+
+        {/* แผงสรุป (มือถือ: อยู่ใต้ผัง, จอใหญ่: ติดด้านขวา) */}
+        <aside className="min-w-0 flex flex-col gap-5 lg:sticky lg:top-20">
+          <section className={`${card} p-4 sm:p-5`} aria-label="เกมพร้อมเล่นเมื่อมาถึง">
+            <h2 className="text-sm font-heading font-bold text-slate-800 mb-3 flex items-center gap-2">
+              <i className="fa-solid fa-dice text-emerald-600"></i> เกมพร้อมเล่นเมื่อมาถึง
+            </h2>
+            <GamePanel
+              game={game}
+              loading={Boolean(gameId) && !game?.name}
+              missing={gameMissing}
+              onChange={() => setPickerOpen(true)}
+              onClear={() => pickGame(null)}
+            />
+          </section>
+
+          {done ? (
+            <section
+              className={`${card} p-5 flex flex-col gap-3 border-emerald-300`}
+              aria-live="polite"
+            >
+              <div className="flex items-center gap-3">
+                <span className="w-11 h-11 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xl shrink-0">
+                  <i className="fa-solid fa-circle-check"></i>
+                </span>
+                <div className="min-w-0">
+                  <h2 className="font-heading font-bold text-[#064e3b]">
+                    จองโต๊ะ {done.code} สำเร็จ
+                  </h2>
+                  <p className="text-xs text-slate-500">{done.when}</p>
+                </div>
+              </div>
+              {done.game && <p className="text-sm text-slate-700">เกม: {done.game}</p>}
+              {done.total != null && (
+                <p className="text-sm text-slate-700">ยอดรวม {baht(done.total)}</p>
+              )}
+              <Link
+                to="/reservations"
+                className="w-full py-3 rounded-xl bg-[#064e3b] hover:bg-[#065f46] text-white font-heading font-bold text-sm text-center"
+              >
+                ดูการจองของฉัน
+              </Link>
+              <button
+                type="button"
+                onClick={() => setDone(null)}
+                className="w-full py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-semibold hover:bg-slate-50"
+              >
+                จองโต๊ะเพิ่ม
+              </button>
+            </section>
+          ) : (
+            <section className={`${card} p-4 sm:p-5 flex flex-col gap-4`} aria-label="สรุปการจอง">
+              <h2 className="text-sm font-heading font-bold text-slate-800 flex items-center gap-2">
+                <i className="fa-regular fa-calendar-check text-emerald-600"></i> สรุปการจอง
+              </h2>
+
+              <div className="flex flex-col gap-3">
+                <SummaryRow icon="fa-chair" label="โต๊ะ">
+                  {selectedTable ? (
+                    <>
+                      {selectedTable.code}
+                      {selectedTable.name ? ` · ${selectedTable.name}` : ''}
+                      <span className="font-normal text-slate-500 text-xs">
+                        {' '}
+                        (โซน {selectedTable.zone || '-'})
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-slate-400 font-normal text-xs">
+                      ยังไม่ได้เลือก — แตะโต๊ะว่างบนผัง
+                    </span>
+                  )}
+                </SummaryRow>
+                <SummaryRow icon="fa-clock" label="วันและเวลา">
+                  {slotText ? (
+                    <>
+                      {slotText}{' '}
+                      <span className="font-normal text-slate-500 text-xs">
+                        ({duration ? hoursLabel(duration) : '-'})
+                      </span>
+                    </>
+                  ) : (
+                    '-'
+                  )}
+                </SummaryRow>
+                <SummaryRow icon="fa-users" label="ผู้เล่น">
+                  {players} คน
+                </SummaryRow>
+              </div>
+
+              {canFlat && (
+                <div>
+                  <span className={labelCls}>แพ็กเกจ</span>
+                  <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="แพ็กเกจ">
+                    {[
+                      {
+                        id: 'hourly',
+                        title: 'รายชั่วโมง',
+                        sub: `${baht(rules.PRICE_PER_PERSON_HOUR)}/คน/ชม.`,
+                      },
+                      {
+                        id: 'flat3h',
+                        title: `เหมา ${hoursLabel(flatHours)}`,
+                        sub: `${baht(rules.FLAT_3H_PER_PERSON)}/คน`,
+                      },
+                    ].map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={pkg === p.id}
+                        onClick={() => choosePackage(p.id)}
+                        className={`rounded-xl border px-3 py-2 text-left transition ${
+                          pkg === p.id
+                            ? 'border-[#064e3b] bg-emerald-50 ring-2 ring-[#064e3b]/15'
+                            : 'border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        <span className="block text-xs font-bold text-slate-800">{p.title}</span>
+                        <span className="block text-[11px] text-slate-500">{p.sub}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {studentEnabled && (
+                <label className="flex items-start gap-2.5 text-xs text-slate-700 cursor-pointer bg-slate-50 rounded-xl border border-slate-200 p-3">
+                  <input
+                    type="checkbox"
+                    checked={student}
+                    onChange={(e) => setRawStudent(e.target.checked)}
+                    className="mt-0.5 accent-[#064e3b] w-4 h-4"
+                  />
+                  <span>
+                    <span className="font-bold">ส่วนลดนักศึกษา {rules.STUDENT.percent}%</span> —
+                    แสดงบัตรที่หน้าร้าน
+                  </span>
+                </label>
+              )}
+
+              <div className="rounded-2xl bg-slate-50 border border-slate-200 p-3.5 flex flex-col gap-2">
+                {loggedIn && quoteBody ? (
+                  quoteNow?.error ? (
+                    <p role="alert" className="text-xs font-semibold text-rose-600">
+                      <i className="fa-solid fa-circle-exclamation mr-1.5"></i>
+                      {quoteNow.error}
+                    </p>
+                  ) : quoteNow?.data?.price ? (
+                    <PriceBreakdown price={quoteNow.data.price} rules={rules} />
+                  ) : (
+                    <p className="text-xs text-slate-400 py-3 text-center">
+                      <i className="fa-solid fa-spinner fa-spin mr-1.5"></i> กำลังคำนวณราคา...
+                    </p>
+                  )
+                ) : (
+                  <>
+                    <p className="text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1">
+                      {loggedIn
+                        ? 'ราคาประมาณ — เลือกโต๊ะเพื่อดูราคาจริง'
+                        : 'ราคาประมาณ — เข้าสู่ระบบเพื่อดูราคาจริง'}
+                    </p>
+                    <PriceBreakdown price={estimate} rules={rules} />
+                    {rules.PEAK?.enabled && pkg === 'hourly' && (
+                      <p className="text-[11px] text-slate-500">
+                        ช่วง {rules.PEAK.start}–{rules.PEAK.end} คิด{' '}
+                        {baht(rules.PEAK.perPersonHour)}/คน/ชม.
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
+
+              {loggedIn && (
+                <label className="block">
+                  <span className={labelCls}>หมายเหตุถึงร้าน (ไม่บังคับ)</span>
+                  <textarea
+                    value={note}
+                    onChange={(e) => setNote(e.target.value.slice(0, 300))}
+                    rows={2}
+                    placeholder="เช่น ขอที่นั่งใกล้ปลั๊ก, มีเด็กเล็กมาด้วย"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 text-sm p-2.5 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 resize-none"
+                  ></textarea>
+                </label>
+              )}
+
+              {submitError && !quoteNow?.error && (
+                <p role="alert" className="text-xs font-semibold text-rose-600">
+                  <i className="fa-solid fa-circle-exclamation mr-1.5"></i>
+                  {submitError}
+                </p>
+              )}
+
+              <button
+                type="button"
+                onClick={confirm}
+                disabled={confirmDisabled}
+                className="w-full py-3.5 px-4 rounded-xl disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed bg-[#064e3b] hover:bg-[#065f46] active:scale-[0.99] text-white font-heading font-bold text-sm transition shadow-sm flex items-center justify-center gap-2"
+              >
+                {submitting ? (
+                  <>
+                    <i className="fa-solid fa-spinner fa-spin"></i> กำลังจอง...
+                  </>
+                ) : !loggedIn ? (
+                  <>
+                    <i className="fa-solid fa-right-to-bracket"></i> เข้าสู่ระบบเพื่อจอง
+                  </>
+                ) : !tableId ? (
+                  'เลือกโต๊ะก่อนยืนยัน'
+                ) : (
+                  <>
+                    <i className="fa-solid fa-check"></i> ยืนยันการจองโต๊ะ {selectedTable?.code}
+                  </>
+                )}
+              </button>
+              <p className="text-[10px] text-center text-slate-400">
+                {cutoff > 0
+                  ? `ยกเลิกเองได้ก่อนเวลาเริ่ม ${cutoff} ชม.`
+                  : 'ยกเลิกเองได้จนถึงเวลาเริ่ม'}
+              </p>
+            </section>
+          )}
+        </aside>
+      </div>
+
+      {pickerOpen && (
+        <GamePickerModal
+          games={availNow?.games ?? null}
+          loading={availLoading || !availNow}
+          error={availError}
+          onRetry={loadAvail}
+          selectedId={gameId}
+          onSelect={pickGame}
+          onClose={closePicker}
+          slotText={slotText}
+          players={players}
+        />
       )}
-    </>
+
+      {toastEl}
+    </div>
   );
 }

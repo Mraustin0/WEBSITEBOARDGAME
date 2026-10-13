@@ -4,6 +4,9 @@ export const registerSchema = z.object({
   username: z.string().trim().min(3).max(32),
   email: z.string().trim().toLowerCase().email(),
   password: z.string().min(6).max(128),
+  // ไม่บังคับ — ฟอร์มสมัครของหน้า user มีช่องชื่อที่แสดง/เบอร์โทร
+  displayName: z.string().trim().max(80).optional(),
+  phone: z.string().trim().max(30).optional(),
 });
 
 export const loginSchema = z.object({

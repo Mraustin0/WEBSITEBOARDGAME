@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api.js';
+import { isStaff, setSession } from '../lib/session.js';
 import './login.css';
 
-// POST /auth/login -> { token, user }  (เฉพาะ role = admin เข้าหลังบ้านได้)
+// POST /auth/login -> { token, user }  (พนักงานทุก role เข้าหลังบ้านได้ — สิทธิ์แต่ละหน้าตาม Roles)
 export default function Login() {
   const navigate = useNavigate();
   const [form, setForm] = useState({ email: '', password: '' });
@@ -23,15 +24,15 @@ export default function Login() {
         method: 'POST',
         body: { email: form.email.trim(), password: form.password },
       });
-      if (user?.role !== 'admin') {
-        setError('บัญชีนี้ไม่ใช่ผู้ดูแลระบบ (admin)');
+      if (!isStaff(user)) {
+        setError('บัญชีนี้เป็นบัญชีสมาชิก — เข้าสู่ระบบที่หน้าสมาชิกแทน');
         return; // ยังไม่เก็บ token
       }
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(user));
+      setSession({ token, user });
       navigate('/admin', { replace: true });
     } catch (err) {
       if (err.status === 401) setError('อีเมลหรือรหัสผ่านไม่ถูกต้อง');
+      else if (err.status === 403) setError('บัญชีถูกระงับหรือรออนุมัติ');
       else if (err.status === 400) {
         setError(err.message);
         setFieldErrors(err.details ?? {});

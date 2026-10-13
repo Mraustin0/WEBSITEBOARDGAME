@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../lib/api.js';
+import { homeFor, setSession } from '../lib/session.js';
 
 const FEATURES = [
   { icon: 'fa-map', label: 'ผังร้าน 2D Floor Plan', desc: 'ตรวจสอบสถานะโต๊ะว่างสดใหม่' },
@@ -16,7 +17,8 @@ const FEATURES = [
 export default function UserAuth() {
   const navigate = useNavigate();
   const location = useLocation();
-  const from = location.state?.from ?? '/';
+  const from = location.state?.from; // หน้าที่ถูกพามาก่อน login (ถ้ามี)
+  const goNext = (user) => navigate(from || homeFor(user), { replace: true });
 
   const [tab, setTab] = useState('login');
   const [busy, setBusy] = useState(false);
@@ -55,11 +57,11 @@ export default function UserAuth() {
         method: 'POST',
         body: { email: login.email.trim(), password: login.password },
       });
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(user));
-      navigate(from, { replace: true });
+      setSession({ token, user });
+      goNext(user);
     } catch (err) {
       if (err.status === 401) setError('อีเมลหรือรหัสผ่านไม่ถูกต้อง');
+      else if (err.status === 403) setError('บัญชีถูกระงับหรือรออนุมัติ — ติดต่อพนักงาน');
       else if (err.status === 400) {
         setError(err.message);
         setFieldErrors(err.details ?? {});
@@ -81,11 +83,16 @@ export default function UserAuth() {
     try {
       const { token, user } = await api('/auth/register', {
         method: 'POST',
-        body: { username: reg.username.trim(), email: reg.email.trim(), password: reg.password },
+        body: {
+          username: reg.username.trim(),
+          email: reg.email.trim(),
+          password: reg.password,
+          displayName: reg.displayName.trim() || undefined,
+          phone: reg.phone.trim() || undefined,
+        },
       });
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(user));
-      navigate(from, { replace: true });
+      setSession({ token, user });
+      goNext(user);
     } catch (err) {
       if (err.status === 409) setError('อีเมลหรือชื่อผู้ใช้นี้ถูกใช้งานแล้ว');
       else if (err.status === 400) {
@@ -100,7 +107,7 @@ export default function UserAuth() {
   return (
     <div className="min-h-screen bg-[#f0fdf4] flex flex-col">
       {/* Header */}
-      <header className="h-14 bg-white border-b border-slate-100 px-8 flex items-center gap-3 shrink-0">
+      <header className="h-14 bg-white border-b border-slate-100 px-4 sm:px-8 flex items-center gap-3 shrink-0">
         <div className="w-9 h-9 rounded-xl bg-[#064e3b] flex items-center justify-center text-white text-sm shadow-sm">
           <i className="fa-solid fa-dice-d20" />
         </div>
@@ -113,9 +120,9 @@ export default function UserAuth() {
       </header>
 
       {/* Body */}
-      <div className="flex-1 flex min-h-0">
-        {/* Left: Hero */}
-        <div className="flex-1 p-10 flex flex-col gap-6 overflow-y-auto">
+      <div className="flex-1 flex flex-col lg:flex-row min-h-0">
+        {/* Left: Hero (ซ่อนบนมือถือ ให้ฟอร์มเต็มจอ) */}
+        <div className="hidden lg:flex flex-1 p-10 flex-col gap-6 overflow-y-auto">
           <span className="inline-flex items-center gap-2 text-xs font-bold text-emerald-700 bg-emerald-100 px-3 py-1.5 rounded-full self-start">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
             TABLETOP LOUNGE &amp; COMMUNITY HUB
@@ -179,7 +186,7 @@ export default function UserAuth() {
         </div>
 
         {/* Right: Form Card */}
-        <div className="w-[460px] shrink-0 p-8 flex items-center justify-center overflow-y-auto">
+        <div className="w-full lg:w-[460px] shrink-0 p-4 sm:p-8 flex items-center justify-center overflow-y-auto">
           <div className="bg-white rounded-2xl shadow-xl w-full p-8 my-auto">
             {/* Tabs */}
             <div className="flex rounded-xl border border-slate-200 p-1 mb-6">
@@ -283,6 +290,9 @@ export default function UserAuth() {
                     </label>
                     <button
                       type="button"
+                      onClick={() =>
+                        setError('ลืมรหัสผ่าน: แจ้งพนักงานที่หน้าร้านเพื่อรีเซ็ตรหัสผ่านให้')
+                      }
                       className="text-xs text-[#064e3b] font-semibold hover:underline"
                     >
                       ลืมรหัสผ่าน?

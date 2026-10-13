@@ -4,6 +4,7 @@ import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import NotificationPanel, { NotificationBell } from './NotificationPanel.jsx';
 import { api } from '../../lib/api.js';
 import './adminLayout.css';
+import { clearSession } from '../../lib/session.js';
 
 // เมนูแบ่งกลุ่มตามภาพ design
 const MENU = [
@@ -137,8 +138,7 @@ export default function AdminLayout() {
   }
 
   function logout() {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    clearSession();
     navigate('/login', { replace: true });
   }
 

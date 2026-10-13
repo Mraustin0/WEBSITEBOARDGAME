@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api.js';
+import { clearSession, getUser, setSession } from '../lib/session.js';
 
 function Toast({ toast }) {
   if (!toast) return null;
@@ -17,13 +18,7 @@ function Toast({ toast }) {
 export default function UserProfile() {
   const navigate = useNavigate();
 
-  const getStored = () => {
-    try {
-      return JSON.parse(localStorage.getItem('user')) ?? {};
-    } catch {
-      return {};
-    }
-  };
+  const getStored = () => getUser() ?? {};
 
   const [stored, setStored] = useState(getStored);
   const [profile, setProfile] = useState({
@@ -46,7 +41,7 @@ export default function UserProfile() {
     api('/auth/me')
       .then((user) => {
         const merged = { ...getStored(), ...user };
-        localStorage.setItem('user', JSON.stringify(merged));
+        setSession({ user: merged });
         setStored(merged);
         setProfile({
           username: user.username ?? '',
@@ -86,11 +81,16 @@ export default function UserProfile() {
 
       const user = await api('/auth/me', { method: 'PUT', body });
       const merged = { ...stored, ...user };
-      localStorage.setItem('user', JSON.stringify(merged));
+      setSession({ user: merged });
       setStored(merged);
       showToast('บันทึกข้อมูลเรียบร้อยแล้ว');
     } catch (err) {
-      showToast(err.message ?? 'บันทึกไม่สำเร็จ', false);
+      showToast(
+        err.status === 409
+          ? 'ชื่อผู้ใช้หรืออีเมลนี้ถูกใช้แล้ว'
+          : (err.message ?? 'บันทึกไม่สำเร็จ'),
+        false,
+      );
     } finally {
       setBusyProfile(false);
     }
@@ -104,22 +104,30 @@ export default function UserProfile() {
     }
     setBusyPw(true);
     try {
-      await api('/auth/password', {
+      const res = await api('/auth/password', {
         method: 'PUT',
         body: { oldPassword: pw.oldPassword, newPassword: pw.newPassword },
       });
+      // token เดิมถูกยกเลิกหลังเปลี่ยนรหัส → ใช้ token ใหม่ที่ server ส่งมา
+      if (res?.token) setSession({ token: res.token });
       showToast('เปลี่ยนรหัสผ่านเรียบร้อยแล้ว');
       setPw({ oldPassword: '', newPassword: '', confirm: '' });
     } catch (err) {
-      showToast(err.message ?? 'เปลี่ยนรหัสผ่านไม่สำเร็จ', false);
+      const msg = /old password incorrect/.test(err.message)
+        ? 'รหัสผ่านเดิมไม่ถูกต้อง'
+        : /must differ/.test(err.message)
+          ? 'รหัสผ่านใหม่ต้องไม่ซ้ำรหัสเดิม'
+          : err.details?.newPassword
+            ? 'รหัสผ่านใหม่ต้องยาวอย่างน้อย 6 ตัวอักษร'
+            : (err.message ?? 'เปลี่ยนรหัสผ่านไม่สำเร็จ');
+      showToast(msg, false);
     } finally {
       setBusyPw(false);
     }
   }
 
   function logout() {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    clearSession();
     navigate('/signin', { replace: true });
   }
 
