@@ -192,7 +192,7 @@ function AddGameModal({ onClose, onCreated }) {
               style={{
                 marginTop: 6,
                 border: '2px solid #0f766e',
-                background: '#ecfdf5',
+                background: '#eef4ec',
                 fontWeight: 600,
                 color: '#134e4a',
               }}

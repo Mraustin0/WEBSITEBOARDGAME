@@ -406,8 +406,8 @@
   border-radius: 999px;
 }
 .us-status.active {
-  background: #d1fae5;
-  color: #065f46;
+  background: #e3efe1;
+  color: #2f4f2f;
 }
 .us-status.suspended {
   background: #fee2e2;

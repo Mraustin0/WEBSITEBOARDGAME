@@ -54,7 +54,7 @@
 }
 .btn-ghost:hover {
   border-color: var(--color-secondary);
-  background: #ecfdf5;
+  background: #eef4ec;
 }
 .btn-danger {
   border: 1px solid #fecdd3;
@@ -103,7 +103,7 @@ button:disabled {
 }
 .chip.tone-available {
   background: var(--state-available-bg);
-  color: #065f46;
+  color: #2f4f2f;
 }
 .chip.tone-reserved {
   background: var(--state-reserved-bg);
@@ -255,7 +255,7 @@ button:disabled {
 }
 .sched-block.tone-available {
   background: var(--state-available-bg);
-  color: #065f46;
+  color: #2f4f2f;
   border: 1px solid var(--state-available);
 }
 .sched-block.tone-reserved {
@@ -321,7 +321,7 @@ button:disabled {
   padding: 2px 8px;
   border-radius: var(--radius-sm);
   background: var(--state-available-bg);
-  color: #065f46;
+  color: #2f4f2f;
   font-size: var(--fs-detail);
 }
 .res-name {

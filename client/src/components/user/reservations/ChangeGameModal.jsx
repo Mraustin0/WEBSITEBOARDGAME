@@ -108,11 +108,13 @@ export default function ChangeGameModal({ r, onClose, onDone }) {
           </button>
           <button
             type="button"
-            className={BTN.primary}
+            className={`${BTN.cta} max-w-full`}
             onClick={submit}
             disabled={busy || !selected}
           >
-            {busy ? 'กำลังบันทึก...' : selectedName ? `ยืนยัน: ${selectedName}` : 'เลือกเกมก่อน'}
+            <span className="truncate">
+              {busy ? 'กำลังบันทึก...' : selectedName ? `ยืนยัน: ${selectedName}` : 'เลือกเกมก่อน'}
+            </span>
           </button>
         </>
       }
@@ -130,12 +132,12 @@ export default function ChangeGameModal({ r, onClose, onDone }) {
           onChange={(e) => setQuery(e.target.value)}
           placeholder="ค้นหาชื่อเกม"
           aria-label="ค้นหาชื่อเกม"
-          className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-8 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          className="w-full rounded-full border border-ink/15 bg-white py-2 pl-8 pr-3 text-sm placeholder:text-slate-400 focus:border-forest focus:outline-none focus:ring-2 focus:ring-forest/20"
         />
       </div>
 
       {!bookable && data?.reason && (
-        <p className="mt-2 text-[11px] text-amber-700">
+        <p className="mt-2 rounded-xl border border-mustard/50 bg-mustard-light/60 px-3 py-2 text-[11px] text-slate-800">
           หมายเหตุ: {thaiError({ message: data.reason })} — จะเช็คอีกครั้งตอนยืนยัน
         </p>
       )}
@@ -147,10 +149,10 @@ export default function ChangeGameModal({ r, onClose, onDone }) {
           aria-checked={selected === NONE}
           disabled={!currentId}
           onClick={() => setSelected(NONE)}
-          className={`flex w-full items-center gap-3 rounded-xl border p-2.5 text-left transition ${
+          className={`flex w-full items-center gap-3 rounded-2xl border p-2.5 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-forest ${
             selected === NONE
-              ? 'border-emerald-600 bg-emerald-50 ring-1 ring-emerald-600'
-              : 'border-slate-200 hover:border-emerald-300'
+              ? 'border-forest bg-forest-50 ring-2 ring-forest/20'
+              : 'border-ink/10 bg-white hover:border-forest/40 hover:bg-cream-light'
           } disabled:cursor-not-allowed disabled:opacity-50`}
         >
           <GameCover game={null} className="h-11 w-11" />
@@ -164,10 +166,10 @@ export default function ChangeGameModal({ r, onClose, onDone }) {
 
         {loading ? (
           Array.from({ length: 4 }, (_, i) => (
-            <div key={i} className="h-16 animate-pulse rounded-xl bg-slate-100" />
+            <div key={i} className="h-16 animate-pulse rounded-2xl bg-cream" />
           ))
         ) : loadError ? (
-          <div className="rounded-xl border border-red-100 bg-red-50 p-3 text-xs text-red-700">
+          <div className="rounded-xl border border-brick/30 bg-brick-light/50 p-3 text-xs text-brick-dark">
             {loadError}{' '}
             <button
               type="button"
@@ -195,11 +197,11 @@ export default function ChangeGameModal({ r, onClose, onDone }) {
                 aria-checked={on}
                 disabled={!g.selectable}
                 onClick={() => setSelected(id)}
-                className={`flex w-full items-center gap-3 rounded-xl border p-2.5 text-left transition ${
+                className={`flex w-full items-center gap-3 rounded-2xl border p-2.5 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-forest ${
                   on
-                    ? 'border-emerald-600 bg-emerald-50 ring-1 ring-emerald-600'
-                    : 'border-slate-200 hover:border-emerald-300'
-                } disabled:cursor-not-allowed disabled:bg-slate-50 disabled:hover:border-slate-200`}
+                    ? 'border-forest bg-forest-50 ring-2 ring-forest/20'
+                    : 'border-ink/10 bg-white hover:border-forest/40 hover:bg-cream-light'
+                } disabled:cursor-not-allowed disabled:bg-cream-light disabled:hover:border-ink/10`}
               >
                 <GameCover
                   game={g}
@@ -220,10 +222,10 @@ export default function ChangeGameModal({ r, onClose, onDone }) {
                 <span
                   className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${
                     isCurrent
-                      ? 'bg-emerald-100 text-emerald-800'
+                      ? 'border border-forest-200 bg-forest-100 text-forest-800'
                       : g.selectable
-                        ? 'bg-emerald-600 text-white'
-                        : 'max-w-[45%] truncate bg-slate-100 text-slate-500'
+                        ? 'bg-teal text-white'
+                        : 'max-w-[45%] truncate bg-slate-200 text-slate-600'
                   }`}
                 >
                   {isCurrent ? 'เกมปัจจุบัน' : g.selectable ? 'ว่าง' : reasonText(g, players)}
@@ -234,7 +236,7 @@ export default function ChangeGameModal({ r, onClose, onDone }) {
         )}
       </div>
       {error && (
-        <p role="alert" className="mt-3 text-xs font-semibold text-red-600">
+        <p role="alert" className="mt-3 text-xs font-semibold text-brick-dark">
           {error}
         </p>
       )}

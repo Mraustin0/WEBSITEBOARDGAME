@@ -119,7 +119,7 @@ export default function EditModal({ r, rules, onClose, onDone }) {
       <ResSummary r={r} extra={`เดิม ${formatThaiDate(origYmd)} • ${timeRange(r)}`} />
 
       {result ? (
-        <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+        <div className="mt-4 rounded-2xl border border-forest-200 bg-forest-50 p-4">
           <Row label="วันที่" value={formatThaiDate(ymdTH(result.startAt))} />
           <Row label="เวลา" value={timeRange(result)} />
           <Row label="ผู้เล่น" value={`${result.players} คน`} />
@@ -132,7 +132,9 @@ export default function EditModal({ r, rules, onClose, onDone }) {
       ) : (
         <div className="mt-4 space-y-4">
           <fieldset>
-            <legend className="mb-1.5 text-xs font-bold text-slate-700">วันที่</legend>
+            <legend className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-600">
+              วันที่
+            </legend>
             <div className="flex flex-wrap gap-2">
               {dates.map((d) => (
                 <button
@@ -151,7 +153,9 @@ export default function EditModal({ r, rules, onClose, onDone }) {
           </fieldset>
 
           <fieldset>
-            <legend className="mb-1.5 text-xs font-bold text-slate-700">เวลาเริ่ม</legend>
+            <legend className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-600">
+              เวลาเริ่ม
+            </legend>
             {times.length ? (
               <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
                 {times.map((t) => (
@@ -167,12 +171,14 @@ export default function EditModal({ r, rules, onClose, onDone }) {
                 ))}
               </div>
             ) : (
-              <p className="text-xs text-slate-500">วันที่เลือกไม่มีรอบว่าง</p>
+              <p className="text-xs text-slate-600">วันที่เลือกไม่มีรอบว่าง</p>
             )}
           </fieldset>
 
           <fieldset>
-            <legend className="mb-1.5 text-xs font-bold text-slate-700">ระยะเวลา</legend>
+            <legend className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-600">
+              ระยะเวลา
+            </legend>
             {durations.length ? (
               <div className="flex flex-wrap gap-2">
                 {durations.map((h) => (
@@ -188,17 +194,20 @@ export default function EditModal({ r, rules, onClose, onDone }) {
                 ))}
               </div>
             ) : (
-              <p className="text-xs text-slate-500">เลือกเวลาเริ่มก่อน</p>
+              <p className="text-xs text-slate-600">เลือกเวลาเริ่มก่อน</p>
             )}
             {flat && (
-              <p className="mt-1.5 text-[11px] text-slate-500">
+              <p className="mt-1.5 text-[11px] text-slate-600">
                 แพ็กเกจเหมา 3 ชม. — เปลี่ยนชั่วโมงไม่ได้
               </p>
             )}
           </fieldset>
 
           <div>
-            <p className="mb-1.5 text-xs font-bold text-slate-700" id="edit-players-label">
+            <p
+              className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-600"
+              id="edit-players-label"
+            >
               จำนวนผู้เล่น
             </p>
             <div
@@ -211,11 +220,14 @@ export default function EditModal({ r, rules, onClose, onDone }) {
                 aria-label="ลดจำนวนผู้เล่น"
                 disabled={players <= 1}
                 onClick={() => setPlayers((p) => Math.max(1, p - 1))}
-                className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-700 hover:border-emerald-400 disabled:opacity-40"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-ink/15 bg-cream-light text-forest transition hover:border-forest/50 hover:bg-cream focus:outline-none focus-visible:ring-2 focus-visible:ring-forest disabled:opacity-40"
               >
                 <i className="fa-solid fa-minus" aria-hidden="true"></i>
               </button>
-              <span className="w-14 text-center text-base font-bold" aria-live="polite">
+              <span
+                className="w-14 text-center font-heading text-lg text-forest"
+                aria-live="polite"
+              >
                 {players} คน
               </span>
               <button
@@ -223,14 +235,14 @@ export default function EditModal({ r, rules, onClose, onDone }) {
                 aria-label="เพิ่มจำนวนผู้เล่น"
                 disabled={players >= maxPlayers}
                 onClick={() => setPlayers((p) => Math.min(maxPlayers, p + 1))}
-                className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-700 hover:border-emerald-400 disabled:opacity-40"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-ink/15 bg-cream-light text-forest transition hover:border-forest/50 hover:bg-cream focus:outline-none focus-visible:ring-2 focus-visible:ring-forest disabled:opacity-40"
               >
                 <i className="fa-solid fa-plus" aria-hidden="true"></i>
               </button>
-              <span className="text-[11px] text-slate-500">โต๊ะนี้นั่งได้ {maxPlayers} คน</span>
+              <span className="text-[11px] text-slate-600">โต๊ะนี้นั่งได้ {maxPlayers} คน</span>
             </div>
             {outOfGameRange && (
-              <p className="mt-1.5 text-[11px] font-semibold text-amber-700">
+              <p className="mt-1.5 rounded-xl border border-mustard/50 bg-mustard-light/60 px-3 py-2 text-[11px] font-semibold text-slate-800">
                 {r.game.name} เล่นได้ {gameRange[0]}–{gameRange[1]} คน — ถ้าจะใช้จำนวนนี้
                 ให้เปลี่ยนเกมก่อน
               </p>
@@ -238,7 +250,7 @@ export default function EditModal({ r, rules, onClose, onDone }) {
           </div>
 
           {newStart && valid && (
-            <p className="rounded-xl bg-slate-50 p-3 text-xs text-slate-600">
+            <p className="rounded-xl border border-ink/10 bg-cream-light p-3 text-xs text-slate-700">
               ใหม่: <strong>{formatThaiDate(ymd)}</strong> {hhmm}–
               {timeTH(new Date(new Date(newStart).getTime() + duration * HOUR).toISOString())} น. •{' '}
               {players} คน — ราคาใหม่จะคิดให้หลังบันทึก
@@ -247,7 +259,7 @@ export default function EditModal({ r, rules, onClose, onDone }) {
         </div>
       )}
       {error && (
-        <p role="alert" className="mt-3 text-xs font-semibold text-red-600">
+        <p role="alert" className="mt-3 text-xs font-semibold text-brick-dark">
           {error}
         </p>
       )}

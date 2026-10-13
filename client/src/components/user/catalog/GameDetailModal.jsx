@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import GameReviews from './GameReviews.jsx';
+import { GameBoxIcon } from '../../brand/BrandIcons.jsx';
 import {
   TONE,
   bookingHref,
@@ -21,14 +22,17 @@ function Chips({ title, items, tone = 'emerald' }) {
   if (!items?.length) return null;
   const cls =
     tone === 'emerald'
-      ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-      : 'bg-slate-100 border-slate-200 text-slate-700';
+      ? 'bg-forest-50 border-forest-200 text-forest-800'
+      : 'bg-cream-light border-ink/15 text-slate-700';
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{title}</span>
+      <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">{title}</span>
       <div className="flex flex-wrap gap-1">
         {items.map((c) => (
-          <span key={c} className={`text-[11px] border px-2 py-0.5 rounded-md font-medium ${cls}`}>
+          <span
+            key={c}
+            className={`text-[11px] border px-2 py-0.5 rounded-full font-medium ${cls}`}
+          >
             {c}
           </span>
         ))}
@@ -41,7 +45,7 @@ function Stat({ label, value }) {
   return (
     <div className="min-w-0">
       <span className="text-[10px] text-slate-500 uppercase font-semibold block">{label}</span>
-      <span className="text-xs font-bold text-slate-900">{value}</span>
+      <span className="text-xs font-bold text-ink">{value}</span>
     </div>
   );
 }
@@ -100,7 +104,7 @@ export default function GameDetailModal({ game, slotEntry, slot, onClose, notify
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center sm:p-4"
+      className="fixed inset-0 z-50 bg-ink/55 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4"
       onClick={onClose}
     >
       <div
@@ -110,19 +114,20 @@ export default function GameDetailModal({ game, slotEntry, slot, onClose, notify
         aria-labelledby="game-detail-title"
         onKeyDown={trapTab}
         onClick={(e) => e.stopPropagation()}
-        className="bg-white w-full sm:max-w-2xl max-h-[92vh] overflow-y-auto overscroll-contain rounded-t-2xl sm:rounded-2xl shadow-2xl"
+        className="bg-white w-full sm:max-w-2xl max-h-[92vh] overflow-y-auto overscroll-contain rounded-t-3xl sm:rounded-3xl border border-ink/15 shadow-2xl text-ink"
       >
-        <div className="relative h-56 sm:h-72 bg-slate-100">
+        <div aria-hidden="true" className="board-border h-1.5 w-full" />
+        <div className="paper relative h-56 sm:h-72">
           {src && !imgFailed ? (
             <img
               src={src}
               alt={game.name}
               onError={() => setImgFailed(true)}
-              className="w-full h-full object-contain bg-slate-900/5"
+              className="w-full h-full object-contain"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-6xl text-slate-300">
-              <i className="fa-solid fa-chess-knight"></i>
+            <div className="w-full h-full flex items-center justify-center">
+              <GameBoxIcon size={96} />
             </div>
           )}
           <button
@@ -130,57 +135,56 @@ export default function GameDetailModal({ game, slotEntry, slot, onClose, notify
             type="button"
             onClick={onClose}
             aria-label="ปิด"
-            className="absolute top-3 right-3 w-9 h-9 bg-black/60 hover:bg-black/80 text-white rounded-full flex items-center justify-center transition focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+            className="absolute top-3 right-3 w-9 h-9 bg-cream-light/95 border border-ink/15 hover:bg-white text-ink rounded-full flex items-center justify-center shadow-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-forest"
           >
             <i className="fa-solid fa-xmark"></i>
           </button>
           {game.rating && (
-            <span className="absolute bottom-3 right-3 bg-slate-900/90 text-amber-300 text-xs px-2.5 py-1 rounded-full font-bold flex items-center gap-1">
-              <span className="text-amber-400">★</span> คะแนน BGG {game.rating}
+            <span className="absolute bottom-3 right-3 bg-mustard text-ink border border-ink/20 text-xs px-2.5 py-1 rounded-full font-bold flex items-center gap-1 shadow-sm">
+              <span aria-hidden="true">★</span> คะแนน BGG {game.rating}
             </span>
           )}
         </div>
 
-        <div className="p-5 sm:p-6 flex flex-col gap-5">
-          <div className="flex flex-col gap-2">
-            <h2
-              id="game-detail-title"
-              className="font-heading font-bold text-xl sm:text-2xl text-slate-900 break-words"
-            >
-              {game.name}
-              {game.yearPublished && (
-                <span className="ml-2 text-sm font-semibold text-slate-400">
-                  ({game.yearPublished})
-                </span>
-              )}
-            </h2>
-            <span
-              className={`self-start text-xs px-2.5 py-1 rounded-full font-semibold flex items-center gap-1.5 ${TONE[status.tone]}`}
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-white"></span>
-              {atSlot ? `ช่วงที่เลือก: ${atSlot.label}` : now.label}
-            </span>
-          </div>
+        <div className="bg-cream border-y border-ink/10 px-5 sm:px-6 py-4 flex flex-col gap-2">
+          <h2
+            id="game-detail-title"
+            className="font-heading text-2xl sm:text-3xl leading-tight text-forest break-words"
+          >
+            {game.name}
+            {game.yearPublished && (
+              <span className="ml-2 font-sans text-sm font-semibold text-slate-500">
+                ({game.yearPublished})
+              </span>
+            )}
+          </h2>
+          <span
+            className={`self-start max-w-full text-xs px-2.5 py-1 rounded-full font-semibold flex items-center gap-1.5 ${TONE[status.tone]}`}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-current opacity-80 shrink-0"></span>
+            <span className="min-w-0">{atSlot ? `ช่วงที่เลือก: ${atSlot.label}` : now.label}</span>
+          </span>
+        </div>
 
-          <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+        <div className="p-5 sm:p-6 flex flex-col gap-5">
+          <div className="bg-cream-light border border-ink/10 rounded-2xl p-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
             <Stat label="ผู้เล่น" value={playersLabel(game)} />
             <Stat label="เวลาเล่น" value={playtimeLabel(game)} />
             <Stat label="คะแนน BGG" value={game.rating ? `${game.rating} / 10` : '-'} />
             <Stat label="ความยาก" value={game.weight ? `${game.weight} / 5` : '-'} />
           </div>
 
-          <div className="text-xs text-slate-600 bg-white border border-slate-200 rounded-xl px-3 py-2.5 flex flex-wrap gap-x-4 gap-y-1">
-            <span className="font-bold text-slate-800">มีทั้งหมด {copies} กล่อง</span>
+          <div className="text-xs text-slate-700 bg-white border border-ink/10 rounded-2xl px-3 py-2.5 flex flex-wrap gap-x-4 gap-y-1">
+            <span className="font-bold text-ink">มีทั้งหมด {copies} กล่อง</span>
             <span>
-              <i className="fa-solid fa-box-open text-emerald-600 mr-1"></i>ว่าง{' '}
-              {game.copiesInVault ?? 0}
+              <i className="fa-solid fa-box-open text-teal mr-1"></i>ว่าง {game.copiesInVault ?? 0}
             </span>
             <span>
-              <i className="fa-solid fa-dice text-amber-600 mr-1"></i>กำลังเล่น{' '}
+              <i className="fa-solid fa-dice text-brick-dark mr-1"></i>กำลังเล่น{' '}
               {game.copiesInPlay ?? 0}
             </span>
             <span>
-              <i className="fa-solid fa-screwdriver-wrench text-rose-600 mr-1"></i>ส่งซ่อม{' '}
+              <i className="fa-solid fa-screwdriver-wrench text-slate-500 mr-1"></i>ส่งซ่อม{' '}
               {game.copiesInRepair ?? 0}
             </span>
           </div>
@@ -188,7 +192,7 @@ export default function GameDetailModal({ game, slotEntry, slot, onClose, notify
           {canBook ? (
             <Link
               to={bookingHref(game._id, atSlot ? slot : null)}
-              className="w-full bg-[#064e3b] hover:bg-emerald-800 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition text-sm shadow-sm"
+              className="w-full bg-brick-dark hover:bg-[#963a3a] text-white font-bold py-3 px-4 rounded-full flex items-center justify-center gap-2 transition text-sm shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-forest focus-visible:ring-offset-2"
             >
               <i className="fa-solid fa-calendar-check"></i> จองโต๊ะเล่นเกมนี้
             </Link>
@@ -196,7 +200,7 @@ export default function GameDetailModal({ game, slotEntry, slot, onClose, notify
             <button
               type="button"
               disabled
-              className="w-full bg-slate-100 text-slate-500 border border-slate-200 font-semibold py-3 px-4 rounded-xl text-sm cursor-not-allowed"
+              className="w-full bg-cream-light text-slate-500 border border-ink/10 font-semibold py-3 px-4 rounded-full text-sm cursor-not-allowed"
             >
               {status.tone === 'repair'
                 ? 'เกมนี้ส่งซ่อม — ยังจองไม่ได้'
@@ -206,7 +210,7 @@ export default function GameDetailModal({ game, slotEntry, slot, onClose, notify
 
           {description && (
             <div className="flex flex-col gap-1.5">
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+              <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
                 เกี่ยวกับเกม
               </span>
               <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line break-words">
@@ -219,7 +223,7 @@ export default function GameDetailModal({ game, slotEntry, slot, onClose, notify
                   type="button"
                   onClick={() => setExpanded((v) => !v)}
                   aria-expanded={expanded}
-                  className="self-start text-xs font-bold text-emerald-700 hover:underline"
+                  className="self-start text-xs font-bold text-teal-dark hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-forest rounded"
                 >
                   {expanded ? 'ย่อ' : 'อ่านต่อ'}
                 </button>
@@ -231,7 +235,7 @@ export default function GameDetailModal({ game, slotEntry, slot, onClose, notify
           <Chips title="กลไกเกม" items={game.mechanics} tone="slate" />
           <Chips title="ผู้ออกแบบ" items={game.designers} tone="slate" />
 
-          <hr className="border-slate-100" />
+          <hr className="border-ink/10" />
 
           <GameReviews gameId={String(game._id)} gameName={game.name} notify={notify} />
         </div>

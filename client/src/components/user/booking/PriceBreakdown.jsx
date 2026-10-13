@@ -5,9 +5,11 @@ import { baht } from './pricing.js';
 function Row({ label, value, muted, accent }) {
   return (
     <div className="flex items-start justify-between gap-3 text-xs">
-      <span className={muted ? 'text-slate-400' : 'text-slate-600'}>{label}</span>
+      <span className={`min-w-0 flex-1 ${muted ? 'text-slate-500' : 'text-slate-700'}`}>
+        {label}
+      </span>
       <span
-        className={`font-semibold whitespace-nowrap ${accent ? 'text-emerald-700' : 'text-slate-800'}`}
+        className={`shrink-0 font-semibold whitespace-nowrap ${accent ? 'text-teal-dark' : 'text-ink'}`}
       >
         {value}
       </span>
@@ -64,13 +66,23 @@ export default function PriceBreakdown({ price, rules }) {
           />
         </>
       )}
-      <div className="flex items-baseline justify-between border-t border-dashed border-slate-200 pt-2 mt-1">
-        <span className="text-xs font-bold text-slate-700">ยอดรวม</span>
-        <span className="text-2xl font-heading font-bold text-[#064e3b]">{baht(price.total)}</span>
+      <div className="flex items-baseline justify-between border-t border-dashed border-ink/20 pt-2 mt-1">
+        <span className="text-xs font-bold uppercase tracking-wider text-slate-600">ยอดรวม</span>
+        <span className="text-2xl font-heading text-forest">{baht(price.total)}</span>
       </div>
       {price.deposit > 0 && (
-        <div className="rounded-xl bg-amber-50 border border-amber-200 px-3 py-2 flex flex-col gap-1">
-          <Row label="มัดจำ (หักตอนเช็คบิล · ไม่มาตามนัดจะไม่ได้คืน)" value={baht(price.deposit)} />
+        <div className="rounded-xl bg-mustard-light/60 border border-mustard/50 px-3 py-2 flex flex-col gap-1.5">
+          <Row
+            label={
+              <>
+                <span className="font-semibold text-ink">มัดจำ</span>{' '}
+                <span className="block text-[10px] leading-snug text-slate-600">
+                  (หักตอนเช็คบิล · ไม่มาตามนัดจะไม่ได้คืน)
+                </span>
+              </>
+            }
+            value={baht(price.deposit)}
+          />
           <Row label="จ่ายที่ร้าน" value={baht(price.dueAtCounter)} />
         </div>
       )}

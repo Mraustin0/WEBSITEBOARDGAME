@@ -1,19 +1,15 @@
-import { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+// ตั้งค่าบัญชีสมาชิก (หน้าแยก ไม่มี UserLayout): ข้อมูลส่วนตัว / เปลี่ยนรหัสผ่าน / ออกจากระบบ
+import { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { clearSession, getUser, setSession } from '../lib/session.js';
+import { useToast } from '../components/user/Toast.jsx';
+import { BTN, CARD, INPUT } from '../components/user/brandUi.js';
+import { BoardBorder, Logo } from '../components/brand/Brand.jsx';
+import { MeepleIcon } from '../components/brand/BrandIcons.jsx';
 
-function Toast({ toast }) {
-  if (!toast) return null;
-  return (
-    <div
-      className={`fixed top-5 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 px-5 py-3 rounded-2xl shadow-lg text-sm font-semibold text-white ${toast.ok ? 'bg-emerald-600' : 'bg-red-500'}`}
-    >
-      <i className={`fa-solid ${toast.ok ? 'fa-circle-check' : 'fa-circle-xmark'}`} />
-      {toast.msg}
-    </div>
-  );
-}
+const labelCls = 'block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1.5';
+const inputCls = `${INPUT} py-2.5`;
 
 export default function UserProfile() {
   const navigate = useNavigate();
@@ -33,8 +29,7 @@ export default function UserProfile() {
   const [showNew, setShowNew] = useState(false);
   const [busyProfile, setBusyProfile] = useState(false);
   const [busyPw, setBusyPw] = useState(false);
-  const [toast, setToast] = useState(null);
-  const timer = useRef(null);
+  const [toastEl, showToast] = useToast();
 
   // ดึงข้อมูลล่าสุดจาก DB เมื่อเปิดหน้า
   useEffect(() => {
@@ -53,12 +48,6 @@ export default function UserProfile() {
       })
       .catch(() => {});
   }, []);
-
-  function showToast(msg, ok = true) {
-    clearTimeout(timer.current);
-    setToast({ msg, ok });
-    timer.current = setTimeout(() => setToast(null), 3500);
-  }
 
   const setP = (k) => (e) => setProfile((f) => ({ ...f, [k]: e.target.value }));
   const setPW = (k) => (e) => setPw((f) => ({ ...f, [k]: e.target.value }));
@@ -134,39 +123,66 @@ export default function UserProfile() {
   const initials = (profile.username || profile.email || '?').slice(0, 2).toUpperCase();
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans">
-      <Toast toast={toast} />
+    <div className="paper min-h-screen font-sans text-ink">
+      {toastEl}
 
       {/* Header */}
-      <header className="h-16 bg-white border-b border-slate-200 shadow-sm px-6 flex items-center justify-between sticky top-0 z-40">
-        <button
-          onClick={() => navigate('/')}
-          className="flex items-center gap-2 text-slate-600 hover:text-slate-900 transition text-sm font-semibold"
-        >
-          <i className="fa-solid fa-arrow-left text-xs" /> กลับ
-        </button>
-        <span className="font-bold text-slate-800">ตั้งค่าบัญชี</span>
-        <button
-          onClick={logout}
-          className="text-sm text-red-500 hover:text-red-700 font-semibold transition flex items-center gap-1.5"
-        >
-          <i className="fa-solid fa-right-from-bracket text-xs" /> ออกจากระบบ
-        </button>
+      <header className="sticky top-0 z-40 border-b border-ink/10 bg-cream-light/95 backdrop-blur">
+        <BoardBorder className="h-1.5" />
+        <div className="mx-auto flex h-16 max-w-3xl items-center justify-between gap-3 px-4 sm:px-6">
+          <button
+            type="button"
+            onClick={() => navigate('/')}
+            className="flex shrink-0 items-center gap-1.5 rounded-full px-2 py-1.5 text-sm font-semibold text-forest transition hover:bg-cream focus:outline-none focus-visible:ring-2 focus-visible:ring-forest"
+          >
+            <span aria-hidden="true">←</span> กลับ
+          </button>
+          <Link
+            to="/"
+            aria-label="Boardgame Everyday หน้าแรก"
+            className="min-w-0 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-forest"
+          >
+            <Logo size="sm" />
+          </Link>
+          <button
+            type="button"
+            onClick={logout}
+            aria-label="ออกจากระบบ"
+            className="flex shrink-0 items-center gap-1.5 rounded-full px-2 py-1.5 text-sm font-semibold text-brick-dark transition hover:bg-brick-light/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-forest"
+          >
+            <i className="fa-solid fa-right-from-bracket text-xs" aria-hidden="true" />
+            <span className="hidden sm:inline">ออกจากระบบ</span>
+          </button>
+        </div>
       </header>
 
-      <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
+      <div className="mx-auto max-w-2xl space-y-6 px-4 py-8">
+        <div>
+          <h1 className="font-heading text-3xl leading-tight text-forest sm:text-4xl">
+            ตั้งค่าบัญชี
+          </h1>
+          <p className="text-sm text-slate-600">
+            แก้ข้อมูลติดต่อ เปลี่ยนรหัสผ่าน และจัดการการเข้าสู่ระบบ
+          </p>
+        </div>
+
         {/* Avatar + info */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 flex items-center gap-5">
-          <div className="w-16 h-16 rounded-full bg-[#064e3b] text-white font-bold text-xl flex items-center justify-center shrink-0 shadow">
-            {initials}
+        <div className={`${CARD} flex items-center gap-4 p-5 sm:gap-5 sm:p-6`}>
+          <div className="relative shrink-0">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-ink/80 bg-forest font-heading text-xl text-white shadow-card">
+              {initials}
+            </div>
+            <span className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border border-ink/15 bg-cream">
+              <MeepleIcon size={18} fill="#cd5c5c" />
+            </span>
           </div>
-          <div>
-            <div className="font-bold text-lg text-slate-900">
+          <div className="min-w-0">
+            <div className="truncate font-heading text-xl text-forest">
               {profile.displayName || profile.username}
             </div>
-            <div className="text-sm text-slate-400">{profile.email}</div>
-            <div className="mt-1 inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full">
-              <i className="fa-solid fa-circle-check text-[10px]" />
+            <div className="truncate text-sm text-slate-600">{profile.email}</div>
+            <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-teal px-2.5 py-1 text-xs font-semibold text-white">
+              <i className="fa-solid fa-circle-check text-[10px]" aria-hidden="true" />
               {stored.role === 'staff'
                 ? 'พนักงาน'
                 : stored.role === 'admin'
@@ -177,31 +193,31 @@ export default function UserProfile() {
         </div>
 
         {/* Profile form */}
-        <form
-          onSubmit={saveProfile}
-          className="bg-white rounded-2xl border border-slate-200 p-6 space-y-5"
-        >
-          <h2 className="font-bold text-slate-800 text-base flex items-center gap-2">
-            <i className="fa-solid fa-user text-[#064e3b] text-sm" /> ข้อมูลส่วนตัว
+        <form onSubmit={saveProfile} className={`${CARD} space-y-5 p-5 sm:p-6`}>
+          <h2 className="flex items-center gap-2 font-heading text-xl text-forest">
+            <i className="fa-solid fa-user text-base text-brick-dark" aria-hidden="true" />{' '}
+            ข้อมูลส่วนตัว
           </h2>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label className="block text-xs font-semibold text-slate-500 mb-1.5">
+              <label htmlFor="pf-username" className={labelCls}>
                 ชื่อผู้ใช้
               </label>
               <input
-                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]"
+                id="pf-username"
+                className={inputCls}
                 value={profile.username}
                 onChange={setP('username')}
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 mb-1.5">
+              <label htmlFor="pf-display" className={labelCls}>
                 ชื่อที่แสดง
               </label>
               <input
-                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]"
+                id="pf-display"
+                className={inputCls}
                 value={profile.displayName}
                 onChange={setP('displayName')}
                 placeholder="ชื่อที่อยากให้แสดง"
@@ -210,22 +226,26 @@ export default function UserProfile() {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-500 mb-1.5">อีเมล</label>
+            <label htmlFor="pf-email" className={labelCls}>
+              อีเมล
+            </label>
             <input
-              className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]"
+              id="pf-email"
+              className={inputCls}
               type="email"
               value={profile.email}
               onChange={setP('email')}
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label className="block text-xs font-semibold text-slate-500 mb-1.5">
+              <label htmlFor="pf-phone" className={labelCls}>
                 เบอร์โทรศัพท์
               </label>
               <input
-                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]"
+                id="pf-phone"
+                className={inputCls}
                 type="tel"
                 value={profile.phone}
                 onChange={setP('phone')}
@@ -233,9 +253,12 @@ export default function UserProfile() {
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 mb-1.5">LINE ID</label>
+              <label htmlFor="pf-line" className={labelCls}>
+                LINE ID
+              </label>
               <input
-                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]"
+                id="pf-line"
+                className={inputCls}
                 value={profile.lineId}
                 onChange={setP('lineId')}
                 placeholder="@yourline"
@@ -243,31 +266,26 @@ export default function UserProfile() {
             </div>
           </div>
 
-          <button
-            type="submit"
-            disabled={busyProfile}
-            className="w-full bg-[#064e3b] text-white py-2.5 rounded-xl font-bold text-sm hover:bg-emerald-900 transition disabled:opacity-50"
-          >
+          <button type="submit" disabled={busyProfile} className={`${BTN.primary} w-full`}>
             {busyProfile ? 'กำลังบันทึก...' : 'บันทึกข้อมูล'}
           </button>
         </form>
 
         {/* Password form */}
-        <form
-          onSubmit={changePassword}
-          className="bg-white rounded-2xl border border-slate-200 p-6 space-y-5"
-        >
-          <h2 className="font-bold text-slate-800 text-base flex items-center gap-2">
-            <i className="fa-solid fa-lock text-[#064e3b] text-sm" /> เปลี่ยนรหัสผ่าน
+        <form onSubmit={changePassword} className={`${CARD} space-y-5 p-5 sm:p-6`}>
+          <h2 className="flex items-center gap-2 font-heading text-xl text-forest">
+            <i className="fa-solid fa-lock text-base text-brick-dark" aria-hidden="true" />{' '}
+            เปลี่ยนรหัสผ่าน
           </h2>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-500 mb-1.5">
+            <label htmlFor="pw-old" className={labelCls}>
               รหัสผ่านเดิม
             </label>
             <div className="relative">
               <input
-                className="w-full border border-slate-200 rounded-xl pl-3 pr-10 py-2.5 text-sm outline-none focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]"
+                id="pw-old"
+                className={`${inputCls} pr-11`}
                 type={showOld ? 'text' : 'password'}
                 autoComplete="current-password"
                 value={pw.oldPassword}
@@ -275,22 +293,27 @@ export default function UserProfile() {
               />
               <button
                 type="button"
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
+                aria-label={showOld ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
+                className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-slate-500 hover:bg-cream hover:text-forest focus:outline-none focus-visible:ring-2 focus-visible:ring-forest"
                 onClick={() => setShowOld((s) => !s)}
               >
-                <i className={`fa-regular ${showOld ? 'fa-eye-slash' : 'fa-eye'} text-sm`} />
+                <i
+                  className={`fa-regular ${showOld ? 'fa-eye-slash' : 'fa-eye'} text-sm`}
+                  aria-hidden="true"
+                />
               </button>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label className="block text-xs font-semibold text-slate-500 mb-1.5">
+              <label htmlFor="pw-new" className={labelCls}>
                 รหัสผ่านใหม่
               </label>
               <div className="relative">
                 <input
-                  className="w-full border border-slate-200 rounded-xl pl-3 pr-10 py-2.5 text-sm outline-none focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]"
+                  id="pw-new"
+                  className={`${inputCls} pr-11`}
                   type={showNew ? 'text' : 'password'}
                   autoComplete="new-password"
                   value={pw.newPassword}
@@ -299,19 +322,24 @@ export default function UserProfile() {
                 />
                 <button
                   type="button"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
+                  aria-label={showNew ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
+                  className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-slate-500 hover:bg-cream hover:text-forest focus:outline-none focus-visible:ring-2 focus-visible:ring-forest"
                   onClick={() => setShowNew((s) => !s)}
                 >
-                  <i className={`fa-regular ${showNew ? 'fa-eye-slash' : 'fa-eye'} text-sm`} />
+                  <i
+                    className={`fa-regular ${showNew ? 'fa-eye-slash' : 'fa-eye'} text-sm`}
+                    aria-hidden="true"
+                  />
                 </button>
               </div>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 mb-1.5">
+              <label htmlFor="pw-confirm" className={labelCls}>
                 ยืนยันรหัสผ่านใหม่
               </label>
               <input
-                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]"
+                id="pw-confirm"
+                className={inputCls}
                 type="password"
                 autoComplete="new-password"
                 value={pw.confirm}
@@ -324,25 +352,23 @@ export default function UserProfile() {
           <button
             type="submit"
             disabled={busyPw || !pw.oldPassword || !pw.newPassword || !pw.confirm}
-            className="w-full bg-slate-800 text-white py-2.5 rounded-xl font-bold text-sm hover:bg-slate-900 transition disabled:opacity-50"
+            className={`${BTN.primary} w-full`}
           >
             {busyPw ? 'กำลังเปลี่ยน...' : 'เปลี่ยนรหัสผ่าน'}
           </button>
         </form>
 
         {/* Danger zone */}
-        <div className="bg-white rounded-2xl border border-red-100 p-6">
-          <h2 className="font-bold text-red-600 text-base flex items-center gap-2 mb-4">
-            <i className="fa-solid fa-triangle-exclamation text-sm" /> ออกจากระบบ
+        <div className="rounded-2xl border border-brick/30 bg-brick-light/40 p-5 shadow-card sm:p-6">
+          <h2 className="mb-3 flex items-center gap-2 font-heading text-xl text-brick-dark">
+            <i className="fa-solid fa-triangle-exclamation text-base" aria-hidden="true" />{' '}
+            ออกจากระบบ
           </h2>
-          <p className="text-sm text-slate-500 mb-4">
+          <p className="mb-4 text-sm text-slate-700">
             ออกจากระบบบนอุปกรณ์นี้ ครั้งหน้าต้องเข้าสู่ระบบใหม่
           </p>
-          <button
-            onClick={logout}
-            className="w-full border border-red-200 text-red-500 hover:bg-red-50 py-2.5 rounded-xl font-bold text-sm transition"
-          >
-            <i className="fa-solid fa-right-from-bracket mr-2" />
+          <button type="button" onClick={logout} className={`${BTN.danger} w-full`}>
+            <i className="fa-solid fa-right-from-bracket" aria-hidden="true" />
             ออกจากระบบ
           </button>
         </div>

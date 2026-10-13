@@ -15,6 +15,8 @@ import ExtendModal from '../components/user/reservations/ExtendModal.jsx';
 import ReturnModal from '../components/user/reservations/ReturnModal.jsx';
 import ReviewModal from '../components/user/reservations/ReviewModal.jsx';
 import { EmptyState, ListSkeleton } from '../components/user/reservations/ui.jsx';
+import { ALERT } from '../components/user/brandUi.js';
+import { CalendarIcon, TableIcon, TrophyIcon } from '../components/brand/BrandIcons.jsx';
 import {
   BTN,
   asList,
@@ -248,6 +250,7 @@ export default function MyReservations() {
     if (totalAll === 0) {
       return (
         <EmptyState
+          art={<CalendarIcon size={48} />}
           title="ยังไม่มีการจอง"
           text="จองโต๊ะแล้วเลือกเกมที่อยากเล่นได้เลย"
           action={
@@ -262,7 +265,7 @@ export default function MyReservations() {
     if (tab === 'active') {
       return (
         <EmptyState
-          icon="fa-chess-board"
+          art={<TableIcon size={48} />}
           title="ไม่มีโต๊ะที่กำลังเล่นอยู่"
           text="ถึงเวลาที่จองไว้ โต๊ะของคุณจะขึ้นที่นี่"
           action={
@@ -283,7 +286,7 @@ export default function MyReservations() {
     if (tab === 'upcoming') {
       return (
         <EmptyState
-          icon="fa-calendar-plus"
+          art={<CalendarIcon size={48} />}
           title="ไม่มีการจองล่วงหน้า"
           action={
             <button type="button" className={BTN.primary} onClick={goBooking}>
@@ -293,16 +296,13 @@ export default function MyReservations() {
         />
       );
     }
-    return <EmptyState icon="fa-clock-rotate-left" title="ยังไม่มีประวัติการเล่น" />;
+    return <EmptyState art={<TrophyIcon size={48} />} title="ยังไม่มีประวัติการเล่น" />;
   }
 
   function renderList() {
     if (error) {
       return (
-        <div
-          role="alert"
-          className="rounded-2xl border border-red-200 bg-red-50 p-5 text-center text-sm text-red-700"
-        >
+        <div role="alert" className={`${ALERT.error} p-5 text-center text-sm`}>
           <p className="font-semibold">โหลดการจองไม่สำเร็จ: {error}</p>
           <button type="button" className={`${BTN.secondary} mt-3`} onClick={() => load()}>
             ลองใหม่
@@ -379,25 +379,32 @@ export default function MyReservations() {
   const activeCount = counts?.active ?? 0;
 
   return (
-    <div className="min-h-screen bg-[#f2f5f4] pb-16 text-emerald-950">
+    <div className="paper min-h-[calc(100vh-4rem)] pb-16 text-ink">
       {toastEl}
 
       <div className="mx-auto max-w-6xl px-4 pt-6 sm:px-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">การจองของฉัน</h1>
-            <p className="text-xs text-slate-500">
-              ดูโต๊ะที่กำลังเล่น ต่อเวลา คืนเกม และจัดการการจองล่วงหน้า
-            </p>
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="hidden h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-ink/10 bg-white shadow-card sm:flex">
+              <CalendarIcon size={40} />
+            </span>
+            <div className="min-w-0">
+              <h1 className="font-heading text-3xl leading-tight text-forest sm:text-4xl">
+                การจองของฉัน
+              </h1>
+              <p className="text-sm text-slate-600">
+                ดูโต๊ะที่กำลังเล่น ต่อเวลา คืนเกม และจัดการการจองล่วงหน้า
+              </p>
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-sm">
+            <span className="flex items-center gap-2 rounded-full border border-ink/10 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-card">
               <span
-                className={`h-2 w-2 rounded-full ${activeCount ? 'animate-pulse bg-emerald-500' : 'bg-slate-300'}`}
+                className={`h-2 w-2 rounded-full ${activeCount ? 'animate-pulse bg-brick' : 'bg-slate-300'}`}
               />
               {activeCount ? `กำลังเล่น ${activeCount} โต๊ะ` : 'ไม่มีโต๊ะที่กำลังเล่น'}
             </span>
-            <button type="button" className={BTN.primary} onClick={goBooking}>
+            <button type="button" className={BTN.cta} onClick={goBooking}>
               <i className="fa-solid fa-plus" aria-hidden="true"></i>
               จองโต๊ะใหม่
             </button>
@@ -406,12 +413,12 @@ export default function MyReservations() {
       </div>
 
       {/* แท็บ + ค้นหา (ติดใต้ header ของ UserLayout) */}
-      <div className="sticky top-16 z-30 mt-4 border-b border-slate-200 bg-[#f2f5f4]/95 backdrop-blur">
+      <div className="sticky top-16 z-30 mt-4 border-b border-ink/10 bg-cream/95 backdrop-blur">
         <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div
             role="tablist"
             aria-label="ประเภทการจอง"
-            className="grid grid-cols-3 gap-1 rounded-2xl border border-slate-200 bg-white p-1 sm:inline-grid sm:w-auto"
+            className="grid grid-cols-3 gap-1 rounded-full border border-ink/10 bg-white p-1 shadow-card sm:inline-grid sm:w-auto"
           >
             {TABS.map((t) => {
               const on = tab === t.key;
@@ -423,8 +430,8 @@ export default function MyReservations() {
                   role="tab"
                   aria-selected={on}
                   onClick={() => setTab(t.key)}
-                  className={`flex items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-xs font-semibold transition sm:px-4 ${
-                    on ? 'bg-[#064e3b] text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'
+                  className={`flex min-w-0 items-center justify-center gap-1.5 rounded-full px-2 py-2 text-xs font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-forest sm:px-4 ${
+                    on ? 'bg-forest text-white shadow-sm' : 'text-slate-600 hover:bg-cream'
                   }`}
                 >
                   <i className={`fa-solid ${t.icon} hidden sm:inline`} aria-hidden="true"></i>
@@ -432,7 +439,7 @@ export default function MyReservations() {
                   {n != null && (
                     <span
                       className={`flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] ${
-                        on ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+                        on ? 'bg-mustard text-ink' : 'bg-cream text-slate-600'
                       }`}
                     >
                       {n}
@@ -455,14 +462,14 @@ export default function MyReservations() {
               placeholder="ค้นหาโต๊ะ โซน หรือชื่อเกม"
               aria-label="ค้นหาการจอง"
               maxLength={80}
-              className="w-full rounded-full border border-slate-200 bg-white py-2 pl-9 pr-9 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400"
+              className="w-full rounded-full border border-ink/15 bg-white py-2.5 pl-9 pr-9 text-xs placeholder:text-slate-400 focus:border-forest focus:outline-none focus:ring-2 focus:ring-forest/20"
             />
             {search && (
               <button
                 type="button"
                 onClick={() => setSearch('')}
                 aria-label="ล้างคำค้น"
-                className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-slate-500 hover:bg-cream hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-forest"
               >
                 <i className="fa-solid fa-xmark text-xs" aria-hidden="true"></i>
               </button>

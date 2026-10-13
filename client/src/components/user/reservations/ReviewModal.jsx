@@ -11,12 +11,12 @@ export default function ReviewModal({ game, initial, afterReturn = false, onClos
       onClose={onClose}
       size="max-w-md"
     >
-      <div className="mb-4 flex items-center gap-3">
+      <div className="mb-4 flex items-center gap-3 rounded-2xl border border-ink/10 bg-cream-light p-3">
         <GameCover game={game} className="h-14 w-14" />
         <div className="min-w-0">
-          <p className="truncate text-base font-bold">{game.name}</p>
+          <p className="truncate font-heading text-lg text-forest">{game.name}</p>
           {afterReturn && (
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-600">
               ให้คะแนนเพื่อช่วยเพื่อนสมาชิกเลือกเกม (ข้ามได้)
             </p>
           )}

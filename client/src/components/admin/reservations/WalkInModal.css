@@ -85,7 +85,7 @@
 }
 .pkg.on {
   border-color: var(--state-available);
-  background: #f0fdf7;
+  background: #f2f6f1;
 }
 .pkg em {
   font-style: normal;
@@ -147,7 +147,7 @@
 }
 .game-item:hover {
   border-color: var(--state-available);
-  background: #f0fdf7;
+  background: #f2f6f1;
 }
 @media (max-width: 640px) {
   .pkg-row {

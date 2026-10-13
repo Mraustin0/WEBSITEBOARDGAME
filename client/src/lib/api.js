@@ -32,9 +32,7 @@ export async function api(path, { method = 'GET', body, query } = {}) {
     // 401 = token หมดอายุ/ถูกยกเลิก → ล้าง session แล้วพาไปหน้า login ที่ตรงกับฝั่งที่ใช้อยู่
     if (res.status === 401 && token && !NO_LOGOUT.includes(path)) {
       clearSession();
-      const inAdmin = window.location.pathname.startsWith('/admin');
-      const target = inAdmin ? '/login' : '/signin';
-      if (window.location.pathname !== target) window.location.assign(target);
+      if (window.location.pathname !== '/signin') window.location.assign('/signin');
     }
     const err = new Error(data?.error || res.statusText);
     err.status = res.status;

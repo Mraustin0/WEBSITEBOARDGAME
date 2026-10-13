@@ -72,7 +72,7 @@ export default function ReturnModal({ r, onClose, onDone }) {
           </button>
           <button
             type="button"
-            className={BTN.primary}
+            className={BTN.cta}
             onClick={submit}
             disabled={busy || loading || Boolean(loadError) || noteMissing}
           >
@@ -84,16 +84,18 @@ export default function ReturnModal({ r, onClose, onDone }) {
     >
       <ResSummary r={r} />
 
-      <div className="mt-4 rounded-2xl border border-slate-200 p-4">
-        <p className="mb-1 text-xs font-bold text-slate-700">ค่าใช้จ่ายถึงตอนนี้</p>
+      <div className="mt-4 rounded-2xl border border-ink/10 bg-cream-light p-4">
+        <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-slate-600">
+          ค่าใช้จ่ายถึงตอนนี้
+        </p>
         {loading ? (
           <div className="space-y-2 py-1" aria-busy="true">
             {Array.from({ length: 4 }, (_, i) => (
-              <div key={i} className="h-4 animate-pulse rounded bg-slate-100" />
+              <div key={i} className="h-4 animate-pulse rounded bg-cream-dark" />
             ))}
           </div>
         ) : loadError ? (
-          <p className="text-xs text-red-600">
+          <p className="text-xs text-brick-dark">
             {loadError}{' '}
             <button
               type="button"
@@ -118,12 +120,12 @@ export default function ReturnModal({ r, onClose, onDone }) {
               <Row
                 label={`เกินเวลา ${hoursLabel(bill.overtimeHours)}`}
                 value={`+${baht(bill.overtimeCharge)}`}
-                tone="text-red-600"
+                tone="text-brick-dark"
               />
             ) : (
-              <Row label="เกินเวลา" value="ไม่มี" tone="text-emerald-700" />
+              <Row label="เกินเวลา" value="ไม่มี" tone="text-forest" />
             )}
-            <div className="my-1 border-t border-dashed border-slate-200" />
+            <div className="my-1 border-t border-dashed border-ink/20" />
             <Row label="ยอดรวม" value={baht(bill.total)} strong />
             {bill.deposit ? (
               <>
@@ -132,11 +134,11 @@ export default function ReturnModal({ r, onClose, onDone }) {
                   label="จ่ายที่เคาน์เตอร์"
                   value={baht(bill.balanceDue)}
                   strong
-                  tone="text-emerald-800"
+                  tone="text-forest"
                 />
               </>
             ) : (
-              <p className="mt-1 text-[11px] text-slate-500">จ่ายที่เคาน์เตอร์หลังคืนเกม</p>
+              <p className="mt-1 text-[11px] text-slate-600">จ่ายที่เคาน์เตอร์หลังคืนเกม</p>
             )}
           </>
         ) : null}
@@ -144,28 +146,30 @@ export default function ReturnModal({ r, onClose, onDone }) {
 
       {hasGame && (
         <fieldset className="mt-4">
-          <legend className="mb-1.5 text-xs font-bold text-slate-700">สภาพเกมตอนคืน</legend>
+          <legend className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-600">
+            สภาพเกมตอนคืน
+          </legend>
           <div className="grid grid-cols-2 gap-2">
             {[
               {
                 key: 'good',
                 label: 'สภาพดี',
                 icon: 'fa-circle-check',
-                on: 'border-emerald-600 bg-emerald-50 text-emerald-900',
+                on: 'border-forest bg-forest-50 text-forest ring-2 ring-forest/20',
               },
               {
                 key: 'damaged',
                 label: 'เสียหาย / ของหาย',
                 icon: 'fa-triangle-exclamation',
-                on: 'border-amber-500 bg-amber-50 text-amber-900',
+                on: 'border-mustard-dark bg-mustard-light text-ink ring-2 ring-mustard/30',
               },
             ].map((c) => (
               <label
                 key={c.key}
-                className={`flex cursor-pointer items-center gap-2 rounded-xl border p-3 text-sm font-semibold transition focus-within:ring-2 focus-within:ring-emerald-500 ${
+                className={`flex cursor-pointer items-center gap-2 rounded-xl border p-3 text-sm font-semibold transition focus-within:ring-2 focus-within:ring-forest focus-within:ring-offset-2 ${
                   condition === c.key
                     ? c.on
-                    : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                    : 'border-ink/15 bg-white text-slate-700 hover:border-forest/40'
                 }`}
               >
                 <input
@@ -190,7 +194,7 @@ export default function ReturnModal({ r, onClose, onDone }) {
                 htmlFor="damage-note"
                 className="mb-1 block text-xs font-semibold text-slate-600"
               >
-                เสียหายตรงไหน <span className="text-red-600">*</span>
+                เสียหายตรงไหน <span className="text-brick-dark">*</span>
               </label>
               <textarea
                 id="damage-note"
@@ -200,16 +204,16 @@ export default function ReturnModal({ r, onClose, onDone }) {
                 rows={2}
                 required
                 placeholder="เช่น การ์ดหาย 2 ใบ, กล่องฉีก"
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                className="w-full rounded-xl border border-ink/15 bg-white px-3 py-2 text-sm placeholder:text-slate-400 focus:border-mustard-dark focus:outline-none focus:ring-2 focus:ring-mustard/40"
               />
-              <p className="mt-1 text-[11px] text-slate-500">พนักงานจะตรวจสภาพเกมและส่งซ่อมให้</p>
+              <p className="mt-1 text-[11px] text-slate-600">พนักงานจะตรวจสภาพเกมและส่งซ่อมให้</p>
             </div>
           )}
         </fieldset>
       )}
 
       {error && (
-        <p role="alert" className="mt-3 text-xs font-semibold text-red-600">
+        <p role="alert" className="mt-3 text-xs font-semibold text-brick-dark">
           {error}
         </p>
       )}

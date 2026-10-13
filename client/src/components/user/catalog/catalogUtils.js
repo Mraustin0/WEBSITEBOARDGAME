@@ -5,12 +5,13 @@ const TZ = 'Asia/Bangkok';
 
 // ---------- สถานะ ----------
 
-/** tone → คลาสสี badge */
+/** tone → คลาสสี badge (ว่าง = teal, จองแล้ว = มัสตาร์ด, กำลังเล่น = แดงอิฐ, ส่งซ่อม/ไม่ว่าง = เทาอุ่น) */
 export const TONE = {
-  ok: 'bg-emerald-600 text-white',
-  busy: 'bg-amber-600 text-white',
-  repair: 'bg-rose-600 text-white',
-  muted: 'bg-slate-600 text-white',
+  ok: 'bg-teal text-white',
+  busy: 'bg-brick-dark text-white',
+  booked: 'bg-mustard text-ink',
+  repair: 'bg-slate-600 text-white',
+  muted: 'bg-slate-500 text-white',
 };
 
 /** สถานะ "ตอนนี้" จากจำนวนกล่องบนชั้น / กำลังเล่น / ส่งซ่อม */
@@ -50,7 +51,7 @@ export function slotStatus(entry) {
     const tables = tablesOf(entry);
     return {
       ok: false,
-      tone: 'busy',
+      tone: 'booked',
       label: tables.length ? `จองแล้วทุกกล่อง (โต๊ะ ${tables.join(', ')})` : GAME_REASON.booked,
       short: 'จองแล้ว',
     };

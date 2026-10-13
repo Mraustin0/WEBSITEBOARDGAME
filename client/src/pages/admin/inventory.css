@@ -97,7 +97,7 @@
 
 .inv-kpi.active {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(6, 78, 59, 0.1);
+  box-shadow: 0 0 0 3px rgba(47, 79, 47, 0.1);
 }
 
 .inv-kpi-top {
@@ -152,7 +152,7 @@
 }
 
 .inv-kpi:not(.ok):not(.play):not(.fix) .inv-kpi-ico {
-  background: #ecfdf5;
+  background: #eef4ec;
   color: var(--color-primary);
 }
 
@@ -280,7 +280,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(145deg, #ecfdf5 0%, #f1f5f9 100%);
+  background: linear-gradient(145deg, #eef4ec 0%, #f1f5f9 100%);
   color: #94a3b8;
 }
 .inv-card-ph svg {
@@ -367,7 +367,7 @@
 }
 
 .inv-tag.mech {
-  background: #ecfdf5;
+  background: #eef4ec;
   color: var(--color-primary);
 }
 
@@ -480,7 +480,7 @@
 }
 
 .inv-bgg-list button:hover {
-  background: #f0fdf7;
+  background: #f2f6f1;
 }
 
 .inv-form-row {
@@ -569,7 +569,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(145deg, #ecfdf5, #f1f5f9);
+  background: linear-gradient(145deg, #eef4ec, #f1f5f9);
   color: #94a3b8;
 }
 .gd-cover.ph svg {
@@ -685,7 +685,7 @@
   color: #7c3aed;
 }
 .gd-fact:nth-child(2) .gd-fact-ico {
-  background: #ecfdf5;
+  background: #eef4ec;
   color: #059669;
 }
 .gd-fact:nth-child(3) .gd-fact-ico {
@@ -1014,7 +1014,7 @@
   overflow-y: auto;
   border: 2px solid #0f766e;
   border-radius: 8px;
-  background: #f0fdf7;
+  background: #f2f6f1;
 }
 
 .inv-bgg-list li {
@@ -1026,7 +1026,7 @@
   text-align: left;
   padding: 10px 12px;
   border: 0;
-  border-bottom: 1px solid #d1fae5;
+  border-bottom: 1px solid #e3efe1;
   background: transparent;
   cursor: pointer;
   font-size: 0.95rem;

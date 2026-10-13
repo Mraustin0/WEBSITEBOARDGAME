@@ -154,7 +154,7 @@ export default function AdminLayout() {
 
   function logout() {
     clearSession();
-    navigate('/login', { replace: true });
+    navigate('/signin', { replace: true });
   }
 
   return (

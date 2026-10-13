@@ -43,7 +43,7 @@
 }
 .mt-col.is-over {
   border-color: var(--color-secondary);
-  background: #ecfdf5;
+  background: #eef4ec;
 }
 .mt-col-head {
   display: flex;
@@ -210,7 +210,7 @@
   padding: 8px 12px;
   border: 1px solid var(--state-available);
   border-radius: var(--radius);
-  background: #f0fdf7;
+  background: #f2f6f1;
 }
 .mt-pick-list {
   display: flex;
@@ -229,7 +229,7 @@
 }
 .mt-pick-item:hover {
   border-color: var(--state-available);
-  background: #f0fdf7;
+  background: #f2f6f1;
 }
 .btn-link {
   border: 0;

@@ -11,6 +11,8 @@ import {
   fetchReviewSummary,
 } from '../../../services/api.js';
 import { dateTH } from './catalogUtils.js';
+import { BTN } from '../brandUi.js';
+import { StarIcon } from '../../brand/BrandIcons.jsx';
 
 const idOf = (v) => String(v?._id ?? v ?? '');
 
@@ -26,11 +28,11 @@ function Distribution({ distribution, count }) {
         {rows.map((r) => (
           <div
             key={r.n}
-            className="flex-1 bg-slate-100 rounded-t-sm h-full flex items-end"
+            className="flex-1 bg-cream rounded-t-sm h-full flex items-end"
             title={`${r.n} คะแนน: ${r.c} รีวิว`}
           >
             <div
-              className="w-full bg-amber-400 rounded-t-sm"
+              className="w-full bg-mustard border-x border-t border-mustard-dark/40 rounded-t-sm"
               style={{ height: count ? `${(r.c / max) * 100}%` : 0 }}
             ></div>
           </div>
@@ -38,7 +40,7 @@ function Distribution({ distribution, count }) {
       </div>
       <div className="flex gap-1 mt-1">
         {rows.map((r) => (
-          <span key={r.n} className="flex-1 text-center text-[9px] font-semibold text-slate-400">
+          <span key={r.n} className="flex-1 text-center text-[9px] font-semibold text-slate-500">
             {r.n}
           </span>
         ))}
@@ -142,15 +144,12 @@ export default function GameReviews({ gameId, gameName, notify }) {
   return (
     <section aria-labelledby="reviews-title" className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 id="reviews-title" className="font-heading font-bold text-base text-slate-900">
+        <h3 id="reviews-title" className="font-heading text-lg text-forest flex items-center gap-2">
+          <StarIcon size={24} />
           รีวิวจากสมาชิก
         </h3>
         {!editing && (
-          <button
-            type="button"
-            onClick={startWrite}
-            className="px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition flex items-center gap-1.5"
-          >
+          <button type="button" onClick={startWrite} className={BTN.secondary}>
             <i className={`fa-solid ${mine ? 'fa-pen' : 'fa-star'}`}></i>
             {!user ? 'เข้าสู่ระบบเพื่อเขียนรีวิว' : mine ? 'แก้รีวิวของฉัน' : 'เขียนรีวิว'}
           </button>
@@ -158,7 +157,7 @@ export default function GameReviews({ gameId, gameName, notify }) {
       </div>
 
       {editing && (
-        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4">
+        <div className="bg-cream-light border border-ink/10 rounded-2xl p-4">
           <ReviewForm
             gameId={gameId}
             gameName={gameName}
@@ -170,8 +169,8 @@ export default function GameReviews({ gameId, gameName, notify }) {
       )}
 
       {mine && !editing && (
-        <div className="bg-emerald-50/60 border border-emerald-200 rounded-2xl p-3 flex flex-wrap items-center justify-between gap-2 text-xs">
-          <span className="text-emerald-900">
+        <div className="bg-forest-50 border border-forest-200 rounded-2xl p-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <span className="text-forest">
             รีวิวของคุณ: <strong>{mine.rating}/10</strong>
           </span>
           {confirmDelete ? (
@@ -181,14 +180,14 @@ export default function GameReviews({ gameId, gameName, notify }) {
                 type="button"
                 onClick={onDelete}
                 disabled={deleting}
-                className="px-3 py-1.5 rounded-lg bg-red-600 text-white font-bold hover:bg-red-700 disabled:opacity-60"
+                className="px-3.5 py-1.5 rounded-full bg-brick-dark text-white font-bold hover:bg-[#963a3a] focus:outline-none focus-visible:ring-2 focus-visible:ring-forest disabled:opacity-60"
               >
                 {deleting ? 'กำลังลบ...' : 'ลบเลย'}
               </button>
               <button
                 type="button"
                 onClick={() => setConfirmDelete(false)}
-                className="px-3 py-1.5 rounded-lg font-semibold text-slate-600 hover:bg-white"
+                className="px-3.5 py-1.5 rounded-full font-semibold text-slate-700 hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-forest"
               >
                 ไม่ลบ
               </button>
@@ -197,7 +196,7 @@ export default function GameReviews({ gameId, gameName, notify }) {
             <button
               type="button"
               onClick={() => setConfirmDelete(true)}
-              className="px-3 py-1.5 rounded-lg font-semibold text-red-600 hover:bg-red-50"
+              className="px-3.5 py-1.5 rounded-full font-semibold text-brick-dark hover:bg-brick-light/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-forest"
             >
               <i className="fa-solid fa-trash-can mr-1"></i> ลบรีวิว
             </button>
@@ -206,7 +205,7 @@ export default function GameReviews({ gameId, gameName, notify }) {
       )}
 
       {error ? (
-        <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-xl px-3 py-2 flex flex-wrap items-center gap-2">
+        <div className="text-xs text-brick-dark bg-brick-light/60 border border-brick/30 rounded-xl px-3 py-2 flex flex-wrap items-center gap-2">
           <span>โหลดรีวิวไม่สำเร็จ: {error}</span>
           <button
             type="button"
@@ -217,16 +216,16 @@ export default function GameReviews({ gameId, gameName, notify }) {
           </button>
         </div>
       ) : loading && !summary ? (
-        <p className="text-xs text-slate-400 flex items-center gap-2">
+        <p className="text-xs text-slate-500 flex items-center gap-2">
           <i className="fa-solid fa-spinner fa-spin"></i> กำลังโหลดรีวิว...
         </p>
       ) : (
         <>
-          <div className="flex items-center gap-4 bg-slate-50 border border-slate-200/80 rounded-2xl p-4">
+          <div className="flex items-center gap-4 bg-cream-light border border-ink/10 rounded-2xl p-4">
             <div className="text-center shrink-0">
-              <div className="text-3xl font-bold text-slate-900 leading-none">
+              <div className="font-heading text-3xl text-forest leading-none">
                 {summary?.average != null ? Number(summary.average).toFixed(1) : '–'}
-                <span className="text-sm font-semibold text-slate-400">/10</span>
+                <span className="font-sans text-sm font-semibold text-slate-500">/10</span>
               </div>
               <div className="text-[11px] text-slate-500 mt-1">{count} รีวิว</div>
             </div>
@@ -234,32 +233,32 @@ export default function GameReviews({ gameId, gameName, notify }) {
           </div>
 
           {items.length === 0 ? (
-            <p className="text-sm text-slate-500 text-center py-3">
+            <p className="text-sm text-slate-600 text-center py-3">
               ยังไม่มีรีวิว มาเป็นคนแรกที่รีวิวเกมนี้
             </p>
           ) : (
-            <ul className="flex flex-col divide-y divide-slate-100">
+            <ul className="flex flex-col divide-y divide-ink/10">
               {shown.map((r) => (
                 <li key={r._id} className="py-3 flex flex-col gap-1">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-semibold text-slate-800 truncate">
+                    <span className="min-w-0 text-sm font-semibold text-ink truncate">
                       {r.user?.username ?? 'สมาชิก'}
                       {mine && idOf(mine) === idOf(r) && (
-                        <span className="ml-1.5 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
+                        <span className="ml-1.5 text-[10px] font-bold text-forest bg-forest-50 border border-forest-200 px-1.5 py-0.5 rounded-full">
                           ของฉัน
                         </span>
                       )}
                     </span>
-                    <span className="shrink-0 text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                    <span className="shrink-0 text-xs font-bold text-ink bg-mustard border border-ink/20 px-2 py-0.5 rounded-full">
                       ★ {r.rating}/10
                     </span>
                   </div>
                   {r.comment && (
-                    <p className="text-sm text-slate-600 whitespace-pre-line break-words">
+                    <p className="text-sm text-slate-700 whitespace-pre-line break-words">
                       {r.comment}
                     </p>
                   )}
-                  <span className="text-[11px] text-slate-400">{dateTH(r.createdAt)}</span>
+                  <span className="text-[11px] text-slate-500">{dateTH(r.createdAt)}</span>
                 </li>
               ))}
             </ul>
@@ -268,7 +267,7 @@ export default function GameReviews({ gameId, gameName, notify }) {
             <button
               type="button"
               onClick={() => setShowAll((v) => !v)}
-              className="self-center text-xs font-bold text-emerald-700 hover:underline"
+              className="self-center text-xs font-bold text-teal-dark hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-forest rounded"
             >
               {showAll ? 'ย่อรีวิว' : `ดูรีวิวทั้งหมด (${items.length})`}
             </button>

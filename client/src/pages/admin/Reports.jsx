@@ -151,7 +151,7 @@ function Heatmap({ matrix, days, max }) {
                 className="rp-heat-cell"
                 style={{
                   background:
-                    v === 0 ? 'var(--color-bg)' : `rgba(6, 78, 59, ${0.12 + intensity * 0.78})`,
+                    v === 0 ? 'var(--color-bg)' : `rgba(47, 79, 47, ${0.12 + intensity * 0.78})`,
                   color: intensity > 0.55 ? '#fff' : 'var(--color-text-muted)',
                 }}
                 title={`${dayTH[dow]} ${h}:00 — ${v} การจอง`}

@@ -1,5 +1,6 @@
-// ข้อความแจ้งผลแบบลอยมุมจอ (แทน alert()) — ใช้ร่วมกันทุกหน้าฝั่งสมาชิก
+// ข้อความแจ้งผลแบบลอย (แทน alert()) — ใช้ร่วมกันทุกหน้าฝั่งสมาชิก
 // const [toastEl, showToast] = useToast(); showToast('บันทึกแล้ว'); showToast('ผิดพลาด', false)
+// มือถือ: ลอยด้านล่าง (สูงกว่าแถบปุ่มของ modal) · จอใหญ่: มุมบนใต้ header — กดทะลุได้ ไม่บังปุ่ม
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 export function useToast() {
@@ -17,12 +18,17 @@ export function useToast() {
   const el = toast ? (
     <div
       role={toast.ok ? 'status' : 'alert'}
-      className={`fixed top-20 left-1/2 -translate-x-1/2 z-[100] max-w-[calc(100vw-32px)] px-5 py-3 rounded-2xl shadow-xl text-sm font-semibold flex items-center gap-2 ${
-        toast.ok ? 'bg-emerald-700 text-white' : 'bg-red-600 text-white'
+      className={`pointer-events-none fixed inset-x-4 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-[100] mx-auto flex max-w-sm items-start gap-2.5 rounded-2xl border px-4 py-2.5 text-[13px] font-semibold leading-snug shadow-card sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-20 sm:w-max sm:-translate-x-1/2 ${
+        toast.ok
+          ? 'border-forest-dark bg-forest text-white'
+          : 'border-[#8f3535] bg-brick-dark text-white'
       }`}
     >
-      <i className={`fa-solid ${toast.ok ? 'fa-circle-check' : 'fa-circle-exclamation'}`}></i>
-      <span>{toast.msg}</span>
+      <i
+        className={`fa-solid ${toast.ok ? 'fa-circle-check text-mustard' : 'fa-circle-exclamation text-brick-light'} mt-0.5 shrink-0`}
+        aria-hidden="true"
+      ></i>
+      <span className="line-clamp-3 min-w-0">{toast.msg}</span>
     </div>
   ) : null;
 

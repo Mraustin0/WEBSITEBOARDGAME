@@ -2,39 +2,40 @@
 import { timeTH } from '../../../lib/date.js';
 
 const CLOSED_STRIPES = {
-  backgroundImage: 'repeating-linear-gradient(135deg, #f1f5f9 0 8px, #e2e8f0 8px 16px)',
+  backgroundImage: 'repeating-linear-gradient(135deg, #f3f0e1 0 8px, #e6e0c8 8px 16px)',
 };
 
+// สถานะโต๊ะ: ว่าง = teal · จองแล้ว = มัสตาร์ด · กำลังเล่น = แดงอิฐ · ปิด = เทาอุ่นลายทาง (มีป้ายข้อความเสมอ)
 export const STATE_META = {
   available: {
     label: 'ว่าง',
-    badge: 'bg-teal-50 text-teal-700 border-teal-200',
-    tile: 'bg-white border-teal-200 hover:border-teal-400 hover:shadow-md cursor-pointer',
-    swatch: 'bg-white border-2 border-teal-300',
+    badge: 'bg-teal-light text-teal-dark border-teal/40',
+    tile: 'bg-white border-teal/40 hover:border-teal hover:shadow-card cursor-pointer',
+    swatch: 'bg-white border-2 border-teal',
   },
   reserved: {
     label: 'จองแล้ว',
-    badge: 'bg-slate-200 text-slate-600 border-slate-300',
-    tile: 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed',
-    swatch: 'bg-slate-200 border border-slate-300',
+    badge: 'bg-mustard text-ink border-mustard-dark/50',
+    tile: 'bg-mustard-light/50 border-mustard/60 text-slate-600 cursor-not-allowed',
+    swatch: 'bg-mustard-light border border-mustard-dark',
   },
   occupied: {
     label: 'กำลังเล่น',
-    badge: 'bg-amber-100 text-amber-800 border-amber-300',
-    tile: 'bg-amber-50 border-amber-300 cursor-not-allowed',
-    swatch: 'bg-amber-100 border border-amber-400',
+    badge: 'bg-brick-dark text-white border-brick-dark',
+    tile: 'bg-brick-light/50 border-brick/50 cursor-not-allowed',
+    swatch: 'bg-brick-light border border-brick-dark',
   },
   closed: {
     label: 'ปิดใช้งาน',
-    badge: 'bg-slate-200 text-slate-500 border-slate-300',
-    tile: 'border-slate-300 text-slate-400 cursor-not-allowed',
-    swatch: 'border border-slate-300',
+    badge: 'bg-slate-200 text-slate-700 border-slate-300',
+    tile: 'border-slate-300 text-slate-500 cursor-not-allowed',
+    swatch: 'border border-slate-400',
   },
   too_small: {
     label: 'ที่นั่งไม่พอ',
-    badge: 'bg-white text-rose-600 border-rose-200',
-    tile: 'bg-white border-slate-200 opacity-60 cursor-not-allowed',
-    swatch: 'bg-white border border-rose-300',
+    badge: 'bg-white text-brick-dark border-brick/40',
+    tile: 'bg-white border-dashed border-slate-300 opacity-70 cursor-not-allowed',
+    swatch: 'bg-white border border-dashed border-brick',
   },
 };
 
@@ -51,16 +52,20 @@ const byCode = (a, b) =>
 
 export function FloorLegend() {
   return (
-    <ul className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] font-bold text-slate-700 bg-[#f8fafc] px-4 py-2.5 rounded-2xl border border-slate-200">
+    <ul
+      aria-label="ความหมายสีโต๊ะ"
+      className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] font-bold text-slate-700 bg-cream-light px-4 py-2.5 rounded-2xl border border-ink/10"
+    >
       <li className="flex items-center gap-1.5">
-        <span className="w-4 h-4 rounded bg-white border-2 border-[#064e3b] flex items-center justify-center">
-          <i className="fa-solid fa-check text-[8px] text-[#064e3b]"></i>
+        <span className="w-4 h-4 rounded bg-forest border-2 border-forest flex items-center justify-center">
+          <i className="fa-solid fa-check text-[8px] text-white" aria-hidden="true"></i>
         </span>
-        <span className="text-[#064e3b]">เลือกแล้ว</span>
+        <span className="text-forest">เลือกแล้ว</span>
       </li>
       {['available', 'reserved', 'occupied', 'closed', 'too_small'].map((k) => (
         <li key={k} className="flex items-center gap-1.5">
           <span
+            aria-hidden="true"
             className={`w-4 h-4 rounded ${STATE_META[k].swatch}`}
             style={k === 'closed' ? CLOSED_STRIPES : undefined}
           ></span>
@@ -98,25 +103,25 @@ function TableTile({ table: t, players, selected, onSelect }) {
       }`}
       onClick={() => onSelect(t._id)}
       style={block === 'closed' ? CLOSED_STRIPES : undefined}
-      className={`group relative w-full min-w-0 text-left border-2 rounded-2xl p-3 sm:p-4 flex flex-col gap-2 transition-all duration-200 focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-300 ${
-        selected ? 'bg-white border-[#064e3b] ring-4 ring-[#064e3b]/20 shadow-md' : meta.tile
+      className={`group relative w-full min-w-0 text-left border-2 rounded-2xl p-3 sm:p-4 flex flex-col gap-2 transition-all duration-200 focus:outline-none focus-visible:ring-4 focus-visible:ring-forest/40 ${
+        selected ? 'bg-forest-50 border-forest ring-4 ring-forest/20 shadow-card' : meta.tile
       }`}
     >
       <div className="flex flex-wrap items-start justify-between gap-1.5">
         <span
           className={`min-w-9 h-9 px-1.5 rounded-full font-heading font-bold text-sm flex items-center justify-center shrink-0 ${
             selected
-              ? 'bg-[#064e3b] text-white'
+              ? 'bg-forest text-white'
               : block
-                ? 'bg-slate-200 text-slate-500'
-                : 'bg-emerald-50 border border-emerald-200 text-[#064e3b]'
+                ? 'bg-white/80 border border-ink/10 text-slate-500'
+                : 'bg-cream border border-ink/15 text-forest'
           }`}
         >
           {t.code}
         </span>
         <span
           className={`text-[10px] font-semibold rounded-full px-2 py-0.5 border whitespace-nowrap ${
-            selected ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : meta.badge
+            selected ? 'bg-forest text-white border-forest' : meta.badge
           }`}
         >
           {selected ? 'เลือกแล้ว' : meta.label}
@@ -129,10 +134,12 @@ function TableTile({ table: t, players, selected, onSelect }) {
             round ? 'rounded-full w-16 h-16' : 'rounded-lg w-24 h-12'
           } ${
             block === 'occupied'
-              ? 'bg-amber-100/60 border-amber-300'
-              : selected
-                ? 'bg-emerald-50 border-emerald-300'
-                : 'bg-slate-50/80 border-slate-300'
+              ? 'bg-brick-light border-brick/50'
+              : block === 'reserved'
+                ? 'bg-mustard-light border-mustard/60'
+                : selected
+                  ? 'bg-white border-forest-300'
+                  : 'bg-[#e9d3b8]/60 border-[#c2763f]/50'
           }`}
           aria-hidden="true"
         >
@@ -141,12 +148,14 @@ function TableTile({ table: t, players, selected, onSelect }) {
               key={i}
               className={`w-2 h-2 rounded-full ${
                 block === 'occupied'
-                  ? 'bg-amber-400'
-                  : selected
-                    ? 'bg-[#064e3b]'
-                    : block
-                      ? 'bg-slate-300'
-                      : 'bg-slate-400'
+                  ? 'bg-brick'
+                  : block === 'reserved'
+                    ? 'bg-mustard-dark'
+                    : selected
+                      ? 'bg-forest'
+                      : block
+                        ? 'bg-slate-300'
+                        : 'bg-forest-400'
               }`}
             ></span>
           ))}
@@ -156,22 +165,22 @@ function TableTile({ table: t, players, selected, onSelect }) {
       <div className="min-w-0">
         <h4
           className={`font-bold text-sm truncate ${
-            selected ? 'text-[#064e3b]' : block ? '' : 'text-slate-800 group-hover:text-[#064e3b]'
+            selected ? 'text-forest' : block ? '' : 'text-ink group-hover:text-forest'
           }`}
         >
           {t.name || `โต๊ะ ${t.code}`}
-          {selected && <i className="fa-solid fa-circle-check text-[#064e3b] ml-1"></i>}
+          {selected && <i className="fa-solid fa-circle-check text-forest ml-1"></i>}
         </h4>
-        <p className="text-[11px] text-slate-500 flex flex-wrap gap-x-2">
+        <p className="text-[11px] text-slate-600 flex flex-wrap gap-x-2">
           <span>
             <i className="fa-solid fa-user-group mr-1"></i>
             {t.capacity} ที่นั่ง
           </span>
           {t.extraPerHour > 0 && (
-            <span className="text-amber-700 font-semibold">+฿{t.extraPerHour}/ชม.</span>
+            <span className="text-mustard-dark font-semibold">+฿{t.extraPerHour}/ชม.</span>
           )}
         </p>
-        {note && <p className="text-[10px] text-slate-500 mt-0.5 truncate">{note}</p>}
+        {note && <p className="text-[10px] font-semibold text-slate-600 mt-0.5 truncate">{note}</p>}
       </div>
     </button>
   );
@@ -188,11 +197,11 @@ export default function FloorMap({ tables, zones, players, selectedId, onSelect 
         return (
           <section key={zone} aria-label={`โซน ${zone}`}>
             <div className="flex items-baseline justify-between gap-2 mb-2.5">
-              <h3 className="text-sm font-heading font-bold text-slate-800 flex items-center gap-2">
-                <i className="fa-solid fa-location-dot text-emerald-600"></i>
+              <h3 className="text-base font-heading text-forest flex items-center gap-2">
+                <i className="fa-solid fa-location-dot text-brick-dark" aria-hidden="true"></i>
                 โซน {zone}
               </h3>
-              <span className="text-[11px] text-slate-500">
+              <span className="text-[11px] font-semibold text-teal-dark">
                 ว่าง {free}/{list.length} โต๊ะ
               </span>
             </div>

@@ -7,10 +7,11 @@ import {
   startTimes,
   thaiError,
 } from '../../../lib/booking.js';
+import { ClockIcon } from '../../brand/BrandIcons.jsx';
 
 const selectCls =
-  'w-full bg-slate-50/80 border border-slate-200 text-slate-800 rounded-xl py-2.5 pl-3.5 pr-8 text-xs font-semibold focus:outline-none focus:border-emerald-600 focus:bg-white appearance-none transition disabled:opacity-50';
-const labelCls = 'text-[11px] font-bold text-slate-500 uppercase tracking-wider';
+  'w-full bg-white border border-ink/15 text-ink rounded-xl py-2.5 pl-3.5 pr-8 text-xs font-semibold focus:outline-none focus:border-forest focus:ring-2 focus:ring-forest/20 appearance-none transition disabled:opacity-50 disabled:cursor-not-allowed';
+const labelCls = 'text-[11px] font-bold text-slate-600 uppercase tracking-wider';
 
 const PLAYER_CHOICES = Array.from({ length: 12 }, (_, i) => i + 1);
 
@@ -57,7 +58,7 @@ export default function AvailabilityChecker({
   if (status === 'idle') {
     summary = (
       <>
-        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+        <span className="w-2 h-2 rounded-full bg-teal animate-pulse shrink-0"></span>
         <span>
           {slot.ymd
             ? 'เลือกเวลาเริ่มเพื่อดูว่าเกมไหนว่าง'
@@ -68,19 +69,19 @@ export default function AvailabilityChecker({
   } else if (status === 'loading') {
     summary = (
       <>
-        <i className="fa-solid fa-spinner fa-spin text-emerald-600"></i>
+        <i className="fa-solid fa-spinner fa-spin text-forest"></i>
         <span>กำลังเช็คเกมว่าง...</span>
       </>
     );
   } else if (status === 'error') {
     summary = (
       <>
-        <i className="fa-solid fa-circle-exclamation text-red-500"></i>
-        <span className="text-red-700">{error}</span>
+        <i className="fa-solid fa-circle-exclamation text-brick-dark"></i>
+        <span className="text-brick-dark">{error}</span>
         <button
           type="button"
           onClick={retry}
-          className="ml-1 underline font-bold text-red-700 hover:text-red-800"
+          className="ml-1 underline font-bold text-brick-dark hover:text-brick-dark"
         >
           ลองใหม่
         </button>
@@ -89,8 +90,8 @@ export default function AvailabilityChecker({
   } else if (data && !data.bookable) {
     summary = (
       <>
-        <i className="fa-solid fa-ban text-amber-600"></i>
-        <span className="text-amber-800">จองช่วงนี้ไม่ได้: {thaiReason(data.reason)}</span>
+        <i className="fa-solid fa-ban text-mustard-dark"></i>
+        <span className="text-slate-800">จองช่วงนี้ไม่ได้: {thaiReason(data.reason)}</span>
       </>
     );
   } else if (data) {
@@ -98,9 +99,9 @@ export default function AvailabilityChecker({
     const free = games.filter((g) => g.available).length;
     summary = (
       <>
-        <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+        <span className="w-2 h-2 rounded-full bg-teal shrink-0"></span>
         <span>
-          ช่วงนี้มีเกมว่าง <strong className="text-emerald-800">{free}</strong> จาก{' '}
+          ช่วงนี้มีเกมว่าง <strong className="font-heading text-sm text-forest">{free}</strong> จาก{' '}
           {games.length || totalGames} เกม
         </span>
       </>
@@ -110,26 +111,28 @@ export default function AvailabilityChecker({
   return (
     <section
       aria-labelledby="checker-title"
-      className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-6"
+      className="bg-white rounded-2xl border border-ink/10 shadow-card overflow-hidden min-w-0"
     >
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+      <div aria-hidden="true" className="board-border h-1.5 w-full" />
+      <div className="flex flex-col gap-4 p-4 sm:p-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-ink/10">
           <h2
             id="checker-title"
-            className="font-heading font-bold text-lg sm:text-2xl text-slate-900"
+            className="font-heading text-xl sm:text-2xl text-forest flex items-center gap-2.5"
           >
+            <ClockIcon size={32} />
             เช็คเกมว่างตามวันและเวลา
           </h2>
           <div
             aria-live="polite"
-            className="self-start md:self-auto bg-slate-50 border border-slate-200/90 shadow-sm px-4 py-2 rounded-xl flex flex-wrap items-center gap-2 text-xs font-medium text-slate-800"
+            className="self-start md:self-auto bg-cream-light border border-ink/10 px-4 py-2 rounded-2xl flex flex-wrap items-center gap-2 text-xs font-medium text-slate-800"
           >
             {summary}
           </div>
         </div>
 
         {rulesError && (
-          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+          <p className="text-xs text-slate-800 bg-mustard-light/60 border border-mustard/50 rounded-xl px-3 py-2">
             โหลดเงื่อนไขการจองไม่สำเร็จ ({rulesError}) — ใช้ค่ามาตรฐานไปก่อน
           </p>
         )}
@@ -137,7 +140,7 @@ export default function AvailabilityChecker({
         <div className="grid grid-cols-2 lg:grid-cols-12 gap-3 items-end">
           <fieldset className="col-span-2 lg:col-span-5 flex flex-col gap-1.5 min-w-0">
             <legend className={`${labelCls} mb-1.5`}>วันที่มาร้าน</legend>
-            <div className="flex gap-2 overflow-x-auto pb-1 -mb-1">
+            <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
               {dates.map((d) => {
                 const on = slot.ymd === d.ymd;
                 return (
@@ -147,15 +150,15 @@ export default function AvailabilityChecker({
                     disabled={d.closed}
                     aria-pressed={on}
                     onClick={() => pickDate(d.ymd)}
-                    className={`shrink-0 min-w-[72px] py-2 px-3 rounded-xl font-semibold text-xs text-center shadow-sm transition-all flex flex-col leading-tight disabled:opacity-40 disabled:cursor-not-allowed ${
+                    className={`min-w-0 py-2 px-1 rounded-2xl border font-semibold text-xs text-center transition-all flex flex-col items-center leading-tight focus:outline-none focus-visible:ring-2 focus-visible:ring-forest focus-visible:ring-offset-1 disabled:opacity-40 disabled:cursor-not-allowed ${
                       on
-                        ? 'bg-emerald-700 text-white border border-emerald-600'
-                        : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+                        ? 'bg-forest text-white border-forest shadow-sm'
+                        : 'bg-cream-light border-ink/15 text-slate-700 hover:border-forest/50 hover:bg-cream'
                     }`}
                   >
-                    <span>{d.label}</span>
+                    <span className="max-w-full truncate">{d.label}</span>
                     <span
-                      className={`text-[10px] font-medium ${on ? 'text-emerald-100' : 'text-slate-400'}`}
+                      className={`max-w-full truncate text-[10px] font-medium ${on ? 'text-forest-100' : 'text-slate-500'}`}
                     >
                       {d.closed ? 'ร้านปิด' : d.display}
                     </span>
@@ -186,7 +189,7 @@ export default function AvailabilityChecker({
                   </option>
                 ))}
               </select>
-              <i className="fa-solid fa-clock absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] pointer-events-none"></i>
+              <i className="fa-solid fa-clock absolute right-3 top-1/2 -translate-y-1/2 text-forest/60 text-[10px] pointer-events-none"></i>
             </div>
           </div>
 
@@ -207,7 +210,7 @@ export default function AvailabilityChecker({
                   </option>
                 ))}
               </select>
-              <i className="fa-solid fa-hourglass-half absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] pointer-events-none"></i>
+              <i className="fa-solid fa-hourglass-half absolute right-3 top-1/2 -translate-y-1/2 text-forest/60 text-[10px] pointer-events-none"></i>
             </div>
           </div>
 
@@ -229,7 +232,7 @@ export default function AvailabilityChecker({
                   </option>
                 ))}
               </select>
-              <i className="fa-solid fa-users absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] pointer-events-none"></i>
+              <i className="fa-solid fa-users absolute right-3 top-1/2 -translate-y-1/2 text-forest/60 text-[10px] pointer-events-none"></i>
             </div>
           </div>
 
@@ -238,7 +241,7 @@ export default function AvailabilityChecker({
               type="button"
               onClick={onClear}
               disabled={!active}
-              className="w-full h-[38px] bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl px-3 font-semibold text-xs transition flex items-center justify-center gap-1.5 disabled:opacity-40"
+              className="w-full h-[38px] bg-cream-light border border-ink/15 text-forest hover:bg-cream hover:border-forest/40 rounded-full px-3 font-semibold text-xs transition flex items-center justify-center gap-1.5 whitespace-nowrap focus:outline-none focus-visible:ring-2 focus-visible:ring-forest disabled:opacity-40"
             >
               <i className="fa-solid fa-rotate-left"></i> ล้างค่า
             </button>

@@ -68,7 +68,7 @@ export default function ExtendModal({ r, rules, onClose, onDone }) {
       <ResSummary r={r} extra={`จบเดิม ${timeTH(r.endAt)} น.`} />
 
       {result ? (
-        <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+        <div className="mt-4 rounded-2xl border border-forest-200 bg-forest-50 p-4">
           <Row label="เล่นได้ถึง" value={`${timeTH(result.endAt)} น.`} strong />
           <Row label="รวมเวลาจอง" value={hoursLabel(result.durationHours)} />
           {lastCharge != null && <Row label="ค่าต่อเวลา" value={`+${baht(lastCharge)}`} />}
@@ -76,7 +76,9 @@ export default function ExtendModal({ r, rules, onClose, onDone }) {
         </div>
       ) : (
         <>
-          <p className="mb-2 mt-4 text-xs font-bold text-slate-700">ต่อเพิ่มอีก</p>
+          <p className="mb-2 mt-4 text-[11px] font-bold uppercase tracking-wider text-slate-600">
+            ต่อเพิ่มอีก
+          </p>
           <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="จำนวนชั่วโมงที่ต่อ">
             {OPTIONS.map((h) => (
               <button
@@ -93,21 +95,23 @@ export default function ExtendModal({ r, rules, onClose, onDone }) {
             ))}
           </div>
           {!OPTIONS.every(fits) && (
-            <p className="mt-2 text-[11px] text-slate-500">
+            <p className="mt-2 text-[11px] text-slate-600">
               เล่นรวมได้ไม่เกิน {maxHours} ชม. — ถ้าอยากเล่นนานกว่านี้ติดต่อพนักงาน
             </p>
           )}
           {previewEnd && (
             <p className="mt-3 text-sm text-slate-600">
               เล่นได้ถึงประมาณ{' '}
-              <strong className="text-emerald-900">{timeTH(previewEnd.toISOString())} น.</strong>{' '}
+              <strong className="font-heading text-forest">
+                {timeTH(previewEnd.toISOString())} น.
+              </strong>{' '}
               (คิดค่าต่อเวลาเรทเดิม)
             </p>
           )}
         </>
       )}
       {error && (
-        <p role="alert" className="mt-3 text-xs font-semibold text-red-600">
+        <p role="alert" className="mt-3 text-xs font-semibold text-brick-dark">
           {error}
         </p>
       )}

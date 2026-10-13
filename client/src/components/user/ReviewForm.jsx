@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { submitReview } from '../../services/api.js';
 import { thaiError } from '../../lib/booking.js';
+import { BTN } from './brandUi.js';
 
 export default function ReviewForm({ gameId, gameName, initial, onSaved, onCancel }) {
   const [rating, setRating] = useState(initial?.rating ?? 0);
@@ -31,8 +32,8 @@ export default function ReviewForm({ gameId, gameName, initial, onSaved, onCance
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-3">
       {gameName && (
-        <p className="text-sm text-slate-600">
-          ให้คะแนน <strong className="text-slate-900">{gameName}</strong>
+        <p className="text-sm text-slate-700">
+          ให้คะแนน <strong className="font-heading font-normal text-forest">{gameName}</strong>
         </p>
       )}
       <div
@@ -50,16 +51,18 @@ export default function ReviewForm({ gameId, gameName, initial, onSaved, onCance
             aria-label={`${n} คะแนน`}
             onMouseEnter={() => setHover(n)}
             onClick={() => setRating(n)}
-            className={`w-8 h-8 rounded-lg text-xs font-bold border transition ${
+            className={`w-8 h-8 rounded-lg text-xs font-bold border transition focus:outline-none focus-visible:ring-2 focus-visible:ring-forest focus-visible:ring-offset-1 ${
               n <= shown
-                ? 'bg-amber-400 border-amber-400 text-white'
-                : 'bg-white border-slate-200 text-slate-400 hover:border-amber-300'
+                ? 'bg-mustard border-mustard-dark text-ink'
+                : 'bg-cream-light border-ink/15 text-slate-500 hover:border-mustard'
             }`}
           >
             {n}
           </button>
         ))}
-        <span className="ml-2 text-sm font-bold text-slate-700">{shown ? `${shown}/10` : ''}</span>
+        <span className="ml-2 font-heading text-base text-forest">
+          {shown ? `${shown}/10` : ''}
+        </span>
       </div>
       <textarea
         value={comment}
@@ -67,24 +70,16 @@ export default function ReviewForm({ gameId, gameName, initial, onSaved, onCance
         maxLength={2000}
         rows={3}
         placeholder="เล่นแล้วเป็นยังไงบ้าง (ไม่บังคับ)"
-        className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+        className="w-full rounded-xl border border-ink/15 bg-white px-3 py-2 text-sm placeholder:text-slate-400 focus:border-forest focus:outline-none focus:ring-2 focus:ring-forest/20"
       />
-      {error && <p className="text-xs text-red-600 font-semibold">{error}</p>}
-      <div className="flex gap-2 justify-end">
+      {error && <p className="text-xs text-brick-dark font-semibold">{error}</p>}
+      <div className="flex flex-wrap gap-2 justify-end">
         {onCancel && (
-          <button
-            type="button"
-            onClick={onCancel}
-            className="px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100"
-          >
+          <button type="button" onClick={onCancel} className={BTN.ghost}>
             ยกเลิก
           </button>
         )}
-        <button
-          type="submit"
-          disabled={busy}
-          className="px-4 py-2 rounded-xl text-sm font-bold bg-[#064e3b] text-white hover:bg-emerald-800 disabled:opacity-60"
-        >
+        <button type="submit" disabled={busy} className={BTN.primary}>
           {busy ? 'กำลังบันทึก...' : initial ? 'แก้รีวิว' : 'ส่งรีวิว'}
         </button>
       </div>

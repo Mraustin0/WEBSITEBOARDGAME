@@ -86,11 +86,11 @@ export function overtimeEstimate(r, now, rules) {
 }
 
 export const STATUS = {
-  booked: { label: 'จองแล้ว', cls: 'bg-emerald-100 text-emerald-800' },
-  playing: { label: 'กำลังเล่น', cls: 'bg-emerald-600 text-white' },
-  completed: { label: 'เล่นจบแล้ว', cls: 'bg-slate-100 text-slate-700' },
-  cancelled: { label: 'ยกเลิกแล้ว', cls: 'bg-red-50 text-red-600' },
-  no_show: { label: 'ไม่มาตามนัด', cls: 'bg-amber-50 text-amber-700' },
+  booked: { label: 'จองแล้ว', cls: 'bg-mustard-light text-ink border border-mustard/60' },
+  playing: { label: 'กำลังเล่น', cls: 'bg-brick-dark text-white' },
+  completed: { label: 'เล่นจบแล้ว', cls: 'bg-forest-100 text-forest-800' },
+  cancelled: { label: 'ยกเลิกแล้ว', cls: 'bg-slate-200 text-slate-700' },
+  no_show: { label: 'ไม่มาตามนัด', cls: 'bg-brick-light text-brick-dark' },
 };
 
 export const ASSIST_TOPICS = [
@@ -126,24 +126,5 @@ export function errText(err) {
 /** แปลงผลลัพธ์ list ที่อาจมาเป็น array หรือ { items } */
 export const asList = (data) => (Array.isArray(data) ? data : (data?.items ?? []));
 
-export const BTN = {
-  primary:
-    'inline-flex items-center justify-center gap-2 rounded-xl bg-[#064e3b] px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-50',
-  secondary:
-    'inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50',
-  ghost:
-    'inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 disabled:opacity-50',
-  danger:
-    'inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50',
-  dangerSoft:
-    'inline-flex items-center justify-center gap-2 rounded-xl border border-red-100 bg-red-50 px-3.5 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50',
-};
-
-export const chip = (on, disabled = false) =>
-  `rounded-xl border px-3 py-2 text-xs font-semibold transition ${
-    disabled
-      ? 'cursor-not-allowed border-slate-100 bg-slate-50 text-slate-300'
-      : on
-        ? 'border-[#064e3b] bg-[#064e3b] text-white shadow-sm'
-        : 'border-slate-200 bg-white text-slate-700 hover:border-emerald-400'
-  }`;
+// ปุ่ม/ชิปใช้ชุดคลาสแบรนด์ร่วมกับหน้าอื่น
+export { BTN, chip } from '../brandUi.js';

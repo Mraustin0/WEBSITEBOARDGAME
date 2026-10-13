@@ -1,12 +1,12 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import UserLayout from './components/user/UserLayout.jsx';
+import Home from './pages/Home.jsx';
 import GameCatalog from './pages/GameCatalog.jsx';
 import FloorPlan from './pages/FloorPlan.jsx';
 import MyReservations from './pages/MyReservations.jsx';
 import { getToken, isStaff, useSession } from './lib/session.js';
 
 import AdminLayout from './components/admin/AdminLayout.jsx';
-import Login from './pages/Login.jsx';
 import UserAuth from './pages/UserAuth.jsx';
 import UserProfile from './pages/UserProfile.jsx';
 import Dashboard from './pages/admin/Dashboard.jsx';
@@ -26,7 +26,7 @@ import Tables from './pages/admin/Tables.jsx';
 /** หน้าหลังร้าน: ต้อง login และเป็นพนักงาน/แอดมิน (สมาชิกถูกส่งกลับหน้าคลังเกม) */
 function RequireStaff({ children }) {
   const user = useSession();
-  if (!getToken() || !user) return <Navigate to="/login" replace />;
+  if (!getToken() || !user) return <Navigate to="/signin" replace state={{ from: '/admin' }} />;
   if (!isStaff(user)) return <Navigate to="/catalog" replace />;
   return children;
 }
@@ -41,23 +41,13 @@ function RequireMember({ children }) {
   return children;
 }
 
-function ComingSoon() {
-  return (
-    <div className="panel">
-      <h2>หน้านี้ยังไม่เปิดใช้งาน</h2>
-      <p className="muted">อยู่ระหว่างพัฒนา</p>
-    </div>
-  );
-}
-
 export default function App() {
   return (
     <Routes>
       <Route element={<UserLayout />}>
-        <Route path="/" element={<Navigate to="/catalog" replace />} />
+        <Route path="/" element={<Home />} />
         <Route path="/catalog" element={<GameCatalog />} />
         <Route path="/booking" element={<FloorPlan />} />
-        <Route path="/floorplan" element={<Navigate to="/booking" replace />} />
         <Route
           path="/reservations"
           element={
@@ -67,7 +57,8 @@ export default function App() {
           }
         />
       </Route>
-      <Route path="/login" element={<Login />} />
+      {/* หน้าเข้าสู่ระบบเดียวทั้งสมาชิกและพนักงาน — ระบบพาไปหน้าตาม role */}
+      <Route path="/login" element={<Navigate to="/signin" replace />} />
       <Route path="/signin" element={<UserAuth />} />
       <Route
         path="/profile"
@@ -98,9 +89,9 @@ export default function App() {
         <Route path="inventory" element={<Inventory />} />
         <Route path="inventory/:id" element={<GameDetail />} />
         <Route path="profile" element={<Profile />} />
-        <Route path="*" element={<ComingSoon />} />
+        <Route path="*" element={<Navigate to="/admin" replace />} />
       </Route>
-      <Route path="*" element={<Navigate to="/catalog" replace />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
