@@ -25,7 +25,7 @@ export const STATE_META = {
     swatch: 'bg-amber-100 border border-amber-400',
   },
   closed: {
-    label: 'ปิดปรับปรุง',
+    label: 'ปิดใช้งาน',
     badge: 'bg-slate-200 text-slate-500 border-slate-300',
     tile: 'border-slate-300 text-slate-400 cursor-not-allowed',
     swatch: 'border border-slate-300',
@@ -56,7 +56,7 @@ export function FloorLegend() {
         <span className="w-4 h-4 rounded bg-white border-2 border-[#064e3b] flex items-center justify-center">
           <i className="fa-solid fa-check text-[8px] text-[#064e3b]"></i>
         </span>
-        <span className="text-[#064e3b]">เลือกอยู่</span>
+        <span className="text-[#064e3b]">เลือกแล้ว</span>
       </li>
       {['available', 'reserved', 'occupied', 'closed', 'too_small'].map((k) => (
         <li key={k} className="flex items-center gap-1.5">
@@ -94,7 +94,7 @@ function TableTile({ table: t, players, selected, onSelect }) {
       disabled={Boolean(block)}
       aria-pressed={selected}
       aria-label={`โต๊ะ ${t.code} ${t.name || ''} นั่งได้ ${t.capacity} คน — ${
-        selected ? 'เลือกอยู่' : STATE_META[block || 'available'].label
+        selected ? 'เลือกแล้ว' : STATE_META[block || 'available'].label
       }`}
       onClick={() => onSelect(t._id)}
       style={block === 'closed' ? CLOSED_STRIPES : undefined}
@@ -119,7 +119,7 @@ function TableTile({ table: t, players, selected, onSelect }) {
             selected ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : meta.badge
           }`}
         >
-          {selected ? 'เลือกอยู่' : meta.label}
+          {selected ? 'เลือกแล้ว' : meta.label}
         </span>
       </div>
 

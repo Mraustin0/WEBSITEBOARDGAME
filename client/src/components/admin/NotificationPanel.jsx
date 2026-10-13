@@ -27,7 +27,7 @@ const TYPE_META = {
   booking_affected: {
     Icon: Danger,
     tone: 'noshow',
-    label: 'การจองที่ได้รับผลกระทบ',
+    label: 'การจองได้รับผลกระทบ',
     href: '/admin/maintenance',
   },
   time_ending: {
@@ -61,7 +61,7 @@ function TypeIcon({ type, size = 14 }) {
 }
 
 const GROUPS = [
-  { key: 'today', label: 'วันนี้ (TODAY)' },
+  { key: 'today', label: 'วันนี้' },
   { key: 'yesterday', label: 'เมื่อวาน' },
   { key: 'earlier', label: 'ก่อนหน้านี้' },
 ];
@@ -165,7 +165,7 @@ export default function NotificationPanel({ open, onClose, onCountChange }) {
       if (!n.read) await api(`/notifications/${n._id}/read`, { method: 'PATCH' });
       await load({ silent: true });
     } catch (err) {
-      setError(err.message || 'ดำเนินการไม่สำเร็จ');
+      setError(err.message || 'ทำรายการไม่สำเร็จ');
     } finally {
       setBusyKey('');
     }
@@ -216,7 +216,7 @@ export default function NotificationPanel({ open, onClose, onCountChange }) {
 
         {showPrefs && (
           <div className="nf-prefs">
-            <strong>เลือกประเภทที่ต้องการรับแจ้งเตือน</strong>
+            <strong>เลือกเรื่องที่ต้องการรับแจ้งเตือน</strong>
             {TYPES.map((t) => (
               <label key={t} className="nf-pref-row">
                 <input
@@ -256,7 +256,7 @@ export default function NotificationPanel({ open, onClose, onCountChange }) {
             onClick={markAllRead}
             disabled={counts.unread === 0}
           >
-            ✓ อ่านทั้งหมด
+            ✓ อ่านแล้วทั้งหมด
           </button>
         </div>
 
@@ -295,7 +295,7 @@ export default function NotificationPanel({ open, onClose, onCountChange }) {
         <footer className="nf-foot">
           <span className="nf-muted">เก็บประวัติแจ้งเตือน 60 วัน</span>
           <Link to="/admin/maintenance" className="nf-foot-link" onClick={onClose}>
-            ดูซ่อมบำรุง →
+            ไปหน้าซ่อมบำรุง →
           </Link>
         </footer>
       </aside>
@@ -351,7 +351,7 @@ function NotifItem({ item, busyKey, onRead, onAction, onClose }) {
           )}
           {!item.read && (
             <button type="button" className="nf-action ghost" onClick={onRead}>
-              ทำเครื่องหมายว่าอ่านแล้ว
+              อ่านแล้ว
             </button>
           )}
         </div>

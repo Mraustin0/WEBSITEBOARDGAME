@@ -41,7 +41,7 @@ export default function NewBookingModal({ date, onClose, onCreated }) {
 
     if (!form.table) return setFieldErrors({ table: ['เลือกโต๊ะ'] });
     if (!form.name.trim() && !form.phone.trim()) {
-      return setFieldErrors({ customer: ['กรอกชื่อหรือเบอร์โทรลูกค้าอย่างน้อยหนึ่งอย่าง'] });
+      return setFieldErrors({ customer: ['กรอกชื่อหรือเบอร์โทรลูกค้าอย่างน้อย 1 อย่าง'] });
     }
 
     const body = {
@@ -75,7 +75,7 @@ export default function NewBookingModal({ date, onClose, onCreated }) {
         aria-labelledby="nb-title"
         onSubmit={submit}
       >
-        <h2 id="nb-title">เพิ่มการจองใหม่</h2>
+        <h2 id="nb-title">เพิ่มการจอง</h2>
 
         {error && <div className="form-error">{error}</div>}
 
@@ -136,7 +136,7 @@ export default function NewBookingModal({ date, onClose, onCreated }) {
           <span>แพ็กเกจ</span>
           <select className="input" value={form.package} onChange={set('package')}>
             <option value="hourly">รายชั่วโมง</option>
-            <option value="flat3h">เหมา 3 ชั่วโมง</option>
+            <option value="flat3h">เหมา 3 ชม.</option>
           </select>
         </label>
 
@@ -154,7 +154,7 @@ export default function NewBookingModal({ date, onClose, onCreated }) {
 
         <div className="modal-actions">
           <button type="button" className="btn-ghost" onClick={onClose}>
-            ปิด
+            ยกเลิก
           </button>
           <button type="submit" className="btn-primary" disabled={saving}>
             {saving ? 'กำลังบันทึก...' : 'บันทึกการจอง'}

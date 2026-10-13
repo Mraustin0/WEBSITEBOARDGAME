@@ -283,8 +283,8 @@ export default function FloorPlan() {
     if (!t) return; // รหัสโต๊ะใน URL ไม่มีจริง → ทิ้งเงียบ ๆ
     showToast(
       block === 'too_small'
-        ? `โต๊ะ ${t.code} นั่งได้ไม่เกิน ${t.capacity} คน — กรุณาเลือกโต๊ะใหม่`
-        : `โต๊ะ ${t.code} ไม่ว่างในช่วงเวลานี้แล้ว — กรุณาเลือกโต๊ะใหม่`,
+        ? `โต๊ะ ${t.code} นั่งได้ไม่เกิน ${t.capacity} คน — เลือกโต๊ะอื่นแทน`
+        : `โต๊ะ ${t.code} ไม่ว่างช่วงเวลานี้แล้ว — เลือกโต๊ะอื่นแทน`,
       false,
     );
   }, [floor, slotKey, tableCode, players, showToast, updateParams]);
@@ -573,7 +573,7 @@ export default function FloorPlan() {
               </>
             ) : (
               <p className="text-sm text-slate-500 bg-slate-50 rounded-xl p-3">
-                ช่วงนี้ไม่มีรอบเวลาที่จองได้ ลองกลับมาใหม่ภายหลัง
+                ช่วงนี้ไม่มีรอบว่างให้จอง ลองกลับมาดูใหม่ภายหลัง
               </p>
             )}
 
@@ -586,9 +586,9 @@ export default function FloorPlan() {
                   {selectedTable
                     ? `โต๊ะ ${selectedTable.code} นั่งได้ ${selectedTable.capacity} คน` +
                       (players >= playerMax && playerMax < maxCap
-                        ? ' — เลือกโต๊ะใหญ่ขึ้นเพื่อเพิ่มคน'
+                        ? ' — เลือกโต๊ะที่ใหญ่ขึ้นถ้าจะเพิ่มคน'
                         : '')
-                    : `สูงสุด ${maxCap} คน (ตามโต๊ะที่ใหญ่ที่สุด)`}
+                    : `สูงสุด ${maxCap} คน (ตามโต๊ะใหญ่สุดในร้าน)`}
                 </span>
               </div>
               <div className="flex items-center gap-3 shrink-0">
@@ -633,7 +633,7 @@ export default function FloorPlan() {
               <div className="min-w-0">
                 <h2 className="text-base font-heading font-bold text-slate-800">5. เลือกโต๊ะ</h2>
                 <p className="text-[11px] text-slate-500">
-                  สถานะ ณ {slotText || '-'} · อัปเดตอัตโนมัติทุก 30 วินาที
+                  สถานะช่วง {slotText || '-'} · อัปเดตเองทุก 30 วินาที
                 </p>
               </div>
               <button
@@ -684,7 +684,7 @@ export default function FloorPlan() {
 
             <div className="pt-3 border-t border-slate-100 text-xs text-slate-500 flex items-center gap-2">
               <i className="fa-solid fa-door-open text-[#064e3b] text-base"></i>
-              <span>ทางเข้าหลัก · เช็กอินที่เคาน์เตอร์บาริสต้า</span>
+              <span>ทางเข้าร้าน · เช็คอินที่เคาน์เตอร์</span>
             </div>
           </section>
         </div>
@@ -735,7 +735,7 @@ export default function FloorPlan() {
                 onClick={() => setDone(null)}
                 className="w-full py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-semibold hover:bg-slate-50"
               >
-                จองโต๊ะเพิ่ม
+                จองอีกโต๊ะ
               </button>
             </section>
           ) : (
@@ -847,13 +847,13 @@ export default function FloorPlan() {
                   <>
                     <p className="text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1">
                       {loggedIn
-                        ? 'ราคาประมาณ — เลือกโต๊ะเพื่อดูราคาจริง'
-                        : 'ราคาประมาณ — เข้าสู่ระบบเพื่อดูราคาจริง'}
+                        ? 'ราคาโดยประมาณ — เลือกโต๊ะเพื่อดูราคาจริง'
+                        : 'ราคาโดยประมาณ — เข้าสู่ระบบเพื่อดูราคาจริง'}
                     </p>
                     <PriceBreakdown price={estimate} rules={rules} />
                     {rules.PEAK?.enabled && pkg === 'hourly' && (
                       <p className="text-[11px] text-slate-500">
-                        ช่วง {rules.PEAK.start}–{rules.PEAK.end} คิด{' '}
+                        ช่วงพีค {rules.PEAK.start}–{rules.PEAK.end} น. คิด{' '}
                         {baht(rules.PEAK.perPersonHour)}/คน/ชม.
                       </p>
                     )}
@@ -896,16 +896,16 @@ export default function FloorPlan() {
                     <i className="fa-solid fa-right-to-bracket"></i> เข้าสู่ระบบเพื่อจอง
                   </>
                 ) : !tableId ? (
-                  'เลือกโต๊ะก่อนยืนยัน'
+                  'เลือกโต๊ะก่อนจอง'
                 ) : (
                   <>
-                    <i className="fa-solid fa-check"></i> ยืนยันการจองโต๊ะ {selectedTable?.code}
+                    <i className="fa-solid fa-check"></i> จองโต๊ะ {selectedTable?.code}
                   </>
                 )}
               </button>
               <p className="text-[10px] text-center text-slate-400">
                 {cutoff > 0
-                  ? `ยกเลิกเองได้ก่อนเวลาเริ่ม ${cutoff} ชม.`
+                  ? `ยกเลิกเองได้ถึง ${cutoff} ชม. ก่อนเวลาเริ่ม`
                   : 'ยกเลิกเองได้จนถึงเวลาเริ่ม'}
               </p>
             </section>

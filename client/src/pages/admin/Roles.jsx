@@ -120,10 +120,10 @@ export default function Roles() {
   async function removeRole() {
     if (!selected || !detail) return;
     if (detail.isSystem) {
-      setError('ลบ system role ไม่ได้');
+      setError('บทบาทของระบบลบไม่ได้');
       return;
     }
-    if (!confirm(`ลบบทบาท "${detail.name}" ?`)) return;
+    if (!confirm(`ลบบทบาท "${detail.name}"?`)) return;
     try {
       await api(`/roles/${selected}`, { method: 'DELETE' });
       setSelected(null);
@@ -148,10 +148,8 @@ export default function Roles() {
     <div className="roles">
       <div className="page-head">
         <div>
-          <p className="muted">จัดการสิทธิ์การเข้าถึง</p>
-          <h1>
-            บทบาท & สิทธิ์ <span className="title-en">Roles & Permissions</span>
-          </h1>
+          <p className="muted">กำหนดว่าแต่ละบทบาทใช้เมนูไหนได้บ้าง</p>
+          <h1>บทบาทและสิทธิ์</h1>
         </div>
         <button type="button" className="btn primary" onClick={() => setShowCreate(true)}>
           + เพิ่มบทบาท
@@ -166,7 +164,7 @@ export default function Roles() {
       ) : (
         <div className="roles-grid">
           <aside className="roles-list">
-            <h3>รายชื่อบทบาท ({roles.length})</h3>
+            <h3>บทบาททั้งหมด ({roles.length})</h3>
             {roles.map((r) => (
               <button
                 type="button"
@@ -176,7 +174,7 @@ export default function Roles() {
               >
                 <strong>{r.name}</strong>
                 <span className="muted">{r.slug}</span>
-                {r.isSystem && <span className="sys-badge">system</span>}
+                {r.isSystem && <span className="sys-badge">ระบบ</span>}
                 <span className="member-count">{r.memberCount ?? 0} คน</span>
               </button>
             ))}
@@ -184,7 +182,7 @@ export default function Roles() {
 
           <section className="roles-detail">
             {!detail ? (
-              <p className="muted">เลือกบทบาททางซ้าย</p>
+              <p className="muted">เลือกบทบาทจากรายการด้านซ้าย</p>
             ) : (
               <>
                 <div className="detail-head">
@@ -199,14 +197,14 @@ export default function Roles() {
                   )}
                 </div>
 
-                <h3>สิทธิ์ตามโมดูล</h3>
+                <h3>สิทธิ์แต่ละเมนู</h3>
                 <div className="perm-table-wrap">
                   <table className="perm-table">
                     <thead>
                       <tr>
-                        <th>ฟีเจอร์</th>
+                        <th>เมนู</th>
                         <th>ดู</th>
-                        <th>แก้</th>
+                        <th>แก้ไข</th>
                         <th>ลบ</th>
                         <th>อนุมัติ</th>
                       </tr>
@@ -241,17 +239,19 @@ export default function Roles() {
                   </button>
                 )}
 
-                <h3 style={{ marginTop: 28 }}>สมาชิกในบทบาทนี้</h3>
+                <h3 style={{ marginTop: 28 }}>ผู้ใช้ในบทบาทนี้</h3>
                 <div className="members">
                   {(detail.members || []).length === 0 && (
-                    <p className="muted">ยังไม่มีสมาชิก (กำหนด role ให้ user จากหน้า Users)</p>
+                    <p className="muted">
+                      ยังไม่มีผู้ใช้ในบทบาทนี้ (เปลี่ยนบทบาทได้ที่หน้าผู้ใช้งาน)
+                    </p>
                   )}
                   {(detail.members || []).map((u) => (
                     <div key={u._id} className="member-row">
                       <span>{u.displayName || u.username}</span>
                       <span className="muted">{u.email}</span>
                       <button type="button" className="btn sm" onClick={() => removeMember(u._id)}>
-                        ถอด
+                        นำออก
                       </button>
                     </div>
                   ))}
@@ -268,9 +268,9 @@ export default function Roles() {
           onMouseDown={(e) => e.target === e.currentTarget && setShowCreate(false)}
         >
           <form className="modal" onSubmit={createRole}>
-            <h2>สร้างบทบาทใหม่</h2>
+            <h2>เพิ่มบทบาท</h2>
             <label>
-              ชื่อ
+              ชื่อบทบาท
               <input
                 required
                 value={form.name}
@@ -278,9 +278,9 @@ export default function Roles() {
               />
             </label>
             <label>
-              Slug (ภาษาอังกฤษ)
+              รหัสบทบาท (ภาษาอังกฤษ เว้นว่างได้)
               <input
-                placeholder="เช่น game-master"
+                placeholder="เช่น cashier"
                 value={form.slug}
                 onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))}
               />
@@ -297,7 +297,7 @@ export default function Roles() {
                 ยกเลิก
               </button>
               <button type="submit" className="btn primary">
-                สร้าง
+                เพิ่มบทบาท
               </button>
             </div>
           </form>

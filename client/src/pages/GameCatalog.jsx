@@ -168,7 +168,7 @@ export default function GameCatalog() {
     <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 flex flex-col gap-5 sm:gap-6 font-sans min-w-0">
       <div className="flex flex-wrap items-center justify-between gap-4 pb-1">
         <h1 className="font-heading font-bold text-2xl sm:text-4xl text-slate-900 tracking-tight">
-          คลังบอร์ดเกม (Game Vault)
+          คลังบอร์ดเกม
         </h1>
         {!loading && !loadError && games.length > 0 && (
           <div className="bg-white border border-slate-200 shadow-sm px-4 py-2 rounded-2xl flex items-center gap-3">
@@ -178,10 +178,10 @@ export default function GameCatalog() {
             </span>
             <div className="flex flex-col">
               <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                สถานะคลังเกมตอนนี้
+                ตอนนี้ในร้าน
               </span>
               <span className="text-sm font-bold text-emerald-950">
-                ทั้งหมด {games.length} เกม • ว่างตอนนี้ {freeNow} เกม
+                ทั้งหมด {games.length} เกม • ว่าง {freeNow} เกม
               </span>
             </div>
           </div>
@@ -207,7 +207,7 @@ export default function GameCatalog() {
               onChange={(e) => setSearch(e.target.value)}
               type="search"
               aria-label="ค้นหาเกม"
-              placeholder="ค้นหาจากชื่อเกม หรือผู้ออกแบบ..."
+              placeholder="ค้นหาชื่อเกมหรือผู้ออกแบบ"
               className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-600 focus:bg-white text-slate-800 placeholder-slate-400 rounded-xl text-xs font-medium pl-10 pr-4 py-2.5 focus:outline-none transition"
             />
           </div>
@@ -219,7 +219,7 @@ export default function GameCatalog() {
                 onChange={(e) => setOnlyFree(e.target.checked)}
                 className="w-4 h-4 accent-emerald-700"
               />
-              {slotActive ? 'เฉพาะที่ว่างช่วงนี้' : 'เฉพาะที่ว่างตอนนี้'}
+              {slotActive ? 'เฉพาะเกมที่ว่างช่วงนี้' : 'เฉพาะเกมที่ว่างตอนนี้'}
             </label>
             <span className="text-xs text-slate-500 whitespace-nowrap">
               แสดง <strong className="text-emerald-950 font-bold">{visible.length}</strong> เกม
@@ -317,7 +317,8 @@ export default function GameCatalog() {
           className="bg-red-50 border border-red-200 text-red-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3"
         >
           <span className="text-sm font-semibold flex items-center gap-2">
-            <i className="fa-solid fa-circle-exclamation"></i> โหลดคลังเกมไม่สำเร็จ: {loadError}
+            <i className="fa-solid fa-circle-exclamation"></i> โหลดคลังบอร์ดเกมไม่สำเร็จ:{' '}
+            {loadError}
           </span>
           <button
             type="button"
@@ -337,9 +338,7 @@ export default function GameCatalog() {
         <div className="bg-white rounded-3xl p-10 sm:p-16 flex flex-col items-center justify-center text-center border border-slate-200 shadow-sm">
           <i className="fa-solid fa-box-open text-5xl text-slate-300 mb-4"></i>
           <h3 className="font-heading font-bold text-xl text-slate-800 mb-2">ยังไม่มีเกมในคลัง</h3>
-          <p className="text-sm text-slate-500">
-            ร้านกำลังเพิ่มเกมเข้าคลัง แวะกลับมาดูใหม่เร็ว ๆ นี้
-          </p>
+          <p className="text-sm text-slate-500">ร้านกำลังเพิ่มเกมเข้าคลัง แวะมาดูใหม่เร็ว ๆ นี้</p>
         </div>
       ) : visible.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 py-2">
@@ -359,9 +358,7 @@ export default function GameCatalog() {
           <h3 className="font-heading font-bold text-xl text-slate-800 mb-2">
             ไม่พบเกมที่ตรงกับตัวกรอง
           </h3>
-          <p className="text-sm text-slate-500 mb-4">
-            ลองเปลี่ยนคำค้นหา หรือปรับตัวกรองดูใหม่อีกครั้ง
-          </p>
+          <p className="text-sm text-slate-500 mb-4">ลองเปลี่ยนคำค้นหาหรือปรับตัวกรองดู</p>
           {filtersOn && (
             <button
               type="button"

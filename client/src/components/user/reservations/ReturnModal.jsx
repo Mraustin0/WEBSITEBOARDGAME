@@ -41,7 +41,7 @@ export default function ReturnModal({ r, onClose, onDone }) {
   async function submit() {
     if (busy) return;
     if (noteMissing) {
-      setError('กรุณาระบุว่าชำรุดตรงไหน');
+      setError('ระบุหน่อยว่าเสียหายตรงไหน');
       return;
     }
     setBusy(true);
@@ -61,8 +61,8 @@ export default function ReturnModal({ r, onClose, onDone }) {
 
   return (
     <Modal
-      eyebrow="เช็คเอาท์"
-      title={hasGame ? 'เล่นเสร็จแล้ว / คืนเกม' : 'เล่นเสร็จแล้ว / คืนโต๊ะ'}
+      eyebrow="เช็คบิล"
+      title={hasGame ? 'คืนเกมและเช็คบิล' : 'เช็คบิล'}
       onClose={onClose}
       busy={busy}
       footer={
@@ -77,7 +77,7 @@ export default function ReturnModal({ r, onClose, onDone }) {
             disabled={busy || loading || Boolean(loadError) || noteMissing}
           >
             <i className="fa-solid fa-box-archive" aria-hidden="true"></i>
-            {busy ? 'กำลังบันทึก...' : hasGame ? 'ยืนยันคืนเกม' : 'ยืนยันเช็คเอาท์'}
+            {busy ? 'กำลังบันทึก...' : hasGame ? 'คืนเกม' : 'เช็คบิล'}
           </button>
         </>
       }
@@ -85,7 +85,7 @@ export default function ReturnModal({ r, onClose, onDone }) {
       <ResSummary r={r} />
 
       <div className="mt-4 rounded-2xl border border-slate-200 p-4">
-        <p className="mb-1 text-xs font-bold text-slate-700">สรุปค่าใช้จ่าย (ณ ตอนนี้)</p>
+        <p className="mb-1 text-xs font-bold text-slate-700">ค่าใช้จ่ายถึงตอนนี้</p>
         {loading ? (
           <div className="space-y-2 py-1" aria-busy="true">
             {Array.from({ length: 4 }, (_, i) => (
@@ -113,7 +113,7 @@ export default function ReturnModal({ r, onClose, onDone }) {
               value={`${timeTH(bill.startedAt)}–${timeTH(bill.endedAt)} น. (${minutesText(bill.actualMinutes)})`}
             />
             <Row label="เวลาที่จอง" value={hoursLabel(bill.bookedHours)} />
-            <Row label="ค่าเล่นตามจอง" value={baht(bill.bookedTotal)} />
+            <Row label="ค่าเล่นตามเวลาที่จอง" value={baht(bill.bookedTotal)} />
             {bill.overtimeHours > 0 ? (
               <Row
                 label={`เกินเวลา ${hoursLabel(bill.overtimeHours)}`}
@@ -129,14 +129,14 @@ export default function ReturnModal({ r, onClose, onDone }) {
               <>
                 <Row label="หักมัดจำที่จ่ายแล้ว" value={`−${baht(bill.deposit)}`} />
                 <Row
-                  label="ชำระที่เคาน์เตอร์"
+                  label="จ่ายที่เคาน์เตอร์"
                   value={baht(bill.balanceDue)}
                   strong
                   tone="text-emerald-800"
                 />
               </>
             ) : (
-              <p className="mt-1 text-[11px] text-slate-500">ชำระที่เคาน์เตอร์หลังคืนเกม</p>
+              <p className="mt-1 text-[11px] text-slate-500">จ่ายที่เคาน์เตอร์หลังคืนเกม</p>
             )}
           </>
         ) : null}
@@ -155,7 +155,7 @@ export default function ReturnModal({ r, onClose, onDone }) {
               },
               {
                 key: 'damaged',
-                label: 'ชำรุด / ของหาย',
+                label: 'เสียหาย / ของหาย',
                 icon: 'fa-triangle-exclamation',
                 on: 'border-amber-500 bg-amber-50 text-amber-900',
               },
@@ -190,7 +190,7 @@ export default function ReturnModal({ r, onClose, onDone }) {
                 htmlFor="damage-note"
                 className="mb-1 block text-xs font-semibold text-slate-600"
               >
-                รายละเอียดความเสียหาย <span className="text-red-600">*</span>
+                เสียหายตรงไหน <span className="text-red-600">*</span>
               </label>
               <textarea
                 id="damage-note"
@@ -202,7 +202,7 @@ export default function ReturnModal({ r, onClose, onDone }) {
                 placeholder="เช่น การ์ดหาย 2 ใบ, กล่องฉีก"
                 className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
               />
-              <p className="mt-1 text-[11px] text-slate-500">พนักงานจะตรวจสภาพและส่งเกมซ่อม</p>
+              <p className="mt-1 text-[11px] text-slate-500">พนักงานจะตรวจสภาพเกมและส่งซ่อมให้</p>
             </div>
           )}
         </fieldset>

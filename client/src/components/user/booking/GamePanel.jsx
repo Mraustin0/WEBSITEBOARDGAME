@@ -24,7 +24,7 @@ export default function GamePanel({ game, loading, missing, onChange, onClear })
                 )}
                 {game.copiesLeft != null && (
                   <span className={game.copiesLeft > 0 ? 'text-emerald-700 font-semibold' : ''}>
-                    เหลือ {game.copiesLeft} กล่องช่วงนี้
+                    ช่วงนี้ว่าง {game.copiesLeft} กล่อง
                   </span>
                 )}
               </p>
@@ -37,7 +37,9 @@ export default function GamePanel({ game, loading, missing, onChange, onClear })
             </div>
             <div className="flex-1 min-w-0">
               <h5 className="text-sm font-bold text-slate-600">ยังไม่เลือกเกม</h5>
-              <p className="text-[11px] text-slate-500">เลือกไว้ก่อน ร้านจะเตรียมเกมไว้ที่โต๊ะ</p>
+              <p className="text-[11px] text-slate-500">
+                เลือกไว้ก่อนได้ ร้านจะเตรียมเกมไว้ให้ที่โต๊ะ
+              </p>
             </div>
           </>
         )}
@@ -64,7 +66,7 @@ export default function GamePanel({ game, loading, missing, onChange, onClear })
       {game && missing && (
         <div className="rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs p-3">
           <i className="fa-solid fa-triangle-exclamation mr-1.5"></i>
-          ไม่พบเกมนี้ในร้าน — กด “เปลี่ยนเกม” เพื่อเลือกเกมอื่น
+          ไม่พบเกมนี้ในคลังบอร์ดเกม — กด “เปลี่ยนเกม” เพื่อเลือกเกมอื่น
         </div>
       )}
 
@@ -75,12 +77,12 @@ export default function GamePanel({ game, loading, missing, onChange, onClear })
         >
           <p className="font-bold">
             <i className="fa-solid fa-triangle-exclamation mr-1.5"></i>
-            เกมนี้ไม่ว่างในช่วงเวลาที่เลือก: {blocked}
+            เกมนี้ไม่ว่างช่วงเวลาที่เลือก: {blocked}
           </p>
           {uses.map((line, i) => (
             <p key={i}>{line}</p>
           ))}
-          <p className="text-amber-700/80 mt-0.5">เปลี่ยนเวลา/จำนวนคน หรือเลือกเกมอื่น</p>
+          <p className="text-amber-700/80 mt-0.5">ลองเปลี่ยนเวลา/จำนวนผู้เล่น หรือเลือกเกมอื่น</p>
         </div>
       )}
     </div>

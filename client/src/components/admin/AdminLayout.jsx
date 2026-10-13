@@ -23,23 +23,23 @@ import { clearSession } from '../../lib/session.js';
 // เมนูแบ่งกลุ่มตามภาพ design — ไอคอน Reicon SVG
 const MENU = [
   {
-    group: 'FLOOR & PLAY',
+    group: 'หน้าร้าน',
     items: [
-      { to: '/admin', Icon: Widget2, label: 'ภาพรวม (Overview)', end: true },
-      { to: '/admin/reservations', Icon: Calendar, label: 'ผังโต๊ะ & การจอง' },
-      { to: '/admin/tables', Icon: Chair, label: 'จัดการโต๊ะ (Tables)' },
-      { to: '/admin/inventory', Icon: Gamepad, label: 'คลังบอร์ดเกม (Inventory)' },
-      { to: '/admin/maintenance', Icon: Tuning, label: 'ซ่อมบำรุง (Maintenance)' },
+      { to: '/admin', Icon: Widget2, label: 'ภาพรวมร้าน', end: true },
+      { to: '/admin/reservations', Icon: Calendar, label: 'การจอง' },
+      { to: '/admin/tables', Icon: Chair, label: 'จัดการโต๊ะ' },
+      { to: '/admin/inventory', Icon: Gamepad, label: 'คลังบอร์ดเกม' },
+      { to: '/admin/maintenance', Icon: Tuning, label: 'ซ่อมบำรุง' },
     ],
   },
   {
-    group: 'MANAGEMENT',
+    group: 'บริหารร้าน',
     items: [
-      { to: '/admin/users', Icon: Users, label: 'จัดการผู้ใช้ (Users)' },
-      { to: '/admin/roles', Icon: ShieldCheck, label: 'สิทธิ์การเข้าถึง (Roles)' },
-      { to: '/admin/reports', Icon: GraphUp, label: 'รายงาน (Reports)' },
-      { to: '/admin/audit', Icon: ClipboardList, label: 'บันทึกกิจกรรม (Audit)' },
-      { to: '/admin/settings', Icon: Settings, label: 'ตั้งค่า (Settings)' },
+      { to: '/admin/users', Icon: Users, label: 'ผู้ใช้งาน' },
+      { to: '/admin/roles', Icon: ShieldCheck, label: 'บทบาทและสิทธิ์' },
+      { to: '/admin/reports', Icon: GraphUp, label: 'รายงาน' },
+      { to: '/admin/audit', Icon: ClipboardList, label: 'บันทึกกิจกรรม' },
+      { to: '/admin/settings', Icon: Settings, label: 'ตั้งค่าร้าน' },
     ],
   },
 ];
@@ -52,7 +52,7 @@ function Clock() {
   }, []);
   return (
     <span className="admin-clock">
-      {now.toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok', hour12: false })} ICT
+      {now.toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok', hour12: false })} น.
     </span>
   );
 }
@@ -107,7 +107,7 @@ function UserMenu({ user, onLogout }) {
             className="user-dropdown-item"
             onClick={() => setOpen(false)}
           >
-            <User size={16} /> โปรไฟล์ของฉัน
+            <User size={16} /> บัญชีของฉัน
           </Link>
           <button
             type="button"
@@ -162,7 +162,7 @@ export default function AdminLayout() {
       <aside className="admin-sidebar">
         <div className="admin-brand">
           <strong>Boardgame Everyday</strong>
-          <small>GAMING VAULT & CAFE</small>
+          <small>คาเฟ่บอร์ดเกม</small>
         </div>
         <nav className="admin-nav">
           {MENU.map((g) => (
@@ -184,12 +184,12 @@ export default function AdminLayout() {
             </div>
           ))}
         </nav>
-        <div className="session-box">● Session Active</div>
+        <div className="session-box">● เข้าสู่ระบบอยู่</div>
       </aside>
 
       <div className="admin-main">
         <header className="admin-topbar">
-          <span className="badge-live">● Live Store System</span>
+          <span className="badge-live">● ระบบหน้าร้าน</span>
           <Clock />
 
           <div className="admin-topbar-right">

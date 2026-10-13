@@ -110,7 +110,7 @@ export default function GamePickerModal({
               id="game-picker-title"
               className="text-base font-heading font-bold text-[#064e3b] flex items-center gap-2"
             >
-              <i className="fa-solid fa-dice text-emerald-600"></i> เลือกเกมให้ร้านเตรียมไว้
+              <i className="fa-solid fa-dice text-emerald-600"></i> เลือกเกมให้ร้านเตรียมไว้ที่โต๊ะ
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
               {slotText} · {players} คน
@@ -161,7 +161,7 @@ export default function GamePickerModal({
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold text-slate-700">ไม่เลือกเกม</p>
-              <p className="text-[11px] text-slate-500">ไปเลือกที่ร้านได้เลย</p>
+              <p className="text-[11px] text-slate-500">มาเลือกที่ร้านก็ได้</p>
             </div>
             {!selectedId && <i className="fa-solid fa-circle-check text-[#064e3b]"></i>}
           </button>
@@ -227,7 +227,7 @@ export default function GamePickerModal({
                     ) : null}
                     {!blocked && (
                       <span className="text-emerald-700 font-semibold">
-                        เหลือ {g.copiesLeft} กล่อง
+                        ว่าง {g.copiesLeft} กล่อง
                       </span>
                     )}
                   </p>

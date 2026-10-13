@@ -134,13 +134,13 @@ export default function Dashboard() {
     num(ov?.openMaintenance) > 0 && {
       tone: 'warn',
       title: `มีใบแจ้งซ่อมค้าง ${ov.openMaintenance} รายการ`,
-      text: 'เกมหรือโต๊ะที่ปิดใช้งานระหว่างซ่อม',
+      text: 'เกมหรือโต๊ะที่ส่งซ่อมอยู่ ยังใช้งานไม่ได้',
       to: '/admin/maintenance',
     },
     num(ov?.unpaid) > 0 && {
       tone: 'danger',
       title: `ยอดค้างชำระ ${baht(ov.unpaid)}`,
-      text: 'มีรายการที่คืนโต๊ะแล้วแต่ยังไม่ได้รับเงิน',
+      text: 'มีโต๊ะที่เช็คบิลแล้วแต่ยังไม่ได้รับเงิน',
       to: '/admin/reservations',
     },
   ].filter(Boolean);
@@ -150,20 +150,18 @@ export default function Dashboard() {
       <div className="page-head">
         <div>
           <h1>
-            ภาพรวมร้าน (Store Overview){' '}
-            <span className="chip tone-available">● LIVE FLOOR OPERATIONS</span>
+            ภาพรวมร้าน <span className="chip tone-available">● อัปเดตอัตโนมัติ</span>
           </h1>
           <p className="muted">
-            อัปเดตล่าสุดเมื่อสักครู่ ({updatedAt ? timeTH(updatedAt) : '–'} น.) •
-            ภาพรวมสถานะและข้อมูลปฏิบัติการประจำวัน
+            อัปเดตล่าสุด {updatedAt ? timeTH(updatedAt) : '–'} น. • สถานะร้านและงานประจำวัน
           </p>
         </div>
         <div className="head-actions">
           <button type="button" className="btn-ghost" onClick={refresh}>
-            ⟳ รีเฟรชข้อมูล (Sync)
+            ⟳ รีเฟรช
           </button>
           <button type="button" className="btn-primary" onClick={() => setShowWalkIn(true)}>
-            + เปิดโต๊ะ Walk-In ด่วน
+            + เปิดโต๊ะลูกค้าหน้าร้าน
           </button>
         </div>
       </div>
@@ -172,7 +170,7 @@ export default function Dashboard() {
 
       <div className="ov-kpis">
         <div className="ov-card">
-          <div className="ov-title">รายได้วันนี้ (TODAY'S REVENUE)</div>
+          <div className="ov-title">รายได้วันนี้</div>
           <div className="ov-value">{ov ? baht(ov.collected) : '–'}</div>
           <div className="ov-bar">
             <i style={{ width: `${revPct}%` }} />
@@ -183,7 +181,7 @@ export default function Dashboard() {
           </div>
         </div>
         <div className="ov-card">
-          <div className="ov-title">โต๊ะที่ใช้งาน (TABLE OCCUPANCY)</div>
+          <div className="ov-title">โต๊ะที่ใช้งาน</div>
           <div className="ov-value">
             {playing}/{total} <small>({occPct}%)</small>
           </div>
@@ -191,26 +189,26 @@ export default function Dashboard() {
             <i style={{ width: `${occPct}%` }} />
           </div>
           <div className="ov-note">
-            {playing} กำลังเล่น • {free} ว่าง • {closed} ปิด/ซ่อมบำรุง
+            {playing} กำลังเล่น • {free} ว่าง • {closed} ปิด/ส่งซ่อม
           </div>
         </div>
         <div className="ov-card">
-          <div className="ov-title">สมาชิกที่ใช้งาน 7 วันล่าสุด</div>
+          <div className="ov-title">สมาชิกที่มาใช้บริการ 7 วันล่าสุด</div>
           <div className="ov-value">
             {ov ? num(ov.activeMembers7d) : '–'} <small>คน</small>
           </div>
           <div className="ov-note">
-            Walk-in วันนี้ {num(ov?.walkIns)} โต๊ะ • ใช้เวลาโต๊ะ {num(ov?.utilizationPct)}%
+            ลูกค้าหน้าร้านวันนี้ {num(ov?.walkIns)} โต๊ะ • ใช้โต๊ะ {num(ov?.utilizationPct)}%
             ของเวลาเปิดร้าน
           </div>
         </div>
         <div className={'ov-card' + (num(ov?.openMaintenance) > 0 ? ' danger' : '')}>
-          <div className="ov-title">แจ้งซ่อมค้างอยู่ (ACTION NEEDED)</div>
+          <div className="ov-title">งานซ่อมค้าง</div>
           <div className="ov-value">
             {ov ? num(ov.openMaintenance) : '–'} <small>รายการ</small>
           </div>
           <div className="ov-note">
-            {num(ov?.openMaintenance) > 0 ? 'ต้องดำเนินการด่วน' : 'ไม่มีรายการค้าง'}
+            {num(ov?.openMaintenance) > 0 ? 'ต้องรีบจัดการ' : 'ไม่มีรายการค้าง'}
           </div>
         </div>
       </div>
@@ -218,9 +216,9 @@ export default function Dashboard() {
       <div className="ov-main">
         <section className="panel">
           <div className="panel-head">
-            <h2>แนวโน้มรายได้ 7 วันล่าสุด (Revenue Trend)</h2>
+            <h2>รายได้ 7 วันล่าสุด</h2>
           </div>
-          <p className="muted">เปรียบเทียบยอดที่รับเงินแล้วรายวัน</p>
+          <p className="muted">ยอดที่รับเงินแล้วในแต่ละวัน</p>
           {trend.length === 0 ? (
             <p className="muted">กำลังโหลด...</p>
           ) : (
@@ -253,9 +251,9 @@ export default function Dashboard() {
 
         <section className="panel">
           <div className="panel-head">
-            <h2>งานด่วนที่ต้องทำ (Alerts)</h2>
+            <h2>งานที่ต้องจัดการ</h2>
             {alerts.length > 0 && (
-              <span className="chip tone-occupied">{alerts.length} เคสค้าง</span>
+              <span className="chip tone-occupied">{alerts.length} เรื่องค้าง</span>
             )}
           </div>
           {alerts.length === 0 && <p className="muted">ไม่มีงานค้าง</p>}
@@ -281,7 +279,7 @@ export default function Dashboard() {
             <div key={g._id ?? i} className="ov-row">
               <span className="rank">{i + 1}</span>
               <span className="grow">{g.name}</span>
-              <span className="muted">{num(g.playCount)} รอบเล่น</span>
+              <span className="muted">{num(g.playCount)} รอบ</span>
             </div>
           ))}
         </section>
@@ -291,11 +289,11 @@ export default function Dashboard() {
             <h2>สถานะการจองวันนี้</h2>
           </div>
           {[
-            ['จองล่วงหน้า', r.booked],
+            ['จองแล้ว', r.booked],
             ['กำลังเล่น', r.playing],
-            ['ใช้งานแล้ว', r.completed],
+            ['เช็คบิลแล้ว', r.completed],
             ['ยกเลิก', r.cancelled],
-            ['ไม่มา', r.no_show],
+            ['ไม่มาตามนัด', r.no_show],
           ].map(([l, v]) => (
             <div key={l} className="ov-row">
               <span className="grow">{l}</span>
@@ -308,12 +306,12 @@ export default function Dashboard() {
           <div className="panel-head">
             <h2>คิวจองที่กำลังจะถึง</h2>
           </div>
-          {upcoming.length === 0 && <p className="muted">ไม่มีคิวจองที่เหลือในวันนี้</p>}
+          {upcoming.length === 0 && <p className="muted">วันนี้ไม่มีคิวจองเหลือแล้ว</p>}
           {upcoming.map((q) => (
             <div key={q._id} className="ov-row q">
               <span className="chip tone-available">{timeTH(q.startAt)} น.</span>
               <span className="grow">
-                <b>{customerName(q)}</b> ({q.players} ท่าน)
+                <b>{customerName(q)}</b> ({q.players} คน)
               </span>
               <span className="muted">
                 โต๊ะ {tableCode(q)}
@@ -322,32 +320,32 @@ export default function Dashboard() {
             </div>
           ))}
           <Link className="ov-more" to="/admin/reservations">
-            ดูผังการจองทั้งหมด →
+            ดูการจองทั้งหมด →
           </Link>
         </section>
       </div>
 
       <section className="panel">
         <div className="panel-head">
-          <h2>เข้าถึงโมดูลหลักอย่างรวดเร็ว (Quick Module Access)</h2>
+          <h2>ทางลัด</h2>
         </div>
         <div className="ov-quick">
           <Link to="/admin/inventory">
-            <b>คลังบอร์ดเกม (Vault)</b>
-            <span>จัดการเกมและสต็อก</span>
+            <b>คลังบอร์ดเกม</b>
+            <span>จัดการเกมและจำนวนกล่อง</span>
           </Link>
           <Link to="/admin/reservations">
-            <b>ผังโต๊ะ & คุมคิว</b>
+            <b>การจอง</b>
             <span>
-              {total} โต๊ะทั้งหมด • {playing} กำลังเล่น
+              ทั้งหมด {total} โต๊ะ • กำลังเล่น {playing} โต๊ะ
             </span>
           </Link>
           <Link to="/admin/users">
-            <b>จัดการผู้ใช้งาน</b>
-            <span>สมาชิกและสิทธิ์</span>
+            <b>ผู้ใช้งาน</b>
+            <span>สมาชิกและพนักงาน</span>
           </Link>
           <Link to="/admin/reports">
-            <b>รายงาน & บัญชี</b>
+            <b>รายงาน</b>
             <span>สรุปยอดขายและสถิติโต๊ะ</span>
           </Link>
         </div>

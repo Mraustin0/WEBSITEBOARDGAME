@@ -6,7 +6,7 @@ import './inventory.css';
 import { copyLabel } from '../../lib/copies.js';
 
 const STATUS = {
-  available: { label: 'พร้อมใช้งาน', tone: 'ok' },
+  available: { label: 'ว่างบนชั้น', tone: 'ok' },
   in_use: { label: 'กำลังเล่น', tone: 'play' },
   maintenance: { label: 'ส่งซ่อม', tone: 'fix' },
 };
@@ -62,7 +62,7 @@ function AddGameModal({ onClose, onCreated }) {
         })
         .catch((err) => {
           setBggHits([]);
-          setBggNote(err.message || 'ค้น BGG ไม่สำเร็จ (อาจยังไม่มี API token)');
+          setBggNote(err.message || 'ค้นหาใน BGG ไม่สำเร็จ กรอกข้อมูลเองได้');
         })
         .finally(() => setBggLoading(false));
     }, 350);
@@ -97,7 +97,7 @@ function AddGameModal({ onClose, onCreated }) {
       setBggHits([]);
       setBggNote('ดึงข้อมูลจาก BGG แล้ว');
     } catch (err) {
-      setError(err.message || 'ดึงข้อมูล BGG ไม่สำเร็จ');
+      setError(err.message || 'ดึงข้อมูลจาก BGG ไม่สำเร็จ');
     } finally {
       setBusy(false);
     }
@@ -148,8 +148,8 @@ function AddGameModal({ onClose, onCreated }) {
       <form className="modal inv-modal" onSubmit={submit}>
         <div className="inv-modal-head">
           <div>
-            <h2>เพิ่มเกมใหม่เข้าคลัง</h2>
-            <p className="muted">ค้นจาก BGG หรือกรอกเอง</p>
+            <h2>เพิ่มเกมเข้าคลัง</h2>
+            <p className="muted">ค้นหาจาก BGG หรือกรอกข้อมูลเอง</p>
           </div>
           <button type="button" className="inv-x" onClick={onClose} aria-label="ปิด">
             ✕
@@ -177,7 +177,7 @@ function AddGameModal({ onClose, onCreated }) {
         {!bggLoading && bggHits.length > 0 && (
           <label className="field" style={{ marginBottom: 12 }}>
             <span style={{ color: '#0f766e', fontWeight: 600 }}>
-              พบ {bggHits.length} รายการ — เลือกเพื่อเติมฟอร์ม
+              พบ {bggHits.length} เกม เลือกเพื่อเติมข้อมูลอัตโนมัติ
             </span>
             <select
               className="input"
@@ -198,7 +198,7 @@ function AddGameModal({ onClose, onCreated }) {
               }}
             >
               <option value="" disabled>
-                -- เลือกเกมจาก BGG --
+                เลือกเกมจาก BGG
               </option>
               {bggHits.slice(0, 15).map((h) => (
                 <option key={h.bggId} value={h.bggId}>
@@ -258,7 +258,7 @@ function AddGameModal({ onClose, onCreated }) {
             />
           </label>
           <label className="field">
-            <span>เวลา (นาที)</span>
+            <span>เวลาเล่น (นาที)</span>
             <input
               className="input"
               type="number"
@@ -297,7 +297,7 @@ function AddGameModal({ onClose, onCreated }) {
               value={form.status}
               onChange={(e) => setField('status', e.target.value)}
             >
-              <option value="available">พร้อมใช้งาน</option>
+              <option value="available">ว่างบนชั้น</option>
               <option value="in_use">กำลังเล่น</option>
               <option value="maintenance">ส่งซ่อม</option>
             </select>
@@ -305,16 +305,16 @@ function AddGameModal({ onClose, onCreated }) {
         </div>
 
         <label className="field">
-          <span>หมวดหมู่ (คั่นด้วยจุลภาค)</span>
+          <span>หมวดหมู่ (คั่นด้วย ,)</span>
           <input
             className="input"
-            placeholder="Strategy, Family"
+            placeholder="เช่น Strategy, Family"
             value={form.categories}
             onChange={(e) => setField('categories', e.target.value)}
           />
         </label>
         <label className="field">
-          <span>URL รูปย่อ (thumbnail)</span>
+          <span>ลิงก์รูปย่อ</span>
           <input
             className="input"
             type="url"
@@ -324,7 +324,7 @@ function AddGameModal({ onClose, onCreated }) {
           />
         </label>
         <label className="field">
-          <span>URL รูปใหญ่ (image)</span>
+          <span>ลิงก์รูปเต็ม</span>
           <input
             className="input"
             type="url"
@@ -431,7 +431,7 @@ export default function Inventory() {
         }));
       }
     } catch (err) {
-      setError(err.message || 'โหลดคลังเกมไม่สำเร็จ');
+      setError(err.message || 'โหลดคลังบอร์ดเกมไม่สำเร็จ');
     } finally {
       setLoading(false);
     }
@@ -458,14 +458,11 @@ export default function Inventory() {
     <div className="inv">
       <div className="page-head">
         <div>
-          <p className="inv-breadcrumb muted">ภาพรวมระบบ / คลังบอร์ดเกม</p>
-          <h1>
-            คลังบอร์ดเกม
-            <span className="inv-title-en">Game Inventory</span>
-          </h1>
+          <p className="inv-breadcrumb muted">ภาพรวมร้าน / คลังบอร์ดเกม</p>
+          <h1>คลังบอร์ดเกม</h1>
           <p className="muted">
-            รายการทั้งหมด {counts.all} เกม
-            {status ? ` · กรอง: ${STATUS[status]?.label}` : ''}
+            ทั้งหมด {counts.all} เกม
+            {status ? ` · แสดงเฉพาะ: ${STATUS[status]?.label}` : ''}
           </p>
         </div>
         <div className="inv-head-actions">
@@ -480,7 +477,7 @@ export default function Inventory() {
             รีเฟรช
           </button>
           <button type="button" className="btn-primary" onClick={() => setShowAdd(true)}>
-            + เพิ่มเกมใหม่
+            + เพิ่มเกม
           </button>
         </div>
       </div>
@@ -501,7 +498,7 @@ export default function Inventory() {
             </span>
           </div>
           <strong>{counts.all}</strong>
-          <small className="muted">TOTAL VAULT</small>
+          <small className="muted">ทุกสถานะ</small>
         </button>
         <button
           type="button"
@@ -512,13 +509,13 @@ export default function Inventory() {
           }}
         >
           <div className="inv-kpi-top">
-            <span className="inv-kpi-label">พร้อมให้บริการ</span>
+            <span className="inv-kpi-label">ว่างบนชั้น</span>
             <span className="inv-kpi-ico">
               <CheckCircle size={18} />
             </span>
           </div>
           <strong>{counts.available}</strong>
-          <small className="muted">{pct(counts.available)}% · IN-VAULT</small>
+          <small className="muted">{pct(counts.available)}% ของทั้งหมด</small>
         </button>
         <button
           type="button"
@@ -529,13 +526,13 @@ export default function Inventory() {
           }}
         >
           <div className="inv-kpi-top">
-            <span className="inv-kpi-label">กำลังอยู่บนโต๊ะ</span>
+            <span className="inv-kpi-label">กำลังเล่น</span>
             <span className="inv-kpi-ico">
               <Gamepad size={18} />
             </span>
           </div>
           <strong>{counts.in_use}</strong>
-          <small className="muted">{pct(counts.in_use)}% · IN-PLAY</small>
+          <small className="muted">{pct(counts.in_use)}% ของทั้งหมด</small>
         </button>
         <button
           type="button"
@@ -546,20 +543,20 @@ export default function Inventory() {
           }}
         >
           <div className="inv-kpi-top">
-            <span className="inv-kpi-label">ส่งซ่อม / บำรุง</span>
+            <span className="inv-kpi-label">ส่งซ่อม</span>
             <span className="inv-kpi-ico">
               <Tuning size={18} />
             </span>
           </div>
           <strong>{counts.maintenance}</strong>
-          <small className="muted">{pct(counts.maintenance)}% · MAINTENANCE</small>
+          <small className="muted">{pct(counts.maintenance)}% ของทั้งหมด</small>
         </button>
       </div>
 
       <div className="inv-filters panel">
         <input
           className="input inv-search"
-          placeholder="ค้นหาชื่อบอร์ดเกม..."
+          placeholder="ค้นหาชื่อเกม"
           value={qInput}
           onChange={(e) => setQInput(e.target.value)}
         />
@@ -567,7 +564,7 @@ export default function Inventory() {
           <div className="inv-filter-chips">
             {[
               { key: '', label: `ทั้งหมด (${counts.all})` },
-              { key: 'available', label: `พร้อมเล่น (${counts.available})` },
+              { key: 'available', label: `ว่างบนชั้น (${counts.available})` },
               { key: 'in_use', label: `กำลังเล่น (${counts.in_use})` },
               { key: 'maintenance', label: `ส่งซ่อม (${counts.maintenance})` },
             ].map((c) => (
@@ -601,10 +598,10 @@ export default function Inventory() {
       </div>
 
       {error && <div className="form-error">{error}</div>}
-      {loading && <p className="muted">กำลังโหลดคลังเกม...</p>}
+      {loading && <p className="muted">กำลังโหลด...</p>}
 
       <div className="inv-grid">
-        {!loading && items.length === 0 && <p className="muted inv-empty">ไม่พบเกมในคลัง</p>}
+        {!loading && items.length === 0 && <p className="muted inv-empty">ไม่พบเกม</p>}
         {items.map((g) => {
           const st = STATUS[g.status] || STATUS.available;
           return (
@@ -638,24 +635,26 @@ export default function Inventory() {
                 </div>
                 <div className="inv-meta-grid">
                   <div>
-                    <span className="inv-meta-k">PLAYERS</span>
+                    <span className="inv-meta-k">ผู้เล่น</span>
                     <span className="inv-meta-v">
                       {g.minPlayers}–{g.maxPlayers}
                     </span>
                   </div>
                   <div>
-                    <span className="inv-meta-k">TIME</span>
-                    <span className="inv-meta-v">{g.playtimeMin || '—'}m</span>
+                    <span className="inv-meta-k">เวลา</span>
+                    <span className="inv-meta-v">
+                      {g.playtimeMin ? `${g.playtimeMin} นาที` : '—'}
+                    </span>
                   </div>
                   <div>
-                    <span className="inv-meta-k">WEIGHT</span>
+                    <span className="inv-meta-k">ความยาก</span>
                     <span className="inv-meta-v">
                       {g.bggWeight != null ? `${Number(g.bggWeight).toFixed(1)}/5` : '—'}
                     </span>
                   </div>
                 </div>
                 <Link className="btn-primary inv-btn" to={`/admin/inventory/${g._id}`}>
-                  ดูรายละเอียด / จัดการ
+                  ดูรายละเอียดเกม
                 </Link>
               </div>
             </article>
@@ -674,7 +673,7 @@ export default function Inventory() {
             ← ก่อนหน้า
           </button>
           <span className="muted">
-            หน้า {page} / {pages} · {total} รายการ
+            หน้า {page} / {pages} · {total} เกม
           </span>
           <button
             type="button"

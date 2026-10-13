@@ -44,8 +44,8 @@ function RequireMember({ children }) {
 function ComingSoon() {
   return (
     <div className="panel">
-      <h2>หน้านี้ยังไม่พร้อมใช้งาน</h2>
-      <p className="muted">กำลังพัฒนา</p>
+      <h2>หน้านี้ยังไม่เปิดใช้งาน</h2>
+      <p className="muted">อยู่ระหว่างพัฒนา</p>
     </div>
   );
 }

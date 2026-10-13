@@ -5,9 +5,13 @@ import { api } from '../../lib/api.js';
 import { timeTH } from '../../lib/date.js';
 import './inventory.css';
 import { copyLabel } from '../../lib/copies.js';
+import { statusOf } from '../../lib/reservationStatus.js';
+import { PRIORITY } from '../../components/admin/maintenance/helpers.js';
+
+const TICKET_STATUS = { pending: 'รอซ่อม', in_progress: 'กำลังซ่อม', resolved: 'ซ่อมเสร็จแล้ว' };
 
 const STATUS = {
-  available: { label: 'พร้อมให้บริการ', tone: 'ok' },
+  available: { label: 'ว่างบนชั้น', tone: 'ok' },
   in_use: { label: 'กำลังเล่น', tone: 'play' },
   maintenance: { label: 'ส่งซ่อม', tone: 'fix' },
 };
@@ -106,7 +110,7 @@ export default function GameDetail() {
   async function remove() {
     if (
       !window.confirm(
-        `ลบเกม "${game?.name}" ออกจากคลัง?\n\nถ้ายังมีการจองที่รอยืนยัน / จองล่วงหน้า / กำลังเล่น ระบบจะไม่ให้ลบ`,
+        `ลบเกม "${game?.name}" ออกจากคลัง?\n\nถ้ายังมีการจองที่รอยืนยัน จองแล้ว หรือกำลังเล่นอยู่ จะลบไม่ได้`,
       )
     ) {
       return;
@@ -120,7 +124,7 @@ export default function GameDetail() {
       const msg =
         err.status === 409
           ? err.message ||
-            'ลบไม่ได้: ยังมีการจองที่ผูกกับเกมนี้ — ไปหน้าการจองแล้วกดยืนยัน ยกเลิก หรือจบรอบก่อน'
+            'ลบไม่ได้ ยังมีการจองที่ใช้เกมนี้อยู่ — ไปหน้าการจองเพื่อยืนยัน ยกเลิก หรือเช็คบิลให้เรียบร้อยก่อน'
           : err.message || 'ลบไม่สำเร็จ';
       setError(msg);
       setBusy(false);
@@ -133,7 +137,7 @@ export default function GameDetail() {
       <div className="inv">
         <div className="form-error">{error}</div>
         <Link to="/admin/inventory" className="btn-ghost">
-          ← กลับคลังเกม
+          ← กลับไปคลังบอร์ดเกม
         </Link>
       </div>
     );
@@ -147,16 +151,16 @@ export default function GameDetail() {
     <div className="inv gd">
       <div className="gd-topbar">
         <Link to="/admin/inventory" className="gd-back">
-          ← กลับไปคลังเกม
+          ← กลับไปคลังบอร์ดเกม
         </Link>
         <div className="inv-head-actions">
           {!edit ? (
             <>
               <button type="button" className="btn-ghost" onClick={() => setEdit(true)}>
-                แก้ไขข้อมูล
+                แก้ไขเกม
               </button>
               <Link className="btn-ghost" to="/admin/maintenance">
-                บันทึกส่งซ่อม
+                แจ้งซ่อม
               </Link>
               <button type="button" className="btn-danger" onClick={remove} disabled={busy}>
                 ลบเกม
@@ -164,7 +168,7 @@ export default function GameDetail() {
             </>
           ) : (
             <button type="button" className="btn-ghost" onClick={() => setEdit(false)}>
-              ยกเลิกแก้ไข
+              ยกเลิก
             </button>
           )}
         </div>
@@ -253,7 +257,7 @@ export default function GameDetail() {
                   <ClockCircle size={20} />
                 </span>
                 <div>
-                  <span className="inv-meta-k">เวลาโดยประมาณ</span>
+                  <span className="inv-meta-k">เวลาเล่นโดยประมาณ</span>
                   <strong>{game.playtimeMin || '—'} นาที</strong>
                 </div>
               </div>
@@ -262,7 +266,7 @@ export default function GameDetail() {
                   <Scale size={20} />
                 </span>
                 <div>
-                  <span className="inv-meta-k">ระดับความซับซ้อน</span>
+                  <span className="inv-meta-k">ความยาก</span>
                   <strong>
                     {game.bggWeight != null ? `${Number(game.bggWeight).toFixed(2)} / 5` : '—'}
                   </strong>
@@ -278,8 +282,8 @@ export default function GameDetail() {
                   {(game.copiesInRepair > 0 || game.copiesInPlay > 0) && (
                     <span className="muted">
                       {' '}
-                      (ว่าง {game.copiesInVault ?? copies} · เล่นอยู่ {game.copiesInPlay ?? 0} ·
-                      ซ่อม {game.copiesInRepair ?? 0})
+                      (ว่างบนชั้น {game.copiesInVault ?? copies} · กำลังเล่น{' '}
+                      {game.copiesInPlay ?? 0} · ส่งซ่อม {game.copiesInRepair ?? 0})
                     </span>
                   )}
                 </div>
@@ -294,7 +298,7 @@ export default function GameDetail() {
         {[
           { id: 'general', label: 'ข้อมูลทั่วไป' },
           { id: 'history', label: 'ประวัติการเล่น' },
-          { id: 'stats', label: 'สถิติและวิเคราะห์' },
+          { id: 'stats', label: 'สถิติการเล่น' },
         ].map((t) => (
           <button
             key={t.id}
@@ -325,7 +329,7 @@ export default function GameDetail() {
                   </label>
                   <div className="inv-form-row">
                     <label className="field">
-                      <span>ผู้เล่น min</span>
+                      <span>ผู้เล่นขั้นต่ำ</span>
                       <input
                         className="input"
                         type="number"
@@ -334,7 +338,7 @@ export default function GameDetail() {
                       />
                     </label>
                     <label className="field">
-                      <span>ผู้เล่น max</span>
+                      <span>ผู้เล่นสูงสุด</span>
                       <input
                         className="input"
                         type="number"
@@ -343,7 +347,7 @@ export default function GameDetail() {
                       />
                     </label>
                     <label className="field">
-                      <span>นาที</span>
+                      <span>เวลาเล่น (นาที)</span>
                       <input
                         className="input"
                         type="number"
@@ -365,7 +369,7 @@ export default function GameDetail() {
                   </div>
                   <div className="inv-form-row">
                     <label className="field">
-                      <span>ปี</span>
+                      <span>ปีที่ออก</span>
                       <input
                         className="input"
                         type="number"
@@ -380,14 +384,14 @@ export default function GameDetail() {
                         value={form.status}
                         onChange={(e) => setField('status', e.target.value)}
                       >
-                        <option value="available">พร้อมใช้งาน</option>
+                        <option value="available">ว่างบนชั้น</option>
                         <option value="in_use">กำลังเล่น</option>
                         <option value="maintenance">ส่งซ่อม</option>
                       </select>
                     </label>
                   </div>
                   <label className="field">
-                    <span>หมวดหมู่ (,)</span>
+                    <span>หมวดหมู่ (คั่นด้วย ,)</span>
                     <input
                       className="input"
                       value={form.categories}
@@ -395,7 +399,7 @@ export default function GameDetail() {
                     />
                   </label>
                   <label className="field">
-                    <span>กลไก (,)</span>
+                    <span>กลไกเกม (คั่นด้วย ,)</span>
                     <input
                       className="input"
                       value={form.mechanics}
@@ -403,7 +407,7 @@ export default function GameDetail() {
                     />
                   </label>
                   <label className="field">
-                    <span>ผู้ออกแบบ (,)</span>
+                    <span>ผู้ออกแบบ (คั่นด้วย ,)</span>
                     <input
                       className="input"
                       value={form.designers}
@@ -411,7 +415,7 @@ export default function GameDetail() {
                     />
                   </label>
                   <label className="field">
-                    <span>URL รูปย่อ</span>
+                    <span>ลิงก์รูปย่อ</span>
                     <input
                       className="input"
                       type="url"
@@ -420,7 +424,7 @@ export default function GameDetail() {
                     />
                   </label>
                   <label className="field">
-                    <span>URL รูปใหญ่</span>
+                    <span>ลิงก์รูปเต็ม</span>
                     <input
                       className="input"
                       type="url"
@@ -449,13 +453,12 @@ export default function GameDetail() {
                 </form>
               ) : (
                 <>
-                  <h2>เรื่องย่อและรูปแบบการเล่น</h2>
+                  <h2>เกี่ยวกับเกม</h2>
                   <p className="gd-desc-text">
-                    {game.description ||
-                      'ยังไม่มีคำอธิบายเกม — กดแก้ไขเพื่อเพิ่ม หรือดึงจาก BGG ตอนเพิ่มเกมใหม่'}
+                    {game.description || 'ยังไม่มีคำอธิบาย กด “แก้ไขเกม” เพื่อเพิ่ม'}
                   </p>
 
-                  <h2 className="gd-sub">คุณสมบัติจากระบบ</h2>
+                  <h2 className="gd-sub">ข้อมูลในระบบ</h2>
                   <div className="gd-meta-grid">
                     <div className="gd-meta-item">
                       <span className="inv-meta-k">สถานะ</span>
@@ -466,7 +469,7 @@ export default function GameDetail() {
                       <strong>{copies}</strong>
                     </div>
                     <div className="gd-meta-item">
-                      <span className="inv-meta-k">BGG ID</span>
+                      <span className="inv-meta-k">รหัส BGG</span>
                       <strong>{game.bggId || '—'}</strong>
                     </div>
                     <div className="gd-meta-item">
@@ -490,10 +493,10 @@ export default function GameDetail() {
                   <li key={r._id}>
                     <div className="gd-recent-main">
                       <strong>
-                        โต๊ะ {r.table?.code || '—'} · {r.players} คน · {r.status}
+                        โต๊ะ {r.table?.code || '—'} · {r.players} คน · {statusOf(r.status).label}
                       </strong>
                       <span className="muted">
-                        {r.user?.username || r.customer?.name || 'walk-in'}
+                        {r.user?.username || r.customer?.name || 'ลูกค้าหน้าร้าน'}
                       </span>
                     </div>
                     <small className="muted">
@@ -514,7 +517,8 @@ export default function GameDetail() {
                       <li key={t._id}>
                         <strong>{t.title}</strong>
                         <small className="muted">
-                          {t.status} · {t.priority}
+                          {TICKET_STATUS[t.status] ?? t.status} ·{' '}
+                          {PRIORITY[t.priority]?.label ?? t.priority}
                           {t.copies ? ` · ${t.copies} กล่อง` : ''}
                         </small>
                       </li>
@@ -527,7 +531,7 @@ export default function GameDetail() {
 
           {tab === 'stats' && (
             <section className="panel gd-block">
-              <h2>สถิติและวิเคราะห์</h2>
+              <h2>สถิติการเล่น</h2>
               {!stats ? (
                 <p className="muted">ไม่มีข้อมูลสถิติ</p>
               ) : (
@@ -557,7 +561,7 @@ export default function GameDetail() {
                     </strong>
                   </div>
                   <div className="gd-stat-card">
-                    <span className="inv-meta-k">รายงานชำรุด</span>
+                    <span className="inv-meta-k">แจ้งชำรุด</span>
                     <strong>{stats.damageReports ?? 0}</strong>
                   </div>
                 </div>
@@ -570,7 +574,7 @@ export default function GameDetail() {
         <aside className="gd-side">
           <section className="panel gd-side-card">
             <div className="gd-side-head">
-              <h3>คะแนนรีวิว & น้ำหนักเกม</h3>
+              <h3>คะแนนและความยาก (BGG)</h3>
               {game.bggId && <span className="inv-tag mech">BGG</span>}
             </div>
             <div className="gd-score">
@@ -589,14 +593,14 @@ export default function GameDetail() {
                   <i style={{ width: `${(Number(game.bggWeight) / 5) * 100}%` }} />
                 </div>
                 <p className="muted" style={{ margin: '6px 0 0', fontSize: 'var(--fs-detail)' }}>
-                  ความซับซ้อน {Number(game.bggWeight).toFixed(2)} / 5.0
+                  ความยาก {Number(game.bggWeight).toFixed(2)} / 5
                 </p>
               </div>
             )}
           </section>
 
           <section className="panel gd-side-card">
-            <h3>สถิติร้านโดยย่อ</h3>
+            <h3>สรุปในร้าน</h3>
             <ul className="gd-stat-list">
               <li>
                 <span>รอบเล่น</span>

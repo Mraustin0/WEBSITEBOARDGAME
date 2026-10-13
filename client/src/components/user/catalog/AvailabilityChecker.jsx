@@ -60,8 +60,8 @@ export default function AvailabilityChecker({
         <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
         <span>
           {slot.ymd
-            ? 'เลือกเวลาเริ่มเพื่อดูเกมที่ว่าง'
-            : 'แสดงสถานะ "ตอนนี้" — เลือกวันและเวลาเพื่อเช็กล่วงหน้า'}
+            ? 'เลือกเวลาเริ่มเพื่อดูว่าเกมไหนว่าง'
+            : 'ตอนนี้แสดงสถานะล่าสุด — เลือกวันและเวลาเพื่อดูล่วงหน้า'}
         </span>
       </>
     );
@@ -69,7 +69,7 @@ export default function AvailabilityChecker({
     summary = (
       <>
         <i className="fa-solid fa-spinner fa-spin text-emerald-600"></i>
-        <span>กำลังตรวจสอบ...</span>
+        <span>กำลังเช็คเกมว่าง...</span>
       </>
     );
   } else if (status === 'error') {
@@ -118,7 +118,7 @@ export default function AvailabilityChecker({
             id="checker-title"
             className="font-heading font-bold text-lg sm:text-2xl text-slate-900"
           >
-            เช็กเกมว่างตามช่วงเวลา
+            เช็คเกมว่างตามวันและเวลา
           </h2>
           <div
             aria-live="polite"
@@ -130,13 +130,13 @@ export default function AvailabilityChecker({
 
         {rulesError && (
           <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
-            โหลดกฎการจองของร้านไม่สำเร็จ ({rulesError}) — ใช้ค่าเริ่มต้นแทน
+            โหลดเงื่อนไขการจองไม่สำเร็จ ({rulesError}) — ใช้ค่ามาตรฐานไปก่อน
           </p>
         )}
 
         <div className="grid grid-cols-2 lg:grid-cols-12 gap-3 items-end">
           <fieldset className="col-span-2 lg:col-span-5 flex flex-col gap-1.5 min-w-0">
-            <legend className={`${labelCls} mb-1.5`}>วันที่เข้าใช้บริการ</legend>
+            <legend className={`${labelCls} mb-1.5`}>วันที่มาร้าน</legend>
             <div className="flex gap-2 overflow-x-auto pb-1 -mb-1">
               {dates.map((d) => {
                 const on = slot.ymd === d.ymd;
@@ -222,7 +222,7 @@ export default function AvailabilityChecker({
                 onChange={(e) => onChange({ ...slot, players: Number(e.target.value) || '' })}
                 className={selectCls}
               >
-                <option value="">ไม่ระบุ</option>
+                <option value="">กี่คนก็ได้</option>
                 {PLAYER_CHOICES.map((n) => (
                   <option key={n} value={n}>
                     {n} คน
@@ -240,7 +240,7 @@ export default function AvailabilityChecker({
               disabled={!active}
               className="w-full h-[38px] bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl px-3 font-semibold text-xs transition flex items-center justify-center gap-1.5 disabled:opacity-40"
             >
-              <i className="fa-solid fa-rotate-left"></i> ล้าง
+              <i className="fa-solid fa-rotate-left"></i> ล้างค่า
             </button>
           </div>
         </div>
@@ -251,5 +251,5 @@ export default function AvailabilityChecker({
 
 /** reason จาก server (ข้อความอังกฤษ) → ภาษาไทย */
 function thaiReason(reason) {
-  return reason ? thaiError({ message: reason }) : 'นอกเงื่อนไขการจอง';
+  return reason ? thaiError({ message: reason }) : 'ไม่ตรงเงื่อนไขการจอง';
 }

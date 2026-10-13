@@ -18,16 +18,16 @@ export default function StatCards({ overview, loading }) {
     },
     {
       key: 'booked',
-      title: 'จองล่วงหน้า',
+      title: 'จองแล้ว',
       value: num(r.booked),
       note: 'ยังไม่ถึงเวลาเล่น',
       tone: 'available',
     },
     {
       key: 'lost',
-      title: 'ยกเลิก / ไม่มา',
+      title: 'ยกเลิก / ไม่มาตามนัด',
       value: num(r.cancelled) + num(r.no_show),
-      note: `ยกเลิก ${num(r.cancelled)} • ไม่มา ${num(r.no_show)}`,
+      note: `ยกเลิก ${num(r.cancelled)} • ไม่มาตามนัด ${num(r.no_show)}`,
       tone: 'occupied',
     },
   ];

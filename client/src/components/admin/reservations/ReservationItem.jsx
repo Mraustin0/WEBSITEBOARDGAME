@@ -36,7 +36,7 @@ export default function ReservationItem({ r, busy, onCancel, onNoShow, onCheckou
       <div className="res-name">{customerName(r)}</div>
       <div className="res-meta">
         {customerPhone(r) && <span>{customerPhone(r)} • </span>}
-        {r.players} ที่นั่ง
+        {r.players} คน
         {gameName(r) && <span> • {gameName(r)}</span>}
       </div>
 
@@ -74,7 +74,7 @@ export default function ReservationItem({ r, busy, onCancel, onNoShow, onCheckou
               title="บันทึกว่าลูกค้าไม่มาตามนัด"
               onClick={() => onNoShow(r)}
             >
-              ไม่มา
+              ไม่มาตามนัด
             </button>
           )}
 

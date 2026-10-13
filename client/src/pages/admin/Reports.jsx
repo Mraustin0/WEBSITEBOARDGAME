@@ -32,7 +32,7 @@ function ChangePct({ value }) {
   return (
     <span className={'rp-pct' + (flat ? ' flat' : up ? ' up' : ' down')}>
       {flat ? '0%' : `${up ? '+' : ''}${v}%`}
-      <small> vs ช่วงก่อน</small>
+      <small> เทียบช่วงก่อน</small>
     </span>
   );
 }
@@ -218,7 +218,7 @@ export default function Reports() {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-        throw new Error(data?.error || res.statusText || 'Export ไม่สำเร็จ');
+        throw new Error(data?.error || res.statusText || 'ส่งออกไม่สำเร็จ');
       }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -230,7 +230,7 @@ export default function Reports() {
       a.remove();
       URL.revokeObjectURL(url);
     } catch (err) {
-      setError(err.message || 'Export ไม่สำเร็จ');
+      setError(err.message || 'ส่งออกไม่สำเร็จ');
     } finally {
       setExporting(false);
     }
@@ -261,7 +261,7 @@ export default function Reports() {
     },
     {
       key: 'avgPerSession',
-      label: 'เฉลี่ย/รอบ',
+      label: 'ยอดเฉลี่ยต่อรอบ',
       value: baht(kpis.avgPerSession),
       change: change.avgPerSession,
     },
@@ -283,7 +283,7 @@ export default function Reports() {
     <div className="rp">
       <div className="page-head">
         <div>
-          <h1>รายงานและสถิติ (Reports)</h1>
+          <h1>รายงาน</h1>
           <p className="muted">
             {formatThaiDate(range.from)}
             {range.from !== range.to ? ` – ${formatThaiDate(range.to)}` : ''}
@@ -300,7 +300,7 @@ export default function Reports() {
             รีเฟรช
           </button>
           <button type="button" className="btn-primary" onClick={onExport} disabled={exporting}>
-            {exporting ? 'กำลังส่งออก...' : 'Export CSV'}
+            {exporting ? 'กำลังส่งออก...' : 'ส่งออก CSV'}
           </button>
         </div>
       </div>
@@ -346,7 +346,7 @@ export default function Reports() {
       </div>
 
       {error && <div className="form-error">{error}</div>}
-      {loading && !report && <p className="muted">กำลังโหลดรายงาน...</p>}
+      {loading && !report && <p className="muted">กำลังโหลด...</p>}
 
       <div className="rp-kpis">
         {kpiCards.map((c) => (
@@ -369,7 +369,7 @@ export default function Reports() {
         <section className="panel rp-section">
           <div className="rp-section-head">
             <h2>เกมยอดนิยม</h2>
-            <span className="muted">Top 10</span>
+            <span className="muted">10 อันดับแรก</span>
           </div>
           <ol className="rp-top-games">
             {(report?.topGames || []).length === 0 && <li className="muted">ยังไม่มีข้อมูล</li>}
@@ -404,7 +404,7 @@ export default function Reports() {
 
         <section className="panel rp-section rp-section-wide">
           <div className="rp-section-head">
-            <h2>ช่วงเวลาคนเยอะ (Heatmap)</h2>
+            <h2>ช่วงคนเยอะ</h2>
             <span className="muted">{heat ? `${heat.from} – ${heat.to}` : '10:00–23:00'}</span>
           </div>
           <Heatmap matrix={heat?.matrix} days={heat?.days} max={heat?.max} />

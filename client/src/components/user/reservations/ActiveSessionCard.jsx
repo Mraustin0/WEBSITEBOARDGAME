@@ -105,7 +105,7 @@ export default function ActiveSessionCard({
           }`}
         >
           <p className={`text-[10px] ${overtime ? 'text-red-600' : 'text-slate-500'}`}>
-            {overtime ? 'เกินเวลาแล้ว' : 'เวลาคงเหลือ'}
+            {overtime ? 'เกินเวลาแล้ว' : 'เหลือเวลา'}
           </p>
           <p
             className={`text-lg font-bold leading-tight ${overtime ? 'text-red-600' : 'text-emerald-950'}`}
@@ -137,8 +137,8 @@ export default function ActiveSessionCard({
         <div className="flex min-w-0 items-center gap-3 rounded-2xl border border-slate-200 p-3">
           <GameCover game={game} className="h-16 w-16 shrink-0 sm:h-20 sm:w-20" />
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-bold uppercase text-emerald-700">บอร์ดเกมบนโต๊ะ</p>
-            <p className="truncate text-base font-bold">{game?.name ?? 'ยังไม่ได้เลือกเกม'}</p>
+            <p className="text-[10px] font-bold uppercase text-emerald-700">เกมที่เล่นอยู่</p>
+            <p className="truncate text-base font-bold">{game?.name ?? 'ยังไม่เลือกเกม'}</p>
             {game ? (
               <p className="truncate text-[11px] text-slate-500">
                 {game.minPlayers}–{game.maxPlayers} คน
@@ -146,7 +146,7 @@ export default function ActiveSessionCard({
                 {game.bggAverage ? ` • BGG ${Number(game.bggAverage).toFixed(1)}` : ''}
               </p>
             ) : (
-              <p className="text-[11px] text-slate-500">เลือกเกมจากคลังได้ระหว่างเล่น</p>
+              <p className="text-[11px] text-slate-500">เลือกเกมจากคลังบอร์ดเกมได้ระหว่างเล่น</p>
             )}
           </div>
           <button
@@ -155,7 +155,7 @@ export default function ActiveSessionCard({
             className={`${BTN.secondary} shrink-0`}
           >
             <i className="fa-solid fa-right-left text-emerald-700" aria-hidden="true"></i>
-            {game ? 'เปลี่ยน' : 'เลือกเกม'}
+            {game ? 'เปลี่ยนเกม' : 'เลือกเกม'}
           </button>
         </div>
         <div className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 p-3 md:flex-col md:items-end md:justify-center">
@@ -184,7 +184,7 @@ export default function ActiveSessionCard({
             >
               <i className="fa-solid fa-bell-concierge text-amber-600" aria-hidden="true"></i>
               <span className="min-w-0 flex-1">
-                <strong>เรียก GM: {topicLabel(c.topic)}</strong> —{' '}
+                <strong>เรียกพนักงาน: {topicLabel(c.topic)}</strong> —{' '}
                 <span
                   className={c.status === 'acknowledged' ? 'text-emerald-700' : 'text-amber-700'}
                 >
@@ -214,13 +214,13 @@ export default function ActiveSessionCard({
           <div>
             <p className="text-sm font-bold">เล่นเสร็จแล้ว?</p>
             <p className="text-[11px] text-slate-600">
-              กดคืนเกมเพื่อดูยอดและให้สมาชิกคนอื่นจองต่อได้ทันที
+              กดคืนเกมเพื่อดูยอดที่ต้องจ่าย แล้วเกมจะว่างให้คนอื่นเล่นต่อทันที
             </p>
           </div>
         </div>
         <button type="button" onClick={() => onReturn(r)} className={`${BTN.primary} py-3`}>
           <i className="fa-solid fa-box-archive" aria-hidden="true"></i>
-          เล่นเสร็จแล้ว / คืนเกม
+          คืนเกม
         </button>
       </div>
 
@@ -228,11 +228,11 @@ export default function ActiveSessionCard({
         <span className="mr-auto text-[11px] text-slate-400">ระหว่างเล่น:</span>
         <button type="button" onClick={() => onExtend(r)} className={BTN.secondary}>
           <i className="fa-solid fa-clock-rotate-left text-emerald-700" aria-hidden="true"></i>
-          ขอต่อเวลา
+          ต่อเวลา
         </button>
         <button type="button" onClick={() => setGmOpen(true)} className={BTN.secondary}>
           <i className="fa-solid fa-headset text-emerald-700" aria-hidden="true"></i>
-          เรียก GM
+          เรียกพนักงาน
         </button>
       </div>
 
@@ -243,7 +243,7 @@ export default function ActiveSessionCard({
           onClose={() => setGmOpen(false)}
           onDone={(label) => {
             setGmOpen(false);
-            showToast(`เรียก GM แล้ว (${label}) — พนักงานกำลังมา`);
+            showToast(`เรียกพนักงานแล้ว (${label}) — กำลังไปที่โต๊ะ`);
             setCallsTick((n) => n + 1);
           }}
         />

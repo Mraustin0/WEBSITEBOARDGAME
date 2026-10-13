@@ -4,7 +4,7 @@ import './tables.css';
 
 const STATUSES = {
   active: { label: 'เปิดใช้งาน', tone: 'available' },
-  closed: { label: 'ปิดโต๊ะ', tone: 'occupied' },
+  closed: { label: 'ปิดใช้งาน', tone: 'occupied' },
 };
 
 const SHAPES = {
@@ -27,7 +27,7 @@ const EMPTY_FORM = {
 function errorText(err, fallback) {
   if (err.status === 409) return err.message || 'รหัสโต๊ะซ้ำ หรือมีคิวจองค้างอยู่';
   if (err.status === 400) return err.message || 'ข้อมูลไม่ถูกต้อง';
-  if (err.status === 403) return 'ไม่มีสิทธิ์จัดการโต๊ะ (ต้องมีสิทธิ์ floor)';
+  if (err.status === 403) return 'ไม่มีสิทธิ์จัดการโต๊ะ (ต้องมีสิทธิ์ผังโต๊ะและการจอง)';
   return err.message || fallback;
 }
 
@@ -81,15 +81,15 @@ function TableForm({ initial, onSubmit, onCancel, saving, isEdit }) {
     setErr('');
     const code = form.code.trim().toUpperCase();
     if (!code) {
-      setErr('กรุณาระบุรหัสโต๊ะ');
+      setErr('กรอกรหัสโต๊ะ');
       return;
     }
     if (!form.zone.trim()) {
-      setErr('กรุณาระบุโซน');
+      setErr('กรอกโซน');
       return;
     }
     if (!form.capacity || form.capacity < 1) {
-      setErr('ความจุต้องอย่างน้อย 1 ที่นั่ง');
+      setErr('ต้องมีอย่างน้อย 1 ที่นั่ง');
       return;
     }
     try {
@@ -139,7 +139,7 @@ function TableForm({ initial, onSubmit, onCancel, saving, isEdit }) {
             className="input"
             value={form.name}
             onChange={(e) => set('name', e.target.value)}
-            placeholder="เช่น Private Room 1"
+            placeholder="เช่น ห้องส่วนตัว 1"
             maxLength={60}
           />
         </label>
@@ -150,7 +150,7 @@ function TableForm({ initial, onSubmit, onCancel, saving, isEdit }) {
             className="input"
             value={form.zone}
             onChange={(e) => set('zone', e.target.value)}
-            placeholder="Main / VIP / Outdoor"
+            placeholder="เช่น Main, VIP, Outdoor"
             maxLength={40}
             required
             list="zone-suggestions"
@@ -158,7 +158,7 @@ function TableForm({ initial, onSubmit, onCancel, saving, isEdit }) {
         </label>
 
         <label>
-          <span>ที่นั่ง (capacity) *</span>
+          <span>จำนวนที่นั่ง *</span>
           <input
             className="input"
             type="number"
@@ -178,7 +178,7 @@ function TableForm({ initial, onSubmit, onCancel, saving, isEdit }) {
             onChange={(e) => set('status', e.target.value)}
           >
             <option value="active">เปิดใช้งาน</option>
-            <option value="closed">ปิดโต๊ะ</option>
+            <option value="closed">ปิดใช้งาน</option>
           </select>
         </label>
 
@@ -195,7 +195,7 @@ function TableForm({ initial, onSubmit, onCancel, saving, isEdit }) {
         </label>
 
         <label>
-          <span>ค่าเพิ่ม / ชม. (บาท)</span>
+          <span>ค่าโต๊ะเพิ่ม (฿/ชม.)</span>
           <input
             className="input"
             type="number"
@@ -220,11 +220,11 @@ function TableForm({ initial, onSubmit, onCancel, saving, isEdit }) {
       </div>
 
       <details className="tbl-pos">
-        <summary>ตำแหน่งบนผังร้าน (ไม่บังคับ)</summary>
+        <summary>ตำแหน่งบนผังโต๊ะ (ไม่บังคับ)</summary>
         <div className="tbl-form-grid tbl-pos-grid">
           {['x', 'y', 'w', 'h'].map((k) => (
             <label key={k}>
-              <span>{k.toUpperCase()} (%)</span>
+              <span>{{ x: 'แนวนอน', y: 'แนวตั้ง', w: 'กว้าง', h: 'สูง' }[k]} (%)</span>
               <input
                 className="input"
                 type="number"
@@ -333,8 +333,8 @@ export default function Tables() {
 
   async function toggleStatus(t) {
     const next = t.status === 'active' ? 'closed' : 'active';
-    const label = next === 'closed' ? 'ปิดโต๊ะ' : 'เปิดโต๊ะ';
-    if (!window.confirm(`${label} ${t.code}?`)) return;
+    const label = next === 'closed' ? 'ปิดใช้งาน' : 'เปิดใช้งาน';
+    if (!window.confirm(`${label}โต๊ะ ${t.code}?`)) return;
     setBusyId(t._id);
     setError('');
     try {
@@ -348,9 +348,7 @@ export default function Tables() {
   }
 
   async function handleDelete(t) {
-    if (
-      !window.confirm(`ลบโต๊ะ ${t.code}?\nถ้ามีคิวจองค้างอยู่ ระบบจะไม่อนุญาตให้ลบ (ปิดโต๊ะแทนได้)`)
-    ) {
+    if (!window.confirm(`ลบโต๊ะ ${t.code}?\nถ้ายังมีคิวจองค้างอยู่จะลบไม่ได้ ให้ปิดใช้งานแทน`)) {
       return;
     }
     setBusyId(t._id);
@@ -370,7 +368,7 @@ export default function Tables() {
       <div className="page-head">
         <div>
           <h1>จัดการโต๊ะ</h1>
-          <p className="muted">เพิ่ม แก้ไข เปิด/ปิด และลบโต๊ะในร้าน — ใช้กับผังจองและ walk-in</p>
+          <p className="muted">เพิ่ม แก้ไข ปิดใช้งาน และลบโต๊ะในร้าน</p>
         </div>
         <div className="head-actions">
           <button type="button" className="btn-ghost" onClick={() => load()} disabled={loading}>
@@ -393,7 +391,7 @@ export default function Tables() {
         </div>
         <div className="tbl-stat tone-occupied">
           <span className="tbl-stat-n">{stats.closed}</span>
-          <span className="muted">ปิดโต๊ะ</span>
+          <span className="muted">ปิดใช้งาน</span>
         </div>
         <div className="tbl-stat">
           <span className="tbl-stat-n">{stats.seats}</span>
@@ -405,7 +403,7 @@ export default function Tables() {
         <input
           className="input"
           type="search"
-          placeholder="ค้นหารหัส ชื่อ โซน..."
+          placeholder="ค้นหารหัส ชื่อ หรือโซน"
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
@@ -428,7 +426,7 @@ export default function Tables() {
         >
           <option value="">ทุกสถานะ</option>
           <option value="active">เปิดใช้งาน</option>
-          <option value="closed">ปิดโต๊ะ</option>
+          <option value="closed">ปิดใช้งาน</option>
         </select>
       </div>
 
@@ -437,7 +435,7 @@ export default function Tables() {
       <section className="panel tbl-panel">
         {loading && <p className="muted">กำลังโหลด...</p>}
         {!loading && filtered.length === 0 && (
-          <p className="muted">ยังไม่มีโต๊ะ — กด「เพิ่มโต๊ะ」หรือรัน seed:tables</p>
+          <p className="muted">ยังไม่มีโต๊ะ กด “+ เพิ่มโต๊ะ” เพื่อเริ่ม</p>
         )}
 
         {!loading && filtered.length > 0 && (
@@ -489,7 +487,7 @@ export default function Tables() {
                           disabled={busy}
                           onClick={() => toggleStatus(t)}
                         >
-                          {t.status === 'active' ? 'ปิดโต๊ะ' : 'เปิดโต๊ะ'}
+                          {t.status === 'active' ? 'ปิดใช้งาน' : 'เปิดใช้งาน'}
                         </button>
                         <button
                           type="button"
@@ -520,8 +518,8 @@ export default function Tables() {
 
       {modal === 'create' && (
         <Modal
-          title="เพิ่มโต๊ะใหม่"
-          subtitle="รหัสโต๊ะต้องไม่ซ้ำ — ใช้กับผังจองและ walk-in"
+          title="เพิ่มโต๊ะ"
+          subtitle="รหัสโต๊ะต้องไม่ซ้ำกับโต๊ะอื่น"
           onClose={() => !saving && setModal(null)}
           wide
         >

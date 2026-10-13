@@ -37,7 +37,7 @@ export default function GameCard({ game, status, slot, onOpen }) {
           {game.rating && (
             <span
               className="absolute top-2 right-2 bg-slate-900/90 text-amber-300 border border-slate-700 text-xs px-2.5 py-1 rounded-full font-bold flex items-center gap-1 shadow-sm"
-              title="คะแนนเฉลี่ยจาก BoardGameGeek"
+              title="คะแนน BGG (เฉลี่ยจาก BoardGameGeek)"
             >
               <span className="text-amber-400">★</span> {game.rating}
             </span>
@@ -108,7 +108,7 @@ export default function GameCard({ game, status, slot, onOpen }) {
           className="w-full bg-slate-100 text-slate-500 border border-slate-200 font-medium py-2.5 px-4 rounded-xl flex items-center justify-center gap-1.5 cursor-not-allowed text-xs"
         >
           <i className={`fa-solid ${maintenance ? 'fa-screwdriver-wrench' : 'fa-ban'}`}></i>
-          {maintenance ? 'ส่งซ่อม — จองไม่ได้' : 'ช่วงเวลานี้ไม่ว่าง'}
+          {maintenance ? 'ส่งซ่อม — ยังจองไม่ได้' : 'ช่วงเวลานี้ไม่ว่าง'}
         </button>
       ) : (
         <Link

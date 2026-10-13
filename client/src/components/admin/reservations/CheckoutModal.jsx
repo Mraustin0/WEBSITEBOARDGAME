@@ -6,14 +6,14 @@ import './CheckoutModal.css';
 
 const money = (n) => Number(n || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 });
 const PAY = [
-  { key: 'qr', label: 'PROMPTPAY' },
-  { key: 'cash', label: 'CASH' },
+  { key: 'qr', label: 'PromptPay' },
+  { key: 'cash', label: 'เงินสด' },
 ];
 
 // ชั่วโมง/นาทีที่เล่นจริง เช่น 135 -> "2 ชม. 15 น."
 function duration(min) {
   const m = Math.round(Number(min) || 0);
-  return `${Math.floor(m / 60)} ชม. ${m % 60} น.`;
+  return `${Math.floor(m / 60)} ชม. ${m % 60} นาที`;
 }
 
 // Modal หน้า 15: GET /reservations/:id/checkout (ดูบิล) -> PATCH /reservations/:id/return (คืนเกม+รับเงิน)
@@ -32,12 +32,12 @@ export default function CheckoutModal({ isOpen, reservation, onClose, onSuccess 
 
   // จัดการ error ตามเอกสาร: 400 = ข้อมูลผิด, 401 = token, 409 = สถานะชนกัน
   function handleError(err) {
-    if (err.status === 401) setError('เซสชันหมดอายุ หรือยังไม่ได้เข้าสู่ระบบ');
+    if (err.status === 401) setError('เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่');
     else if (err.status === 400) {
       setError(err.message);
       setFieldErrors(err.details ?? {});
     } else if (err.status === 409) {
-      setError(`ทำรายการไม่ได้เพราะสถานะเปลี่ยนไปแล้ว: ${err.message}`);
+      setError(`ทำรายการไม่ได้ สถานะการจองเปลี่ยนไปแล้ว: ${err.message}`);
       setStale(true);
       onSuccess(); // รีเฟรชรายการด้านหลัง
     } else setError(err.message);
@@ -112,16 +112,14 @@ export default function CheckoutModal({ isOpen, reservation, onClose, onSuccess 
               🪑
             </span>
             <div>
-              <h2 id="co-title">
-                คืนโต๊ะ / เช็คบิล <small>(Table Checkout & Game Return)</small>
-              </h2>
+              <h2 id="co-title">เช็คบิลและคืนเกม</h2>
               <div className="co-badges">
                 <span className="chip tone-available">
                   โต๊ะ {tableCode(reservation)}
                   {zone ? ` โซน${zone}` : ''}
                 </span>
-                <span className="chip tone-maintenance">Session #{id.slice(-6).toUpperCase()}</span>
-                <span className="chip tone-reserved">พร้อมตรวจสอบ</span>
+                <span className="chip tone-maintenance">รหัส #{id.slice(-6).toUpperCase()}</span>
+                <span className="chip tone-reserved">รอเช็คบิล</span>
               </div>
             </div>
           </div>
@@ -135,45 +133,45 @@ export default function CheckoutModal({ isOpen, reservation, onClose, onSuccess 
         <div className="co-body">
           {/* ซ้าย: ตรวจสอบและคืนอุปกรณ์ */}
           <section className="co-col">
-            <h3>การตรวจสอบและคืนอุปกรณ์</h3>
+            <h3>ตรวจเกมก่อนคืน</h3>
             <div className="co-game">
               <span className="co-cover" aria-hidden="true">
                 🎲
               </span>
               <div>
-                <small>BOARD GAME VAULT</small>
+                <small>เกมที่เล่น</small>
                 <strong>{game || 'ลูกค้าไม่ได้เลือกเกม'}</strong>
-                <small>ผู้เล่น {reservation.players} ท่าน</small>
+                <small>ผู้เล่น {reservation.players} คน</small>
               </div>
             </div>
 
             <div className="field">
-              <span>สภาพโดยรวมของอุปกรณ์</span>
+              <span>สภาพเกม</span>
               <div className="co-toggle">
                 <button
                   type="button"
                   className={condition === 'good' ? 'on' : ''}
                   onClick={() => setCondition('good')}
                 >
-                  ✓ ปกติสมบูรณ์ (Good)
+                  ✓ ครบ สภาพดี
                 </button>
                 <button
                   type="button"
                   className={condition === 'damaged' ? 'on bad' : ''}
                   onClick={() => setCondition('damaged')}
                 >
-                  ⚠ มีชำรุด / สูญหาย
+                  ⚠ ชำรุด / ของหาย
                 </button>
               </div>
             </div>
 
             {condition === 'damaged' && (
               <label className="field">
-                <span>รายละเอียดชิ้นส่วนที่ชำรุด/สูญหาย</span>
+                <span>ชิ้นส่วนที่ชำรุดหรือหาย</span>
                 <textarea
                   className="input co-note"
                   rows={3}
-                  placeholder="เช่น การ์ดหาย 2 ใบ (ระบบจะเปิดใบแจ้งซ่อมและปิดเกมนี้ให้อัตโนมัติ)"
+                  placeholder="เช่น การ์ดหาย 2 ใบ — ระบบจะเปิดใบแจ้งซ่อมและส่งกล่องนี้ไปซ่อมให้อัตโนมัติ"
                   value={damageNote}
                   onChange={(e) => setDamageNote(e.target.value)}
                 />
@@ -186,18 +184,18 @@ export default function CheckoutModal({ isOpen, reservation, onClose, onSuccess 
 
           {/* ขวา: สรุปยอด */}
           <section className="co-col co-bill">
-            <h3>สรุปยอดค่าบริการและการเงิน</h3>
+            <h3>สรุปค่าบริการ</h3>
             {loading && <p className="muted">กำลังคำนวณยอด...</p>}
             {!loading && !bill && <p className="muted">ไม่มีข้อมูลบิล</p>}
             {bill && (
               <>
                 <div className="co-times">
                   <div>
-                    <small>เริ่มเล่น (Start)</small>
+                    <small>เริ่มเล่น</small>
                     <strong>{timeTH(bill.startedAt)} น.</strong>
                   </div>
                   <div>
-                    <small>เวลาคืน (End)</small>
+                    <small>เวลาคืน</small>
                     <strong>{timeTH(bill.endedAt)} น.</strong>
                     {bill.bookedHours != null && (
                       <span className="chip tone-available">{bill.bookedHours} ชม.</span>
@@ -206,7 +204,7 @@ export default function CheckoutModal({ isOpen, reservation, onClose, onSuccess 
                 </div>
                 <div className="co-row">
                   <span>จำนวนผู้เล่น</span>
-                  <b>{reservation.players} ท่าน</b>
+                  <b>{reservation.players} คน</b>
                 </div>
                 <div className="co-row">
                   <span>เล่นจริง</span>
@@ -230,9 +228,7 @@ export default function CheckoutModal({ isOpen, reservation, onClose, onSuccess 
                 )}
                 <div className="co-total">
                   <div className="co-total-top">
-                    <span>
-                      {bill.deposit > 0 ? 'ยอดที่ต้องชำระที่หน้าร้าน' : 'รวมยอดสุทธิทั้งหมด'}
-                    </span>
+                    <span>{bill.deposit > 0 ? 'ยอดที่ต้องเก็บเพิ่ม' : 'ยอดสุทธิ'}</span>
                     <div className="co-pay">
                       {PAY.map((p) => (
                         <button
@@ -264,7 +260,7 @@ export default function CheckoutModal({ isOpen, reservation, onClose, onSuccess 
             disabled={loading || busy || !bill || stale}
             onClick={submit}
           >
-            {busy ? 'กำลังบันทึก...' : '✓ รับเงินและเคลียร์โต๊ะว่าง →'}
+            {busy ? 'กำลังบันทึก...' : '✓ รับเงินและเช็คบิล'}
           </button>
         </div>
       </div>

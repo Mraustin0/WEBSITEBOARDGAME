@@ -23,7 +23,7 @@ export default function ScheduleGrid({ date, refreshKey }) {
     api('/tables/schedule', { query: { date } })
       .then((d) => {
         if (!alive) return;
-        if (!Array.isArray(d?.zones)) setError('รูปแบบข้อมูลตารางไม่ตรงกับที่คาดไว้ (ไม่พบ zones)');
+        if (!Array.isArray(d?.zones)) setError('โหลดตารางโต๊ะไม่สำเร็จ: ข้อมูลไม่ครบ');
         setZones(Array.isArray(d?.zones) ? d.zones : []);
       })
       .catch((err) => alive && setError(err.message))
@@ -40,12 +40,12 @@ export default function ScheduleGrid({ date, refreshKey }) {
   return (
     <section className="panel schedule">
       <div className="panel-head">
-        <h2>ตารางเวลาจองโต๊ะ</h2>
+        <h2>ตารางเวลาโต๊ะ</h2>
         <div className="legend">
-          <span className="chip tone-available">จองล่วงหน้า</span>
+          <span className="chip tone-available">จองแล้ว</span>
           <span className="chip tone-reserved">กำลังเล่น</span>
-          <span className="chip tone-maintenance">ใช้งานแล้ว</span>
-          <span className="chip tone-occupied">ยกเลิก/ไม่มา</span>
+          <span className="chip tone-maintenance">เช็คบิลแล้ว</span>
+          <span className="chip tone-occupied">ยกเลิก/ไม่มาตามนัด</span>
         </div>
       </div>
 

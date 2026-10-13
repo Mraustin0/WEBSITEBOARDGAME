@@ -23,12 +23,12 @@ export function nowStatus(g) {
     return { ok: false, tone: 'repair', label: 'ส่งซ่อม', short: 'ส่งซ่อม' };
   }
   if (vault > 0) {
-    return { ok: true, tone: 'ok', label: `ว่างตอนนี้ ${vault} กล่อง`, short: 'ว่าง' };
+    return { ok: true, tone: 'ok', label: `ว่าง ${vault} กล่อง`, short: 'ว่าง' };
   }
   if (play > 0) {
-    return { ok: false, tone: 'busy', label: 'กำลังเล่นครบทุกกล่อง', short: 'กำลังเล่น' };
+    return { ok: false, tone: 'busy', label: 'กำลังเล่นทุกกล่อง', short: 'กำลังเล่น' };
   }
-  return { ok: false, tone: 'muted', label: 'ไม่มีกล่องว่างตอนนี้', short: 'ไม่ว่าง' };
+  return { ok: false, tone: 'muted', label: 'ตอนนี้ไม่มีกล่องว่าง', short: 'ไม่ว่าง' };
 }
 
 /** รหัสโต๊ะที่ใช้เกมนี้อยู่ในช่วงเวลา (ไม่ซ้ำ ตัด null) */
@@ -51,8 +51,8 @@ export function slotStatus(entry) {
     return {
       ok: false,
       tone: 'busy',
-      label: tables.length ? `ถูกจองครบ (โต๊ะ ${tables.join(', ')})` : GAME_REASON.booked,
-      short: 'ถูกจองครบ',
+      label: tables.length ? `จองแล้วทุกกล่อง (โต๊ะ ${tables.join(', ')})` : GAME_REASON.booked,
+      short: 'จองแล้ว',
     };
   }
   if (entry.reason === 'maintenance') {
@@ -69,7 +69,7 @@ export function slotStatus(entry) {
 // ---------- ตัวกรอง ----------
 
 export const PAX_OPTIONS = [
-  { id: 'all', label: 'ทุกจำนวน', lo: null, hi: null },
+  { id: 'all', label: 'กี่คนก็ได้', lo: null, hi: null },
   { id: '1-2', label: '1–2 คน', lo: 1, hi: 2 },
   { id: '3-4', label: '3–4 คน', lo: 3, hi: 4 },
   { id: '5+', label: '5+ คน', lo: 5, hi: Infinity },
@@ -84,9 +84,9 @@ export function fitsPlayers(g, lo, hi) {
 }
 
 export const SORT_OPTIONS = [
-  { id: 'rating', label: 'เรตติ้ง BGG สูงสุด' },
+  { id: 'rating', label: 'คะแนน BGG สูงสุด' },
   { id: 'name', label: 'ชื่อ A–Z' },
-  { id: 'time', label: 'เวลาเล่น สั้น → ยาว' },
+  { id: 'time', label: 'เล่นจบเร็วก่อน' },
 ];
 
 const num = (v) => {

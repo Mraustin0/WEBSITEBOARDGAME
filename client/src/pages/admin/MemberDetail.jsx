@@ -7,7 +7,7 @@ import './memberDetail.css';
 const PAGE_SIZE = 5;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const ROLE_TH = { admin: 'ผู้ดูแลระบบ', user: 'สมาชิก' };
-const PAY_TH = { cash: 'เงินสด', transfer: 'โอนเงิน', card: 'บัตร', qr: 'QR' };
+const PAY_TH = { cash: 'เงินสด', transfer: 'โอนเงิน', card: 'บัตร', qr: 'PromptPay' };
 
 const baht = (n) => '฿' + Number(n || 0).toLocaleString('th-TH', { maximumFractionDigits: 0 });
 
@@ -41,7 +41,7 @@ function memberAge(iso) {
 function duration(minutes) {
   const h = Math.floor(minutes / 60);
   const m = Math.round(minutes % 60);
-  return [h ? `${h} ชม.` : '', m ? `${m} น.` : ''].filter(Boolean).join(' ') || '0 น.';
+  return [h ? `${h} ชม.` : '', m ? `${m} นาที` : ''].filter(Boolean).join(' ') || '0 นาที';
 }
 
 // ดึงการจองของสมาชิกทั้งหมด (backend เรียงเก่า→ใหม่ และไม่มีตัวเลือก sort) แล้วกลับด้านที่ฝั่งเรา
@@ -112,7 +112,7 @@ export default function MemberDetail() {
       <div className="md-state">
         <p>{error || 'โหลดข้อมูลสมาชิกไม่สำเร็จ'}</p>
         <Link to="/admin/users" className="btn-ghost md-back-btn">
-          ← กลับไปจัดการผู้ใช้
+          ← กลับไปหน้าผู้ใช้งาน
         </Link>
       </div>
     );
@@ -136,14 +136,14 @@ export default function MemberDetail() {
       sub: 'รวมทุกการใช้บริการที่ไม่ยกเลิก',
     },
     {
-      label: 'จำนวนครั้งที่มาเยือน',
+      label: 'จำนวนครั้งที่มาร้าน',
       value: `${info.visits} ครั้ง`,
       sub: `เฉลี่ย ${perMonth} ครั้ง / เดือน`,
     },
     {
       label: 'เวลารวมในร้าน',
-      value: `${info.hoursPlayed} ชั่วโมง`,
-      sub: `เฉลี่ย ${perSession} ชม. / เซสชัน`,
+      value: `${info.hoursPlayed} ชม.`,
+      sub: `เฉลี่ย ${perSession} ชม. / ครั้ง`,
     },
   ];
 
@@ -153,7 +153,7 @@ export default function MemberDetail() {
       value: formatDate(user.createdAt),
       sub: `เป็นสมาชิกมา ${memberAge(user.createdAt)}`,
     },
-    { label: 'สิทธิ์การใช้งาน', value: ROLE_TH[user.role] ?? user.role },
+    { label: 'บทบาท', value: ROLE_TH[user.role] ?? user.role },
     {
       label: 'โต๊ะที่นั่งบ่อย',
       value: fav ? `${fav.code}${fav.zone ? ` (${fav.zone})` : ''}` : '—',
@@ -167,7 +167,7 @@ export default function MemberDetail() {
     {
       label: 'ประวัติการจอง',
       value: `${r.total} ครั้ง`,
-      sub: `เสร็จสิ้น ${r.completed} · ยกเลิก ${r.cancelled} · ไม่มา ${r.no_show}${
+      sub: `เช็คบิลแล้ว ${r.completed} · ยกเลิก ${r.cancelled} · ไม่มาตามนัด ${r.no_show}${
         info.noShowLimit ? `/${info.noShowLimit}` : ''
       } ครั้ง`,
     },
@@ -178,9 +178,9 @@ export default function MemberDetail() {
       <div className="md-top">
         <div>
           <Link to="/admin/users" className="md-back">
-            ← กลับไปจัดการผู้ใช้
+            ← กลับไปหน้าผู้ใช้งาน
           </Link>
-          <h1>รายละเอียดบัญชีสมาชิก</h1>
+          <h1>ข้อมูลสมาชิก</h1>
         </div>
       </div>
 
@@ -195,7 +195,7 @@ export default function MemberDetail() {
               <span className={'md-role ' + user.role}>{ROLE_TH[user.role] ?? user.role}</span>
             </h2>
             <p className="md-muted">
-              ID: #{String(user._id).slice(-6).toUpperCase()} · สมาชิกตั้งแต่{' '}
+              รหัส #{String(user._id).slice(-6).toUpperCase()} · สมาชิกตั้งแต่{' '}
               {formatDate(user.createdAt)} ({memberAge(user.createdAt)})
             </p>
             <p className="md-muted">{user.email}</p>
@@ -233,13 +233,13 @@ export default function MemberDetail() {
         <section className="md-card">
           <div className="md-card-head">
             <div>
-              <h2>ประวัติการเข้าใช้งานและเปิดโต๊ะ</h2>
-              <p className="md-muted">Session &amp; Table Gaming History</p>
+              <h2>ประวัติการมาร้าน</h2>
+              <p className="md-muted">การจองและการเล่นทั้งหมดของสมาชิกคนนี้</p>
             </div>
             <input
               className="input md-search"
               type="search"
-              placeholder="ค้นหาโต๊ะ หรือเกม..."
+              placeholder="ค้นหาโต๊ะหรือเกม"
               value={q}
               onChange={(e) => {
                 setQ(e.target.value);
@@ -252,10 +252,10 @@ export default function MemberDetail() {
             <table className="md-table">
               <thead>
                 <tr>
-                  <th>วันที่ &amp; ช่วงเวลา</th>
+                  <th>วันที่และเวลา</th>
                   <th>โต๊ะ</th>
                   <th>ผู้เล่น</th>
-                  <th>เกมที่เปิดเล่น</th>
+                  <th>เกม</th>
                   <th>ยอดชำระ</th>
                   <th>สถานะ</th>
                 </tr>
@@ -306,7 +306,7 @@ export default function MemberDetail() {
           <div className="md-pager">
             <span className="md-muted">
               แสดง {rows.length === 0 ? 0 : (cur - 1) * PAGE_SIZE + 1} -{' '}
-              {Math.min(cur * PAGE_SIZE, rows.length)} จากทั้งหมด {rows.length} ครั้ง
+              {Math.min(cur * PAGE_SIZE, rows.length)} จาก {rows.length} ครั้ง
             </span>
             <div className="md-pager-btns">
               <button
@@ -334,7 +334,7 @@ export default function MemberDetail() {
 
         <aside className="md-card">
           <div className="md-card-head">
-            <h2>ข้อมูลบัญชี &amp; สมาชิก</h2>
+            <h2>ข้อมูลบัญชี</h2>
           </div>
           <dl className="md-details">
             {details.map((d) => (

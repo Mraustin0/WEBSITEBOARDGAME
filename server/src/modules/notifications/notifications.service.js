@@ -115,7 +115,7 @@ export function notifyBookingNew(r) {
     actions: [
       {
         key: 'confirm',
-        label: 'ยืนยัน',
+        label: 'ยืนยันการจอง',
         method: 'PATCH',
         path: `/api/reservations/admin/${r._id}/confirm`,
       },
@@ -136,8 +136,8 @@ export function notifyBookingCancelled(r) {
 }
 
 const ASSIST_TOPIC_TH = {
-  tutorial: 'ขอให้สอนเล่น',
-  extension: 'สอบถามการต่อเวลา',
+  tutorial: 'ขอให้สอนวิธีเล่น',
+  extension: 'ขอต่อเวลา',
   game_issue: 'อุปกรณ์เกมมีปัญหา',
   other: 'ขอความช่วยเหลือ',
 };
@@ -180,7 +180,7 @@ export async function notifyMaintenanceDone(t) {
   await resolveNotifications({ 'refs.ticket': t._id });
   return notify({
     type: 'maintenance_done',
-    title: 'งานซ่อมเสร็จสิ้น',
+    title: 'ซ่อมเสร็จแล้ว',
     message: `${itemName(t)}: ${t.title}${t.resolution ? ` — ${t.resolution}` : ''}`,
     refs: { ticket: t._id, game: t.game?._id ?? t.game, table: t.table?._id ?? t.table },
   });
@@ -194,8 +194,8 @@ export function notifyBookingsAffected(t, affected) {
     .join(', ');
   return notify({
     type: 'booking_affected',
-    title: `${affected.length} การจองไม่มีกล่องเกมให้`,
-    message: `${itemName(t)} เสียหลังแจ้งซ่อม: ${list}${affected.length > 3 ? ' ...' : ''} — ติดต่อลูกค้า/เปลี่ยนเกม`,
+    title: `${affected.length} การจองไม่มีกล่องเกมเหลือ`,
+    message: `${itemName(t)} ส่งซ่อม กระทบการจอง: ${list}${affected.length > 3 ? ' ...' : ''} — ติดต่อลูกค้าหรือเปลี่ยนเกม`,
     important: true,
     refs: { ticket: t._id, game: t.game?._id ?? t.game },
     actions: [

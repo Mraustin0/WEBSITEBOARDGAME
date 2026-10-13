@@ -31,13 +31,13 @@ export const Role = model('Role', RoleSchema);
 
 /** default permission keys ที่ frontend ใช้สร้าง matrix */
 export const PERMISSION_CATALOG = [
-  { key: 'floor', label: 'ผังโต๊ะ & การจอง' },
-  { key: 'inventory', label: 'คลังบอร์ดเกม (Vault)' },
-  { key: 'checkout', label: 'การเงิน & เช็คบิล' },
-  { key: 'users', label: 'จัดการผู้ใช้' },
-  { key: 'reports', label: 'รายงาน & สถิติ' },
+  { key: 'floor', label: 'ผังโต๊ะและการจอง' },
+  { key: 'inventory', label: 'คลังบอร์ดเกม' },
+  { key: 'checkout', label: 'เช็คบิลและรับเงิน' },
+  { key: 'users', label: 'ผู้ใช้งาน' },
+  { key: 'reports', label: 'รายงาน' },
   { key: 'settings', label: 'ตั้งค่าร้าน' },
   { key: 'maintenance', label: 'ซ่อมบำรุง' },
-  { key: 'roles', label: 'จัดการสิทธิ์' },
-  { key: 'audit', label: 'บันทึกกิจกรรม (Audit)' },
+  { key: 'roles', label: 'บทบาทและสิทธิ์' },
+  { key: 'audit', label: 'บันทึกกิจกรรม' },
 ];

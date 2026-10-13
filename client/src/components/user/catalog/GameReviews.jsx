@@ -143,7 +143,7 @@ export default function GameReviews({ gameId, gameName, notify }) {
     <section aria-labelledby="reviews-title" className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 id="reviews-title" className="font-heading font-bold text-base text-slate-900">
-          รีวิวจากสมาชิกร้าน
+          รีวิวจากสมาชิก
         </h3>
         {!editing && (
           <button
@@ -183,7 +183,7 @@ export default function GameReviews({ gameId, gameName, notify }) {
                 disabled={deleting}
                 className="px-3 py-1.5 rounded-lg bg-red-600 text-white font-bold hover:bg-red-700 disabled:opacity-60"
               >
-                {deleting ? 'กำลังลบ...' : 'ยืนยันลบ'}
+                {deleting ? 'กำลังลบ...' : 'ลบเลย'}
               </button>
               <button
                 type="button"
@@ -235,7 +235,7 @@ export default function GameReviews({ gameId, gameName, notify }) {
 
           {items.length === 0 ? (
             <p className="text-sm text-slate-500 text-center py-3">
-              ยังไม่มีรีวิว — เป็นคนแรกที่รีวิวเกมนี้!
+              ยังไม่มีรีวิว มาเป็นคนแรกที่รีวิวเกมนี้
             </p>
           ) : (
             <ul className="flex flex-col divide-y divide-slate-100">

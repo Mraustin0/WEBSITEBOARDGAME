@@ -31,7 +31,7 @@ export default function PastCard({ r, review, onReview, onRebook }) {
                 <span className="text-red-600"> (เกินเวลา +{baht(r.checkout.overtimeCharge)})</span>
               )}
               {r.payment?.status === 'paid' && (
-                <span className="text-emerald-700"> • ชำระแล้ว</span>
+                <span className="text-emerald-700"> • จ่ายแล้ว</span>
               )}
             </p>
           )}
@@ -63,7 +63,7 @@ export default function PastCard({ r, review, onReview, onRebook }) {
           )}
           <button type="button" onClick={() => onRebook(r.game)} className={BTN.secondary}>
             <i className="fa-solid fa-rotate-right text-emerald-700" aria-hidden="true"></i>
-            จองเกมนี้อีก
+            จองเกมนี้อีกครั้ง
           </button>
         </div>
       )}

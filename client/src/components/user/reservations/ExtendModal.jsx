@@ -39,14 +39,14 @@ export default function ExtendModal({ r, rules, onClose, onDone }) {
   return (
     <Modal
       eyebrow="ต่อเวลา"
-      title={result ? 'ต่อเวลาเรียบร้อย' : 'ขอต่อเวลาเล่น'}
+      title={result ? 'ต่อเวลาแล้ว' : 'ต่อเวลาเล่น'}
       onClose={onClose}
       busy={busy}
       size="max-w-md"
       footer={
         result ? (
           <button type="button" className={BTN.primary} onClick={onClose}>
-            เรียบร้อย
+            ตกลง
           </button>
         ) : (
           <>
@@ -76,7 +76,7 @@ export default function ExtendModal({ r, rules, onClose, onDone }) {
         </div>
       ) : (
         <>
-          <p className="mb-2 mt-4 text-xs font-bold text-slate-700">ต่อเพิ่ม</p>
+          <p className="mb-2 mt-4 text-xs font-bold text-slate-700">ต่อเพิ่มอีก</p>
           <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="จำนวนชั่วโมงที่ต่อ">
             {OPTIONS.map((h) => (
               <button
@@ -94,14 +94,14 @@ export default function ExtendModal({ r, rules, onClose, onDone }) {
           </div>
           {!OPTIONS.every(fits) && (
             <p className="mt-2 text-[11px] text-slate-500">
-              เล่นรวมได้ไม่เกิน {maxHours} ชม. — ต้องการมากกว่านี้ติดต่อพนักงาน
+              เล่นรวมได้ไม่เกิน {maxHours} ชม. — ถ้าอยากเล่นนานกว่านี้ติดต่อพนักงาน
             </p>
           )}
           {previewEnd && (
             <p className="mt-3 text-sm text-slate-600">
-              จะเล่นได้ถึงประมาณ{' '}
+              เล่นได้ถึงประมาณ{' '}
               <strong className="text-emerald-900">{timeTH(previewEnd.toISOString())} น.</strong>{' '}
-              (คิดค่าต่อเวลาตามอัตราเดิม)
+              (คิดค่าต่อเวลาเรทเดิม)
             </p>
           )}
         </>

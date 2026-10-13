@@ -30,7 +30,7 @@ export default function CancelModal({ r, rules, onClose, onDone }) {
   return (
     <Modal
       eyebrow="ยกเลิกการจอง"
-      title="ยืนยันการยกเลิกการจองนี้?"
+      title="ยกเลิกการจองนี้?"
       onClose={onClose}
       busy={busy}
       footer={
@@ -39,7 +39,7 @@ export default function CancelModal({ r, rules, onClose, onDone }) {
             เก็บการจองไว้
           </button>
           <button type="button" className={BTN.danger} onClick={submit} disabled={busy || !allowed}>
-            {busy ? 'กำลังยกเลิก...' : 'ยืนยันยกเลิก'}
+            {busy ? 'กำลังยกเลิก...' : 'ยกเลิกการจอง'}
           </button>
         </>
       }

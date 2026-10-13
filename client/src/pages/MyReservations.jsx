@@ -164,7 +164,7 @@ export default function MyReservations() {
 
   function onGameChanged(updated) {
     setModal(null);
-    showToast(updated?.game ? `เปลี่ยนเป็น ${updated.game.name} แล้ว` : 'นำเกมออกจากการจองแล้ว');
+    showToast(updated?.game ? `เปลี่ยนเป็น ${updated.game.name} แล้ว` : 'เอาเกมออกจากการจองแล้ว');
     refresh();
   }
 
@@ -177,10 +177,10 @@ export default function MyReservations() {
     const game = updated?.game ?? r.game;
     showToast(
       !game
-        ? 'เช็คเอาท์แล้ว — ขอบคุณที่มาเล่น'
+        ? 'เช็คบิลแล้ว — ขอบคุณที่มาเล่น'
         : damaged
-          ? 'คืนเกมแล้ว — แจ้งพนักงานตรวจสภาพเกมแล้ว'
-          : 'คืนเกมแล้ว — เกมกลับเข้าคลัง',
+          ? 'คืนเกมแล้ว — พนักงานจะตรวจสภาพเกมให้'
+          : 'คืนเกมแล้ว — ขอบคุณที่มาเล่น',
     );
     refresh();
     if (game?._id) {
@@ -199,13 +199,13 @@ export default function MyReservations() {
     const key = String(game._id);
     setReviews((prev) => ({ ...prev, [key]: { ...prev[key], ...saved, game } }));
     setModal(null);
-    showToast('บันทึกรีวิวแล้ว ขอบคุณ!');
+    showToast('บันทึกรีวิวแล้ว ขอบคุณที่รีวิว');
   }
 
   async function onShare(r) {
     const origin = window.location.origin;
     const url = r.game ? `${origin}/booking?game=${r.game._id}` : `${origin}/catalog`;
-    const text = `ชวนมาเล่นบอร์ดเกม${r.game ? ` ${r.game.name}` : ''} ที่โต๊ะ ${
+    const text = `ชวนมาเล่นบอร์ดเกม${r.game ? ` ${r.game.name}` : ''} ที่ Boardgame Everyday โต๊ะ ${
       r.table?.code ?? ''
     } ${dateLabel(r.startAt)} ${timeRange(r)}`;
     try {
@@ -216,7 +216,7 @@ export default function MyReservations() {
       await navigator.clipboard.writeText(`${text}\n${url}`);
       showToast('คัดลอกข้อความชวนเพื่อนแล้ว');
     } catch (err) {
-      if (err?.name !== 'AbortError') showToast('แชร์ไม่สำเร็จ — ลองคัดลอกเอง', false);
+      if (err?.name !== 'AbortError') showToast('แชร์ไม่สำเร็จ — ลองคัดลอกลิงก์เอง', false);
     }
   }
 
@@ -249,7 +249,7 @@ export default function MyReservations() {
       return (
         <EmptyState
           title="ยังไม่มีการจอง"
-          text="จองโต๊ะแล้วเลือกบอร์ดเกมที่อยากเล่นได้เลย"
+          text="จองโต๊ะแล้วเลือกเกมที่อยากเล่นได้เลย"
           action={
             <button type="button" className={BTN.primary} onClick={goBooking}>
               <i className="fa-solid fa-plus" aria-hidden="true"></i>
@@ -264,7 +264,7 @@ export default function MyReservations() {
         <EmptyState
           icon="fa-chess-board"
           title="ไม่มีโต๊ะที่กำลังเล่นอยู่"
-          text="เมื่อถึงเวลาจอง โต๊ะของคุณจะขึ้นที่นี่"
+          text="ถึงเวลาที่จองไว้ โต๊ะของคุณจะขึ้นที่นี่"
           action={
             <>
               {counts?.upcoming > 0 && (
@@ -387,7 +387,7 @@ export default function MyReservations() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight">การจองของฉัน</h1>
             <p className="text-xs text-slate-500">
-              ดูโต๊ะที่กำลังเล่น คืนเกม ต่อเวลา และจัดการการจองล่วงหน้า
+              ดูโต๊ะที่กำลังเล่น ต่อเวลา คืนเกม และจัดการการจองล่วงหน้า
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -452,7 +452,7 @@ export default function MyReservations() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="ค้นหาโต๊ะ โซน หรือชื่อบอร์ดเกม"
+              placeholder="ค้นหาโต๊ะ โซน หรือชื่อเกม"
               aria-label="ค้นหาการจอง"
               maxLength={80}
               className="w-full rounded-full border border-slate-200 bg-white py-2 pl-9 pr-9 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400"

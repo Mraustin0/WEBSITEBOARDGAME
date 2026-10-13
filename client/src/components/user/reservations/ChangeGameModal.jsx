@@ -97,7 +97,7 @@ export default function ChangeGameModal({ r, onClose, onDone }) {
   return (
     <Modal
       eyebrow={r.status === 'playing' ? 'ระหว่างเล่น' : 'ก่อนเริ่มเล่น'}
-      title={currentId ? 'เปลี่ยนบอร์ดเกม' : 'เลือกบอร์ดเกม'}
+      title={currentId ? 'เปลี่ยนเกม' : 'เลือกเกม'}
       subtitle={`แสดงเกมที่ว่างช่วง ${windowText} สำหรับ ${players} คน`}
       onClose={onClose}
       busy={busy}
@@ -136,11 +136,11 @@ export default function ChangeGameModal({ r, onClose, onDone }) {
 
       {!bookable && data?.reason && (
         <p className="mt-2 text-[11px] text-amber-700">
-          หมายเหตุ: {thaiError({ message: data.reason })} — ระบบจะตรวจอีกครั้งตอนยืนยัน
+          หมายเหตุ: {thaiError({ message: data.reason })} — จะเช็คอีกครั้งตอนยืนยัน
         </p>
       )}
 
-      <div className="mt-3 space-y-2" role="radiogroup" aria-label="เลือกบอร์ดเกม">
+      <div className="mt-3 space-y-2" role="radiogroup" aria-label="เลือกเกม">
         <button
           type="button"
           role="radio"
@@ -157,7 +157,7 @@ export default function ChangeGameModal({ r, onClose, onDone }) {
           <span className="min-w-0 flex-1">
             <span className="block text-sm font-bold">ไม่เลือกเกม</span>
             <span className="block text-[11px] text-slate-500">
-              {currentId ? 'คืนเกมเดิม ใช้โต๊ะอย่างเดียว' : 'ตอนนี้ยังไม่ได้เลือกเกม'}
+              {currentId ? 'คืนเกมเดิม ใช้แค่โต๊ะ' : 'ตอนนี้ยังไม่ได้เลือกเกม'}
             </span>
           </span>
         </button>

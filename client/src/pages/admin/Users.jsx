@@ -9,15 +9,15 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const FALLBACK_ROLES = [
   {
     slug: 'admin',
-    name: 'Super Admin',
+    name: 'ผู้ดูแลระบบ',
     label: 'ผู้ดูแลระบบ',
     description: 'จัดการร้านได้ทุกเมนู รวมถึงผู้ใช้และการตั้งค่า',
   },
   {
     slug: 'user',
-    name: 'Member',
+    name: 'สมาชิก',
     label: 'สมาชิก',
-    description: 'ใช้งานทั่วไป จองโต๊ะและดูการจองของตัวเอง',
+    description: 'ลูกค้า จองโต๊ะและดูการจองของตัวเองได้',
   },
 ];
 
@@ -30,15 +30,15 @@ function roleLabel(slug, roleList) {
 
 const STATUSES = {
   active: { label: 'ปกติ', className: 'ok' },
-  suspended: { label: 'ระงับ', className: 'bad' },
-  pending: { label: 'รอตรวจ', className: 'warn' },
+  suspended: { label: 'ถูกระงับ', className: 'bad' },
+  pending: { label: 'รออนุมัติ', className: 'warn' },
 };
 
 const TIERS = {
-  regular: 'Regular',
+  regular: 'ทั่วไป',
   gold: 'Gold',
   vip: 'VIP',
-  new: 'New',
+  new: 'ใหม่',
 };
 
 function formatDate(iso) {
@@ -162,7 +162,7 @@ function AddUserModal({ onClose, onDone, roles }) {
       });
       onDone({
         tone: 'ok',
-        text: `เพิ่มผู้ใช้ "${username}" เป็น ${roleLabel(role, roles)} เรียบร้อย`,
+        text: `เพิ่มผู้ใช้ "${username}" เป็น ${roleLabel(role, roles)} แล้ว`,
       });
     } catch (err) {
       setError(errorText(err, 'เพิ่มผู้ใช้ไม่สำเร็จ'));
@@ -171,10 +171,10 @@ function AddUserModal({ onClose, onDone, roles }) {
   }
 
   return (
-    <Modal title="เพิ่มผู้ใช้งานใหม่" subtitle="สร้างบัญชีและกำหนดสิทธิ์เริ่มต้น" onClose={onClose}>
+    <Modal title="เพิ่มผู้ใช้" subtitle="สร้างบัญชีและเลือกบทบาท" onClose={onClose}>
       <form className="us-form" onSubmit={submit}>
         <label>
-          <span>ชื่อผู้ใช้ (Username)</span>
+          <span>ชื่อผู้ใช้</span>
           <input
             className="input"
             required
@@ -186,7 +186,7 @@ function AddUserModal({ onClose, onDone, roles }) {
           />
         </label>
         <label>
-          <span>อีเมล (Email)</span>
+          <span>อีเมล</span>
           <input
             className="input"
             type="email"
@@ -196,7 +196,7 @@ function AddUserModal({ onClose, onDone, roles }) {
           />
         </label>
         <label>
-          <span>รหัสผ่าน (Password)</span>
+          <span>รหัสผ่าน</span>
           <input
             className="input"
             type="password"
@@ -209,7 +209,7 @@ function AddUserModal({ onClose, onDone, roles }) {
           />
         </label>
         <div>
-          <span className="us-label">สิทธิ์การใช้งาน</span>
+          <span className="us-label">บทบาท</span>
           <RoleOptions
             value={form.role}
             onChange={(role) => setForm((f) => ({ ...f, role }))}
@@ -242,16 +242,16 @@ function EditRoleModal({ user, onClose, onDone, roles }) {
       await api(`/admin/users/${user._id}/role`, { method: 'PUT', body: { role } });
       onDone({
         tone: 'ok',
-        text: `เปลี่ยนสิทธิ์ของ "${user.username}" เป็น ${roleLabel(role, roles)} แล้ว`,
+        text: `เปลี่ยนบทบาทของ "${user.username}" เป็น ${roleLabel(role, roles)} แล้ว`,
       });
     } catch (err) {
-      setError(err.message || 'เปลี่ยนสิทธิ์ไม่สำเร็จ');
+      setError(err.message || 'เปลี่ยนบทบาทไม่สำเร็จ');
       setBusy(false);
     }
   }
 
   return (
-    <Modal title="แก้ไขสิทธิ์" subtitle={`${user.username} · ${user.email}`} onClose={onClose}>
+    <Modal title="เปลี่ยนบทบาท" subtitle={`${user.username} · ${user.email}`} onClose={onClose}>
       <div className="us-form">
         <RoleOptions value={role} onChange={setRole} roles={roles} />
         {error && <div className="us-error">{error}</div>}
@@ -265,7 +265,7 @@ function EditRoleModal({ user, onClose, onDone, roles }) {
             onClick={save}
             disabled={busy || role === user.role}
           >
-            {busy ? 'กำลังบันทึก...' : 'บันทึกสิทธิ์'}
+            {busy ? 'กำลังบันทึก...' : 'บันทึกบทบาท'}
           </button>
         </footer>
       </div>
@@ -290,10 +290,10 @@ function DeleteModal({ user, onClose, onDone }) {
   }
 
   return (
-    <Modal title="ลบผู้ใช้" subtitle="การกระทำนี้ย้อนกลับไม่ได้" onClose={onClose}>
+    <Modal title="ลบผู้ใช้" subtitle="ลบแล้วกู้คืนไม่ได้" onClose={onClose}>
       <div className="us-form">
         <p>
-          ต้องการลบบัญชี <strong>{user.username}</strong> ({user.email}) ถาวรใช่หรือไม่
+          ต้องการลบบัญชี <strong>{user.username}</strong> ({user.email}) ถาวรหรือไม่
         </p>
         {error && <div className="us-error">{error}</div>}
         <footer className="us-modal-foot">
@@ -472,11 +472,11 @@ export default function Users() {
   ];
 
   const cards = [
-    { label: 'TOTAL ACCOUNTS', title: 'บัญชีผู้ใช้ทั้งหมด', value: stats.total, unit: 'บัญชี' },
-    { label: 'MEMBERS', title: 'สมาชิกทั่วไป', value: members, unit: 'คน' },
-    { label: 'PRIVILEGED ACCESS', title: 'สิทธิ์ผู้ดูแลระบบ', value: stats.admins, unit: 'คน' },
+    { label: 'ทั้งหมด', title: 'บัญชีผู้ใช้ทั้งหมด', value: stats.total, unit: 'บัญชี' },
+    { label: 'สมาชิก', title: 'สมาชิกทั่วไป', value: members, unit: 'คน' },
+    { label: 'พนักงาน', title: 'พนักงานและผู้ดูแลระบบ', value: stats.admins, unit: 'คน' },
     {
-      label: 'NEW THIS WEEK',
+      label: 'สมัครใหม่',
       title: 'สมัครใหม่ 7 วันล่าสุด',
       value: stats.recentCapped ? `${stats.recent}+` : stats.recent,
       unit: 'บัญชี',
@@ -487,14 +487,14 @@ export default function Users() {
     <div className="us">
       <div className="us-head">
         <div>
-          <h1>จัดการผู้ใช้งานและสิทธิ์ (User &amp; Member Management)</h1>
+          <h1>ผู้ใช้งาน</h1>
           <p className="us-muted">
-            ผู้ใช้ทั้งหมด {stats.total} คน • ผู้ดูแลระบบ {stats.admins} คน • สมัครใหม่สัปดาห์นี้ +
+            ผู้ใช้ทั้งหมด {stats.total} คน • พนักงาน {stats.admins} คน • สมัครใหม่สัปดาห์นี้ +
             {stats.recent} คน
           </p>
         </div>
         <button type="button" className="btn-primary" onClick={() => setModal({ type: 'add' })}>
-          + เพิ่มผู้ใช้งานใหม่ (Add User)
+          + เพิ่มผู้ใช้
         </button>
       </div>
 
@@ -517,7 +517,7 @@ export default function Users() {
           <input
             className="input us-search"
             type="search"
-            placeholder="ค้นหาชื่อ อีเมล โทร LINE..."
+            placeholder="ค้นหาชื่อ อีเมล เบอร์โทร หรือ LINE"
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
@@ -531,8 +531,8 @@ export default function Users() {
           >
             <option value="">ทุกสถานะ</option>
             <option value="active">ปกติ</option>
-            <option value="suspended">ระงับ</option>
-            <option value="pending">รอตรวจ</option>
+            <option value="suspended">ถูกระงับ</option>
+            <option value="pending">รออนุมัติ</option>
           </select>
           <div className="us-tabs" role="tablist">
             {tabs.map((t) => (
@@ -556,10 +556,10 @@ export default function Users() {
           <table className="us-table">
             <thead>
               <tr>
-                <th>ข้อมูลสมาชิก (MEMBER INFO)</th>
-                <th>อีเมล (EMAIL)</th>
-                <th>วันที่สมัคร (JOINED)</th>
-                <th>ระดับสิทธิ์ (ROLE)</th>
+                <th>ผู้ใช้</th>
+                <th>อีเมล</th>
+                <th>วันที่สมัคร</th>
+                <th>บทบาท</th>
                 <th>สถานะ</th>
                 <th aria-label="จัดการ" />
               </tr>
@@ -575,7 +575,7 @@ export default function Users() {
               {!loading && data.items.length === 0 && (
                 <tr>
                   <td colSpan={6} className="us-empty">
-                    ไม่พบผู้ใช้ที่ตรงกับเงื่อนไข
+                    ไม่พบผู้ใช้ที่ค้นหา
                   </td>
                 </tr>
               )}
@@ -595,7 +595,7 @@ export default function Users() {
                               {isMe && <span className="us-me">คุณ</span>}
                             </strong>
                             <small className="us-muted">
-                              ID: #{String(u._id).slice(-6).toUpperCase()}
+                              รหัส #{String(u._id).slice(-6).toUpperCase()}
                             </small>
                           </div>
                         </div>
@@ -623,10 +623,10 @@ export default function Users() {
                           type="button"
                           className="us-btn"
                           disabled={isMe}
-                          title={isMe ? 'ไม่สามารถเปลี่ยนสิทธิ์ของตัวเองได้' : undefined}
+                          title={isMe ? 'เปลี่ยนบทบาทของตัวเองไม่ได้' : undefined}
                           onClick={() => setModal({ type: 'role', user: u })}
                         >
-                          แก้ไขสิทธิ์
+                          เปลี่ยนบทบาท
                         </button>
                         {u.status === 'suspended' ? (
                           <button
@@ -672,7 +672,7 @@ export default function Users() {
                               const reason = window.prompt('เหตุผลที่ระงับ (ไม่บังคับ)') ?? '';
                               try {
                                 await suspendUser(u, reason);
-                                setNotice({ tone: 'ok', text: `ระงับ ${u.username} แล้ว` });
+                                setNotice({ tone: 'ok', text: `ระงับบัญชี ${u.username} แล้ว` });
                                 load();
                                 loadStats();
                               } catch (err) {
@@ -680,14 +680,14 @@ export default function Users() {
                               }
                             }}
                           >
-                            ระงับ
+                            ระงับบัญชี
                           </button>
                         )}
                         <button
                           type="button"
                           className="us-btn us-btn-danger"
                           disabled={isMe}
-                          title={isMe ? 'ไม่สามารถลบบัญชีตัวเองได้' : undefined}
+                          title={isMe ? 'ลบบัญชีตัวเองไม่ได้' : undefined}
                           onClick={() => setModal({ type: 'delete', user: u })}
                         >
                           ลบ
@@ -702,7 +702,7 @@ export default function Users() {
 
         <div className="us-pager">
           <span className="us-muted">
-            แสดงรายการที่ {from} - {to} จากทั้งหมด {data.total} บัญชี
+            แสดง {from}–{to} จาก {data.total} บัญชี
           </span>
           <div className="us-pager-btns">
             <button

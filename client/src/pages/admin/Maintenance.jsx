@@ -6,16 +6,16 @@ import ResolveModal from '../../components/admin/maintenance/ResolveModal.jsx';
 import './maintenance.css';
 
 const COLUMNS = [
-  { key: 'pending', title: 'รอดำเนินการ' },
+  { key: 'pending', title: 'รอซ่อม' },
   { key: 'in_progress', title: 'กำลังซ่อม' },
-  { key: 'resolved', title: 'เสร็จสิ้น' },
+  { key: 'resolved', title: 'ซ่อมเสร็จแล้ว' },
 ];
 
 const FILTERS = [
   { key: 'all', label: 'ทั้งหมด' },
-  { key: 'game', label: 'เฉพาะบอร์ดเกม' },
-  { key: 'table', label: 'เฉพาะโต๊ะและอุปกรณ์' },
-  { key: 'urgent', label: 'ด่วนพิเศษ' },
+  { key: 'game', label: 'บอร์ดเกม' },
+  { key: 'table', label: 'โต๊ะและอุปกรณ์' },
+  { key: 'urgent', label: 'ด่วน' },
 ];
 
 const matchFilter = (t, f) =>
@@ -80,7 +80,7 @@ function TicketCard({ t, col, busy, onStart, onResolve, onReopen, onDelete, onDr
               disabled={busy}
               onClick={() => onResolve(t)}
             >
-              ✓ เสร็จสิ้น
+              ✓ ซ่อมเสร็จ
             </button>
           )}
           {col === 'resolved' && (
@@ -90,7 +90,7 @@ function TicketCard({ t, col, busy, onStart, onResolve, onReopen, onDelete, onDr
               disabled={busy}
               onClick={() => onReopen(t)}
             >
-              เปิดงานใหม่
+              เปิดงานซ่อมอีกครั้ง
             </button>
           )}
           <button
@@ -167,7 +167,7 @@ export default function Maintenance() {
 
   const onStart = (t) => patch(t, { status: 'in_progress' });
   const onReopen = (t) => {
-    if (window.confirm(`เปิดงานซ่อม "${itemName(t)}" ใหม่? ระบบจะปิดการใช้งานชิ้นนี้อีกครั้ง`))
+    if (window.confirm(`เปิดงานซ่อม "${itemName(t)}" อีกครั้ง? ระหว่างนี้จะใช้งานรายการนี้ไม่ได้`))
       patch(t, { status: 'pending' });
   };
 
@@ -195,7 +195,9 @@ export default function Maintenance() {
     if (!t || t.status === colKey) return;
     if (colKey === 'resolved') return setResolving(t); // ต้องกรอกผลซ่อม/ค่าซ่อมก่อน
     if (t.status === 'resolved') {
-      if (window.confirm(`เปิดงานซ่อม "${itemName(t)}" ใหม่? ระบบจะปิดการใช้งานชิ้นนี้อีกครั้ง`))
+      if (
+        window.confirm(`เปิดงานซ่อม "${itemName(t)}" อีกครั้ง? ระหว่างนี้จะใช้งานรายการนี้ไม่ได้`)
+      )
         patch(t, { status: colKey });
       return;
     }
@@ -215,21 +217,21 @@ export default function Maintenance() {
   const cards = [
     {
       key: 'pending',
-      title: 'รายการที่รอซ่อม (Pending)',
+      title: 'รอซ่อม',
       value: summary?.pending,
-      note: 'รอดำเนินการ',
+      note: 'ยังไม่เริ่มซ่อม',
     },
     {
       key: 'in_progress',
-      title: 'กำลังดำเนินการ (In Progress)',
+      title: 'กำลังซ่อม',
       value: summary?.in_progress,
       note: 'กำลังซ่อมอยู่',
     },
     {
       key: 'resolved',
-      title: 'ซ่อมเสร็จแล้ว (Resolved)',
+      title: 'ซ่อมเสร็จแล้ว',
       value: summary?.resolved,
-      note: `ค่าซ่อมรวมทั้งหมด ${baht(summary?.totalCost)}`,
+      note: `ค่าซ่อมรวม ${baht(summary?.totalCost)}`,
     },
   ];
 
@@ -237,13 +239,11 @@ export default function Maintenance() {
     <div className="maint-page">
       <div className="page-head">
         <div>
-          <h1>ติดตามการซ่อมบำรุง (Maintenance & Repair Tracking)</h1>
-          <p className="muted">
-            ติดตามสถานะเกมและโต๊ะที่อยู่ระหว่างการซ่อมแซม ลากการ์ดเพื่ออัปเดตสถานะ
-          </p>
+          <h1>ซ่อมบำรุง</h1>
+          <p className="muted">ติดตามเกมและโต๊ะที่ส่งซ่อม ลากการ์ดไปคอลัมน์อื่นเพื่อเปลี่ยนสถานะ</p>
         </div>
         <button type="button" className="btn-primary" onClick={() => setShowReport(true)}>
-          + แจ้งปัญหาใหม่ (Report New Issue)
+          + แจ้งซ่อม
         </button>
       </div>
 
@@ -313,7 +313,7 @@ export default function Maintenance() {
                 </ul>
                 {col.key === 'resolved' && items.length > shown.length && (
                   <p className="muted mt-more">
-                    แสดง {shown.length} จาก {items.length} รายการ ดูทั้งหมดในประวัติด้านขวา
+                    แสดง {shown.length} จาก {items.length} รายการ ดูทั้งหมดได้ที่ประวัติการซ่อม
                   </p>
                 )}
               </section>
@@ -329,7 +329,7 @@ export default function Maintenance() {
           <input
             className="input"
             type="search"
-            placeholder="ค้นหาชื่อเกม โต๊ะ ผู้ซ่อม..."
+            placeholder="ค้นหาเกม โต๊ะ หรือผู้ซ่อม"
             value={historyQ}
             onChange={(e) => setHistoryQ(e.target.value)}
           />

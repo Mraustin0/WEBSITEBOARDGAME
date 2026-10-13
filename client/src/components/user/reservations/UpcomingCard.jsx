@@ -71,7 +71,7 @@ export default function UpcomingCard({ r, now, rules, onEdit, onChangeGame, onCa
         </span>
         {r.price?.deposit ? (
           <span className="text-slate-500">
-            มัดจำ {baht(r.price.deposit)} • จ่ายที่ร้าน {baht(r.price.dueAtCounter)}
+            มัดจำ {baht(r.price.deposit)} • จ่ายที่ร้านอีก {baht(r.price.dueAtCounter)}
           </span>
         ) : null}
       </div>
@@ -88,7 +88,7 @@ export default function UpcomingCard({ r, now, rules, onEdit, onChangeGame, onCa
           ชวนเพื่อน
         </button>
         <button type="button" onClick={() => onEdit(r)} className={BTN.secondary}>
-          แก้เวลา/คน
+          แก้เวลา/ผู้เล่น
         </button>
         <button type="button" onClick={() => onChangeGame(r)} className={BTN.secondary}>
           {r.game ? 'เปลี่ยนเกม' : 'เลือกเกม'}
@@ -100,7 +100,7 @@ export default function UpcomingCard({ r, now, rules, onEdit, onChangeGame, onCa
           title={cancellable ? undefined : cutoffText(rules)}
           className={BTN.dangerSoft}
         >
-          ยกเลิก
+          ยกเลิกการจอง
         </button>
       </div>
       {!cancellable && (

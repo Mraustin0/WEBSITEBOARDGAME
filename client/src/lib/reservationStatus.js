@@ -2,11 +2,11 @@
 // tone = ชื่อสีใน index.css (available / reserved / occupied / maintenance)
 // รองรับ "รอยืนยัน" ตาม API Develop: booked + ยังไม่มี confirmedAt + source เป็น online
 export const STATUS = {
-  booked: { label: 'จองล่วงหน้า', tone: 'available' },
+  booked: { label: 'จองแล้ว', tone: 'available' },
   playing: { label: 'กำลังเล่น', tone: 'reserved' },
-  completed: { label: 'ใช้งานแล้ว', tone: 'maintenance' },
+  completed: { label: 'เช็คบิลแล้ว', tone: 'maintenance' },
   cancelled: { label: 'ยกเลิก', tone: 'occupied' },
-  no_show: { label: 'ไม่มา', tone: 'occupied' },
+  no_show: { label: 'ไม่มาตามนัด', tone: 'occupied' },
 };
 
 export function statusOf(s) {

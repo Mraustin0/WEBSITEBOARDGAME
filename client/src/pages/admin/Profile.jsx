@@ -80,7 +80,7 @@ export default function Profile() {
         const m = await api(`/stats/members/${u.id ?? u._id}`).catch(() => null);
         if (m?.user?.createdAt) setCreatedAt(m.user.createdAt);
       } catch (err) {
-        setError(err.message || 'โหลดโปรไฟล์ไม่สำเร็จ');
+        setError(err.message || 'โหลดข้อมูลบัญชีไม่สำเร็จ');
       } finally {
         setLoading(false);
       }
@@ -96,7 +96,7 @@ export default function Profile() {
       const updated = await api('/auth/me', { method: 'PUT', body: form });
       setMe(updated);
       localStorage.setItem('user', JSON.stringify(updated));
-      setNotice('บันทึกโปรไฟล์แล้ว');
+      setNotice('บันทึกข้อมูลแล้ว');
     } catch (err) {
       setError(err.message || 'บันทึกไม่สำเร็จ');
     } finally {
@@ -108,11 +108,11 @@ export default function Profile() {
     e.preventDefault();
     setPwError('');
     if (pw.newPassword.length < 6) {
-      setPwError('รหัสผ่านใหม่อย่างน้อย 6 ตัวอักษร');
+      setPwError('รหัสผ่านใหม่ต้องมีอย่างน้อย 6 ตัวอักษร');
       return;
     }
     if (pw.newPassword !== pw.confirm) {
-      setPwError('ยืนยันรหัสผ่านไม่ตรงกัน');
+      setPwError('รหัสผ่านใหม่ทั้งสองช่องไม่ตรงกัน');
       return;
     }
     setPwBusy(true);
@@ -142,10 +142,8 @@ export default function Profile() {
     <div className="pf">
       <div className="page-head">
         <div>
-          <p className="muted">บัญชีของฉัน</p>
-          <h1>
-            โปรไฟล์ <span className="title-en">My Account</span>
-          </h1>
+          <p className="muted">ข้อมูลส่วนตัวและรหัสผ่าน</p>
+          <h1>บัญชีของฉัน</h1>
         </div>
       </div>
 
@@ -210,7 +208,7 @@ export default function Profile() {
               />
             </label>
             <button type="submit" className="btn primary" disabled={saving}>
-              {saving ? 'กำลังบันทึก...' : 'บันทึกโปรไฟล์'}
+              {saving ? 'กำลังบันทึก...' : 'บันทึก'}
             </button>
           </form>
         </section>

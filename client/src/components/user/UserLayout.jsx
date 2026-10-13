@@ -6,9 +6,9 @@ import { fetchMyReservations } from '../../services/api.js';
 import { isStaff, useSession } from '../../lib/session.js';
 
 const STATUS_META = {
-  booked: { icon: 'fa-calendar-check', color: 'text-blue-500', label: 'รอเริ่มเล่น' },
-  playing: { icon: 'fa-dice', color: 'text-emerald-500', label: 'กำลังเล่นอยู่' },
-  completed: { icon: 'fa-circle-check', color: 'text-slate-400', label: 'เล่นเสร็จแล้ว' },
+  booked: { icon: 'fa-calendar-check', color: 'text-blue-500', label: 'จองแล้ว' },
+  playing: { icon: 'fa-dice', color: 'text-emerald-500', label: 'กำลังเล่น' },
+  completed: { icon: 'fa-circle-check', color: 'text-slate-400', label: 'เล่นจบแล้ว' },
   cancelled: { icon: 'fa-xmark-circle', color: 'text-red-400', label: 'ยกเลิกแล้ว' },
   no_show: { icon: 'fa-triangle-exclamation', color: 'text-amber-500', label: 'ไม่มาตามนัด' },
 };
@@ -88,7 +88,7 @@ export default function UserLayout() {
             <i className="fa-solid fa-dice-d20"></i>
           </div>
           <span className="font-bold text-lg tracking-tight text-slate-900 hidden lg:block">
-            BoardGame SomeDay
+            Boardgame Everyday
           </span>
         </Link>
 
@@ -129,7 +129,7 @@ export default function UserLayout() {
                 <button
                   type="button"
                   onClick={toggleNotif}
-                  aria-label={`การจองที่ยังไม่จบ ${badge} รายการ`}
+                  aria-label={`การจองที่กำลังจะถึง ${badge} รายการ`}
                   aria-expanded={notifOpen}
                   className="relative w-10 h-10 rounded-2xl bg-slate-100 border border-slate-200 hover:bg-white text-slate-600 flex items-center justify-center text-sm shadow-sm transition"
                 >

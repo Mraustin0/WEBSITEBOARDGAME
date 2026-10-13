@@ -61,7 +61,7 @@ export function canSelfCancel(r, rules, now) {
 }
 
 export const cutoffText = (rules) =>
-  `ยกเลิกเองได้ก่อนเริ่ม ${cutoffHours(rules)} ชม. — ติดต่อพนักงาน`;
+  `ยกเลิกเองได้ถึง ${cutoffHours(rules)} ชม. ก่อนเวลาเริ่ม — หลังจากนั้นติดต่อพนักงาน`;
 
 /** ความคืบหน้าของโต๊ะที่กำลังเล่น */
 export function sessionProgress(r, now) {
@@ -89,13 +89,13 @@ export const STATUS = {
   booked: { label: 'จองแล้ว', cls: 'bg-emerald-100 text-emerald-800' },
   playing: { label: 'กำลังเล่น', cls: 'bg-emerald-600 text-white' },
   completed: { label: 'เล่นจบแล้ว', cls: 'bg-slate-100 text-slate-700' },
-  cancelled: { label: 'ยกเลิก', cls: 'bg-red-50 text-red-600' },
+  cancelled: { label: 'ยกเลิกแล้ว', cls: 'bg-red-50 text-red-600' },
   no_show: { label: 'ไม่มาตามนัด', cls: 'bg-amber-50 text-amber-700' },
 };
 
 export const ASSIST_TOPICS = [
   { key: 'tutorial', label: 'สอนเล่น', icon: 'fa-chalkboard-user' },
-  { key: 'extension', label: 'ขอต่อเวลา', icon: 'fa-clock' },
+  { key: 'extension', label: 'ต่อเวลา', icon: 'fa-clock' },
   { key: 'game_issue', label: 'เกมมีปัญหา', icon: 'fa-puzzle-piece' },
   { key: 'other', label: 'อื่น ๆ', icon: 'fa-ellipsis' },
 ];
@@ -108,10 +108,10 @@ export const ASSIST_STATUS = {
 };
 
 const EXTRA_TH = [
-  [/staff has already been called/, 'เรียกพนักงานเรื่องนี้ไปแล้ว — กรุณารอสักครู่'],
+  [/staff has already been called/, 'เรียกพนักงานเรื่องนี้ไปแล้ว — รอสักครู่'],
   [/can call staff only while playing/, 'เรียกพนักงานได้เฉพาะตอนกำลังเล่น'],
   [/request is already (\w+)/, 'คำขอนี้ปิดไปแล้ว'],
-  [/flat3h package must be/, 'แพ็กเกจเหมา 3 ชม. ต้องจอง 3 ชั่วโมงพอดี'],
+  [/flat3h package must be/, 'แพ็กเกจเหมา 3 ชม. ต้องจอง 3 ชม. พอดี'],
   [/reservation is already (\w+)/, 'การจองนี้จบไปแล้ว'],
   [/not found/, 'ไม่พบข้อมูล — ลองรีเฟรชหน้า'],
 ];

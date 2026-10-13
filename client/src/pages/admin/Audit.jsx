@@ -33,6 +33,39 @@ const MODULES = [
   'assist',
   'system',
 ];
+// ชื่อไทยสำหรับแสดงผล (ค่า filter ที่ส่ง API ยังเป็น key เดิม)
+const ACTION_TH = {
+  create: 'สร้าง',
+  update: 'แก้ไข',
+  delete: 'ลบ',
+  suspend: 'ระงับบัญชี',
+  unsuspend: 'ปลดระงับ',
+  approve: 'อนุมัติ',
+  login: 'เข้าสู่ระบบ',
+  logout: 'ออกจากระบบ',
+  pay: 'รับเงิน',
+  return: 'คืนเกม',
+  no_show: 'ไม่มาตามนัด',
+  cancel: 'ยกเลิก',
+  confirm: 'ยืนยันการจอง',
+  role_change: 'เปลี่ยนบทบาท',
+  settings: 'ตั้งค่า',
+  other: 'อื่น ๆ',
+};
+const MODULE_TH = {
+  auth: 'การเข้าสู่ระบบ',
+  users: 'ผู้ใช้งาน',
+  games: 'คลังบอร์ดเกม',
+  tables: 'โต๊ะ',
+  reservations: 'การจอง',
+  maintenance: 'ซ่อมบำรุง',
+  settings: 'ตั้งค่าร้าน',
+  roles: 'บทบาทและสิทธิ์',
+  reviews: 'รีวิว',
+  notifications: 'การแจ้งเตือน',
+  assist: 'เรียกพนักงาน',
+  system: 'ระบบ',
+};
 
 function fmt(iso) {
   if (!iso) return '—';
@@ -90,7 +123,7 @@ export default function Audit() {
       setTotal(list?.total ?? 0);
       setSummary(sum);
     } catch (err) {
-      setError(err.message || 'โหลดบันทึกไม่สำเร็จ');
+      setError(err.message || 'โหลดบันทึกกิจกรรมไม่สำเร็จ');
     } finally {
       setLoading(false);
     }
@@ -130,13 +163,11 @@ export default function Audit() {
     <div className="audit">
       <div className="page-head">
         <div>
-          <p className="muted">ตั้งค่าระบบ / บันทึกกิจกรรม</p>
-          <h1>
-            บันทึกกิจกรรมระบบ <span className="title-en">Audit Trail</span>
-          </h1>
+          <p className="muted">บริหารร้าน / บันทึกกิจกรรม</p>
+          <h1>บันทึกกิจกรรม</h1>
         </div>
         <button type="button" className="btn primary" onClick={exportCsv}>
-          ⬇ Export CSV
+          ⬇ ส่งออก CSV
         </button>
       </div>
 
@@ -151,7 +182,7 @@ export default function Audit() {
             .slice(0, 5)
             .map(([k, v]) => (
               <div className="stat-card" key={k}>
-                <span className="stat-label">{k}</span>
+                <span className="stat-label">{ACTION_TH[k] ?? k}</span>
                 <strong>{v}</strong>
               </div>
             ))}
@@ -160,7 +191,7 @@ export default function Audit() {
 
       <div className="audit-filters">
         <input
-          placeholder="ค้นหาสรุป / ชื่อผู้ทำ / target..."
+          placeholder="ค้นหารายละเอียดหรือชื่อผู้ทำรายการ"
           value={qInput}
           onChange={(e) => setQInput(e.target.value)}
         />
@@ -171,10 +202,10 @@ export default function Audit() {
             setAction(e.target.value);
           }}
         >
-          <option value="">ทุก action</option>
+          <option value="">ทุกการกระทำ</option>
           {ACTIONS.filter(Boolean).map((a) => (
             <option key={a} value={a}>
-              {a}
+              {ACTION_TH[a] ?? a}
             </option>
           ))}
         </select>
@@ -185,10 +216,10 @@ export default function Audit() {
             setModule(e.target.value);
           }}
         >
-          <option value="">ทุกโมดูล</option>
+          <option value="">ทุกเมนู</option>
           {MODULES.filter(Boolean).map((m) => (
             <option key={m} value={m}>
-              {m}
+              {MODULE_TH[m] ?? m}
             </option>
           ))}
         </select>
@@ -204,14 +235,14 @@ export default function Audit() {
             <article key={row._id} className="audit-item">
               <div className="audit-item-top">
                 <span className={`action-badge ${ACTION_COLOR[row.action] || 'gray'}`}>
-                  {row.action}
+                  {ACTION_TH[row.action] ?? row.action}
                 </span>
-                <span className="module-tag">{row.module}</span>
+                <span className="module-tag">{MODULE_TH[row.module] ?? row.module}</span>
                 <time>{fmt(row.createdAt)}</time>
               </div>
               <p className="audit-summary">{row.summary}</p>
               <div className="audit-meta">
-                <span>{row.actorName || 'system'}</span>
+                <span>{row.actorName || 'ระบบ'}</span>
                 {row.actorRole && <span className="muted">· {row.actorRole}</span>}
                 {row.targetType && (
                   <span className="muted">

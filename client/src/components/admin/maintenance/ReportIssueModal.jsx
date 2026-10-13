@@ -86,7 +86,7 @@ export default function ReportIssueModal({ onClose, onCreated }) {
         onSubmit={submit}
       >
         <div className="mt-report-head">
-          <h2 id="mt-report-title">แจ้งปัญหาใหม่ (Report New Issue)</h2>
+          <h2 id="mt-report-title">แจ้งซ่อม</h2>
           <button type="button" className="mt-report-x" onClick={onClose} aria-label="ปิด">
             ✕
           </button>
@@ -143,7 +143,7 @@ export default function ReportIssueModal({ onClose, onCreated }) {
             </label>
 
             <label className="field">
-              <span>เสียกี่กล่อง</span>
+              <span>จำนวนกล่องที่เสีย</span>
               <select
                 className="input"
                 value={copies}
@@ -161,8 +161,8 @@ export default function ReportIssueModal({ onClose, onCreated }) {
                 <small className="muted" style={{ marginTop: 4, display: 'block' }}>
                   มีในร้าน {maxCopies} กล่อง — แจ้งซ่อม {copies} กล่อง
                   {copies >= maxCopies
-                    ? ' (จะปิดการจองเกมนี้ทั้งหมด)'
-                    : ` (เหลือใช้ได้ ${maxCopies - copies})`}
+                    ? ' (จองเกมนี้ไม่ได้จนกว่าจะซ่อมเสร็จ)'
+                    : ` (เหลือใช้ได้ ${maxCopies - copies} กล่อง)`}
                 </small>
               )}
             </label>
@@ -205,21 +205,20 @@ export default function ReportIssueModal({ onClose, onCreated }) {
         <label className="field">
           <span>ความเร่งด่วน</span>
           <select className="input" value={priority} onChange={(e) => setPriority(e.target.value)}>
-            <option value="high">สูง (High)</option>
-            <option value="medium">ปานกลาง</option>
-            <option value="low">ต่ำ (Low)</option>
+            <option value="high">ด่วน</option>
+            <option value="medium">ปกติ</option>
+            <option value="low">ไม่ด่วน</option>
           </select>
         </label>
 
         <p className="muted">
-          เมื่อแจ้งซ่อม ระบบจะปิดการใช้งาน
-          {itemType === 'game' ? `เกมนี้ ${copies} กล่อง` : 'โต๊ะนี้'}
-          ทันทีจนกว่างานซ่อมจะเสร็จสิ้น
+          {itemType === 'game' ? `เกมนี้ ${copies} กล่อง` : 'โต๊ะนี้'}จะใช้งานไม่ได้ทันทีที่แจ้งซ่อม
+          จนกว่าจะซ่อมเสร็จ
         </p>
 
         <div className="modal-actions">
           <button type="button" className="btn-ghost" onClick={onClose}>
-            ปิด
+            ยกเลิก
           </button>
           <button type="submit" className="btn-primary" disabled={busy}>
             {busy ? 'กำลังบันทึก...' : 'แจ้งซ่อม'}

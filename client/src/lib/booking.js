@@ -91,48 +91,51 @@ export const startISO = (ymd, hhmm) => toISO(ymd, hhmm);
 // ---------- ข้อความภาษาไทย ----------
 
 export const TABLE_REASON = {
-  closed: 'ปิดปรับปรุง',
+  closed: 'ปิดใช้งาน',
   booked: 'ไม่ว่างช่วงนี้',
   too_small: 'ที่นั่งไม่พอ',
 };
 
 export const GAME_REASON = {
-  booked: 'ถูกจองครบทุกกล่อง',
+  booked: 'จองแล้วทุกกล่อง',
   maintenance: 'ส่งซ่อม',
-  player_count: 'จำนวนผู้เล่นไม่ตรง',
+  player_count: 'จำนวนผู้เล่นไม่ตรงกับเกม',
 };
 
 const MESSAGE_TH = [
   [/startAt is in the past/, 'เวลาที่เลือกผ่านไปแล้ว'],
   [/can book at most (\d+) days in advance/, 'จองล่วงหน้าได้ไม่เกิน $1 วัน'],
-  [/store is closed/, 'ร้านปิดวันนี้'],
-  [/outside operating hours \((.*)\)/, 'อยู่นอกเวลาทำการ ($1)'],
-  [/durationHours must be ([\d.]+)-([\d.]+)/, 'จองได้ครั้งละ $1–$2 ชั่วโมง'],
-  [/table (\S+) is already booked/, 'โต๊ะ $1 ถูกจองช่วงนี้แล้ว'],
+  [/store is closed/, 'ร้านปิดในวันที่เลือก'],
+  [/outside operating hours \((.*)\)/, 'อยู่นอกเวลาเปิดร้าน ($1)'],
+  [/durationHours must be ([\d.]+)-([\d.]+)/, 'จองได้ครั้งละ $1–$2 ชม.'],
+  [/table (\S+) is already booked/, 'โต๊ะ $1 มีคนจองช่วงนี้แล้ว'],
   [/table (\S+) seats up to (\d+) players/, 'โต๊ะ $1 นั่งได้ไม่เกิน $2 คน'],
   [/(.+) needs (\d+)-(\d+) players/, '$1 เล่นได้ $2–$3 คน'],
   [/you already have a reservation overlapping/, 'คุณมีการจองอื่นในช่วงเวลานี้แล้ว'],
   [/(.+) has no free copy right now/, '$1 ไม่มีกล่องว่างตอนนี้'],
   [
     /all (\d+) available copies of (.+) are booked for this time/,
-    '$2 ถูกจองครบทั้ง $1 กล่องในช่วงนี้',
+    '$2 จองแล้วครบทั้ง $1 กล่องในช่วงนี้',
   ],
-  [/(.+) is already booked for this time/, '$1 ถูกจองแล้วในช่วงนี้'],
-  [/the table is booked right after/, 'โต๊ะมีคิวต่อ — ต่อเวลาไม่ได้'],
-  [/you have another reservation right after/, 'คุณมีการจองอื่นต่อจากนี้'],
-  [/total duration cannot exceed (\d+) hours/, 'รวมแล้วเล่นได้ไม่เกิน $1 ชั่วโมง — ติดต่อพนักงาน'],
-  [/reservation already started/, 'เริ่มเล่นแล้ว — กดคืนเกมแทนการยกเลิก'],
+  [/(.+) is already booked for this time/, '$1 มีคนจองแล้วในช่วงนี้'],
+  [/the table is booked right after/, 'โต๊ะนี้มีคิวจองต่อ — ต่อเวลาไม่ได้'],
+  [/you have another reservation right after/, 'คุณมีการจองอื่นต่อจากนี้ — ต่อเวลาไม่ได้'],
+  [
+    /total duration cannot exceed (\d+) hours/,
+    'รวมแล้วเล่นได้ไม่เกิน $1 ชม. — ถ้าอยากเล่นนานกว่านี้ติดต่อพนักงาน',
+  ],
+  [/reservation already started/, 'เริ่มเล่นแล้ว ยกเลิกการจองไม่ได้ — กดคืนเกมแทน'],
   [/cannot cancel a (\w+) reservation/, 'ยกเลิกการจองนี้ไม่ได้แล้ว'],
   [/cannot extend/, 'ต่อเวลาไม่ได้'],
   [
     /can cancel at most (\d+) hours before start/,
-    'ยกเลิกเองได้ก่อนเวลาเริ่ม $1 ชั่วโมง — ติดต่อพนักงาน',
+    'ยกเลิกเองได้ถึง $1 ชม. ก่อนเวลาเริ่ม — หลังจากนั้นติดต่อพนักงาน',
   ],
   [/cannot edit a (\w+) reservation/, 'แก้ไขการจองนี้ไม่ได้แล้ว'],
-  [/reservation has not started yet/, 'การจองยังไม่ถึงเวลาเริ่ม'],
-  [/table (\S+) is closed/, 'โต๊ะ $1 ปิดปรับปรุง'],
-  [/(.+) is under maintenance/, '$1 อยู่ระหว่างซ่อม'],
-  [/validation failed/, 'ข้อมูลไม่ถูกต้อง'],
+  [/reservation has not started yet/, 'ยังไม่ถึงเวลาเริ่มเล่น'],
+  [/table (\S+) is closed/, 'โต๊ะ $1 ปิดใช้งาน'],
+  [/(.+) is under maintenance/, '$1 ส่งซ่อมอยู่'],
+  [/validation failed/, 'ข้อมูลไม่ถูกต้อง ลองตรวจอีกครั้ง'],
 ];
 
 /** แปลงข้อความ error จาก server เป็นภาษาไทย (ไม่รู้จัก = คืนข้อความเดิม) */

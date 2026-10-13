@@ -16,7 +16,7 @@ const PHONE_RE = /^[0-9+\-\s()]+$/;
 // TODO(ถามทีม): design ให้เว้นว่างได้ แต่ API ต้องมี customer หรือ user -> ตอนนี้ใส่ชื่อ default ให้
 function buildCustomer(text) {
   const v = text.trim();
-  if (!v) return { name: 'ลูกค้า Walk-in' };
+  if (!v) return { name: 'ลูกค้าหน้าร้าน' };
   return PHONE_RE.test(v) ? { phone: v } : { name: v };
 }
 
@@ -71,7 +71,7 @@ export default function WalkInModal({ onClose, onCreated }) {
   // จัดการ error ตามเอกสาร: 400 = input ผิด, 401 = token, 409 = ชนกัน
   function handleError(err) {
     if (err.status === 401) {
-      setError('เซสชันหมดอายุ หรือยังไม่ได้เข้าสู่ระบบ');
+      setError('เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่');
     } else if (err.status === 400) {
       setError(err.message);
       setFieldErrors(err.details ?? {});
@@ -161,10 +161,10 @@ export default function WalkInModal({ onClose, onCreated }) {
       <div className="modal walkin" role="dialog" aria-modal="true" aria-labelledby="wi-title">
         <div className="walkin-head">
           <div>
-            <h2 id="wi-title">{step === 'form' ? 'เปิดโต๊ะ Walk-In ด่วน' : 'เลือกบอร์ดเกม'}</h2>
+            <h2 id="wi-title">{step === 'form' ? 'เปิดโต๊ะลูกค้าหน้าร้าน' : 'เลือกเกม'}</h2>
             <p className="muted">
               {step === 'form'
-                ? 'เปิดโต๊ะและเริ่มเซสชันการเล่นให้ลูกค้าที่เดินเข้าร้านโดยไม่ได้จองล่วงหน้า'
+                ? 'เปิดโต๊ะและเริ่มจับเวลาให้ลูกค้าที่ไม่ได้จองล่วงหน้า'
                 : `โต๊ะ ${table?.code ?? ''} • ${form.pax} คน • ${hours} ชม.`}
             </p>
           </div>
@@ -180,7 +180,7 @@ export default function WalkInModal({ onClose, onCreated }) {
             <label className="field">
               <span>โต๊ะ</span>
               <select className="input" value={form.table} onChange={onTableChange}>
-                {tables.length === 0 && <option value="">ไม่มีโต๊ะว่างตอนนี้</option>}
+                {tables.length === 0 && <option value="">ตอนนี้ไม่มีโต๊ะว่าง</option>}
                 {tables.map((t) => (
                   <option key={t._id} value={t._id}>
                     {t.code} • {t.zone ?? t.name ?? ''} ({t.capacity} ที่นั่ง)
@@ -191,10 +191,10 @@ export default function WalkInModal({ onClose, onCreated }) {
             </label>
 
             <label className="field">
-              <span>ชื่อผู้ติดต่อ / เบอร์โทรศัพท์</span>
+              <span>ชื่อหรือเบอร์โทรลูกค้า</span>
               <input
                 className="input"
-                placeholder="ระบุชื่อหรือเบอร์โทรศัพท์สำหรับเปิดโต๊ะ (ไม่บังคับ)"
+                placeholder="เว้นว่างได้"
                 value={form.contact}
                 onChange={(e) => setForm((f) => ({ ...f, contact: e.target.value }))}
               />
@@ -202,13 +202,13 @@ export default function WalkInModal({ onClose, onCreated }) {
             </label>
 
             <div className="field">
-              <span>จำนวนผู้เล่นจริง</span>
+              <span>จำนวนผู้เล่น</span>
               <div className="pax-row">
                 <div className="stepper">
                   <button type="button" onClick={() => setPax(form.pax - 1)} aria-label="ลดจำนวนคน">
                     −
                   </button>
-                  <strong>{form.pax} ท่าน</strong>
+                  <strong>{form.pax} คน</strong>
                   <button
                     type="button"
                     onClick={() => setPax(form.pax + 1)}
@@ -224,20 +224,20 @@ export default function WalkInModal({ onClose, onCreated }) {
                     className={'chip-btn' + (form.pax === n ? ' on' : '')}
                     onClick={() => setPax(n)}
                   >
-                    {n} ท่าน{chipNote(n)}
+                    {n} คน{chipNote(n)}
                   </button>
                 ))}
               </div>
               {table && (
                 <small className="muted">
-                  รองรับสูงสุด {table.capacity}–{maxPax} ที่นั่ง สำหรับ {table.code}
+                  {table.code} นั่งได้ {table.capacity} คน เสริมเก้าอี้ได้ถึง {maxPax} คน
                 </small>
               )}
               {fe('players') && <small className="field-error">{fe('players')}</small>}
             </div>
 
             <div className="field">
-              <span>แพ็กเกจค่าบริการ</span>
+              <span>แพ็กเกจ</span>
               <div className="pkg-row">
                 <label className={'pkg' + (form.pkg === 'hourly' ? ' on' : '')}>
                   <input
@@ -246,9 +246,9 @@ export default function WalkInModal({ onClose, onCreated }) {
                     checked={form.pkg === 'hourly'}
                     onChange={() => setForm((f) => ({ ...f, pkg: 'hourly' }))}
                   />
-                  <strong>รายชั่วโมง (Hourly)</strong>
+                  <strong>รายชั่วโมง</strong>
                   <em>฿{cfg.perPersonHour} / ชม. / คน</em>
-                  <small>เกินเวลาที่เลือก คิดเพิ่มทีละครึ่งชั่วโมง</small>
+                  <small>เล่นเกินเวลา คิดเพิ่มทุก 30 นาที</small>
                 </label>
                 <label className={'pkg' + (form.pkg === 'flat3h' ? ' on' : '')}>
                   <input
@@ -258,10 +258,10 @@ export default function WalkInModal({ onClose, onCreated }) {
                     onChange={() => setForm((f) => ({ ...f, pkg: 'flat3h' }))}
                   />
                   <strong>
-                    แพ็กเกจ 3 ชม. เหมาจ่าย <span className="pill-hot">ยอดนิยม</span>
+                    เหมา 3 ชม. <span className="pill-hot">ยอดนิยม</span>
                   </strong>
                   <em>฿{cfg.flat3hPerPerson} / คน</em>
-                  <small>ประหยัดกว่าสำหรับบอร์ดเกมยาว</small>
+                  <small>คุ้มกว่าสำหรับเกมยาว</small>
                 </label>
               </div>
               {fe('package') && <small className="field-error">{fe('package')}</small>}
@@ -278,7 +278,7 @@ export default function WalkInModal({ onClose, onCreated }) {
                 >
                   {hourOptions(cfg.minHours, cfg.maxHours).map((h) => (
                     <option key={h} value={h}>
-                      {h} ชั่วโมง
+                      {h} ชม.
                     </option>
                   ))}
                 </select>
@@ -299,7 +299,7 @@ export default function WalkInModal({ onClose, onCreated }) {
                 disabled={busy || !form.table}
                 onClick={() => submit(null)}
               >
-                ⏱ เริ่มทันทีโดยไม่เลือกเกม
+                ⏱ เปิดโต๊ะเลย ไม่เลือกเกม
               </button>
               <button
                 type="button"
@@ -307,7 +307,7 @@ export default function WalkInModal({ onClose, onCreated }) {
                 disabled={busy || !form.table}
                 onClick={goToGames}
               >
-                ดำเนินการต่อ: เลือกบอร์ดเกม →
+                ถัดไป: เลือกเกม →
               </button>
             </div>
           </>
@@ -324,7 +324,7 @@ export default function WalkInModal({ onClose, onCreated }) {
             />
             <div className="game-list">
               {shownGames.length === 0 && (
-                <p className="muted">ไม่พบเกมที่ว่างและเหมาะกับจำนวนผู้เล่นนี้</p>
+                <p className="muted">ไม่มีเกมว่างที่เล่นได้กับจำนวนผู้เล่นนี้</p>
               )}
               {shownGames.map((g) => (
                 <button
@@ -349,7 +349,7 @@ export default function WalkInModal({ onClose, onCreated }) {
                 disabled={busy}
                 onClick={() => submit(null)}
               >
-                เริ่มโดยไม่เลือกเกม
+                เปิดโต๊ะโดยไม่เลือกเกม
               </button>
             </div>
           </>

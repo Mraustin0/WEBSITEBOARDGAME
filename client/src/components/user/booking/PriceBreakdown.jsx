@@ -42,7 +42,7 @@ export default function PriceBreakdown({ price, rules }) {
           )}
           {peakHours > 0 && (
             <Row
-              label={`ช่วง peak: ${price.players} คน × ${hoursLabel(peakHours)} × ${baht(price.peakPerPersonHour)}`}
+              label={`ช่วงพีค: ${price.players} คน × ${hoursLabel(peakHours)} × ${baht(price.peakPerPersonHour)}`}
               value={baht(price.players * peakHours * price.peakPerPersonHour)}
             />
           )}
@@ -70,7 +70,7 @@ export default function PriceBreakdown({ price, rules }) {
       </div>
       {price.deposit > 0 && (
         <div className="rounded-xl bg-amber-50 border border-amber-200 px-3 py-2 flex flex-col gap-1">
-          <Row label="มัดจำ (หักออกตอนเช็คบิล, ไม่มาตามนัด = ริบ)" value={baht(price.deposit)} />
+          <Row label="มัดจำ (หักตอนเช็คบิล · ไม่มาตามนัดจะไม่ได้คืน)" value={baht(price.deposit)} />
           <Row label="จ่ายที่ร้าน" value={baht(price.dueAtCounter)} />
         </div>
       )}

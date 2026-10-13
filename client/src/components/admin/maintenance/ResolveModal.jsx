@@ -46,7 +46,7 @@ export default function ResolveModal({ ticket, onClose, onDone }) {
         {error && <div className="form-error">{error}</div>}
 
         <label className="field">
-          <span>สรุปผลการซ่อม</span>
+          <span>ผลการซ่อม</span>
           <textarea
             className="input mt-textarea"
             maxLength={2000}
@@ -57,7 +57,7 @@ export default function ResolveModal({ ticket, onClose, onDone }) {
         </label>
 
         <label className="field">
-          <span>ค่าซ่อม (บาท)</span>
+          <span>ค่าซ่อม (฿)</span>
           <input
             className="input"
             type="number"
@@ -69,8 +69,8 @@ export default function ResolveModal({ ticket, onClose, onDone }) {
         </label>
 
         <p className="muted">
-          เมื่อปิดงาน ระบบจะเปิดใช้งาน{ticket.itemType === 'game' ? 'เกม' : 'โต๊ะ'}คืนให้อัตโนมัติ
-          (ถ้าไม่มีใบแจ้งซ่อมอื่นของชิ้นนี้ค้างอยู่)
+          เมื่อปิดงาน {ticket.itemType === 'game' ? 'เกม' : 'โต๊ะ'}จะกลับมาใช้งานได้อัตโนมัติ
+          (ถ้าไม่มีใบแจ้งซ่อมอื่นค้างอยู่)
         </p>
 
         <div className="modal-actions">

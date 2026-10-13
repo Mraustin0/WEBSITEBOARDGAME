@@ -5,7 +5,7 @@ import ReservationItem from './ReservationItem.jsx';
 const TABS = [
   { key: 'all', label: 'ทั้งหมด' },
   { key: 'pending', label: 'รอยืนยัน' },
-  { key: 'booked', label: 'จองล่วงหน้า' },
+  { key: 'booked', label: 'จองแล้ว' },
   { key: 'playing', label: 'กำลังเล่น' },
 ];
 
@@ -48,7 +48,7 @@ export default function TodayList({
       <input
         className="input"
         type="search"
-        placeholder="ค้นหาชื่อ เบอร์โทร หรือ username"
+        placeholder="ค้นหาชื่อ เบอร์โทร หรือชื่อผู้ใช้"
         value={text}
         onChange={(e) => setText(e.target.value)}
       />

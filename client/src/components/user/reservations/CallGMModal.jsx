@@ -29,7 +29,7 @@ export default function CallGMModal({ r, pendingTopics = [], onClose, onDone }) 
   return (
     <Modal
       eyebrow="เรียกพนักงาน"
-      title="เรียก GM มาที่โต๊ะ"
+      title="เรียกพนักงานมาที่โต๊ะ"
       onClose={onClose}
       busy={busy}
       size="max-w-md"
@@ -40,13 +40,13 @@ export default function CallGMModal({ r, pendingTopics = [], onClose, onDone }) 
           </button>
           <button type="button" className={BTN.primary} onClick={submit} disabled={busy || !topic}>
             <i className="fa-solid fa-bell-concierge" aria-hidden="true"></i>
-            {busy ? 'กำลังเรียก...' : 'เรียก GM'}
+            {busy ? 'กำลังเรียก...' : 'เรียกพนักงาน'}
           </button>
         </>
       }
     >
       <ResSummary r={r} />
-      <p className="mb-2 mt-4 text-xs font-bold text-slate-700">ต้องการให้ช่วยเรื่อง</p>
+      <p className="mb-2 mt-4 text-xs font-bold text-slate-700">ให้ช่วยเรื่องอะไร</p>
       <div
         className="grid grid-cols-2 gap-2"
         role="radiogroup"
@@ -89,7 +89,7 @@ export default function CallGMModal({ r, pendingTopics = [], onClose, onDone }) 
         onChange={(e) => setNote(e.target.value)}
         maxLength={500}
         rows={2}
-        placeholder="เช่น ขอคนสอนกติการอบแรก"
+        placeholder="เช่น ช่วยสอนกติกาตาแรกหน่อย"
         className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
       />
       {error && (

@@ -1,8 +1,8 @@
 // ตัวช่วยของหน้า 8 ซ่อมบำรุง
 export const PRIORITY = {
-  high: { label: 'สูง (High)', tone: 'high' },
-  medium: { label: 'ปานกลาง', tone: 'medium' },
-  low: { label: 'ต่ำ (Low)', tone: 'low' },
+  high: { label: 'ด่วน', tone: 'high' },
+  medium: { label: 'ปกติ', tone: 'medium' },
+  low: { label: 'ไม่ด่วน', tone: 'low' },
 };
 
 export const baht = (n) => `฿${Number(n || 0).toLocaleString('th-TH')}`;

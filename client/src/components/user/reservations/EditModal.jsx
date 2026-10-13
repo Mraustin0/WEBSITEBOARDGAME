@@ -97,7 +97,7 @@ export default function EditModal({ r, rules, onClose, onDone }) {
       footer={
         result ? (
           <button type="button" className={BTN.primary} onClick={onClose}>
-            เรียบร้อย
+            ตกลง
           </button>
         ) : (
           <>
@@ -126,7 +126,7 @@ export default function EditModal({ r, rules, onClose, onDone }) {
           <Row label="ราคาเดิม" value={baht(r.price?.total)} tone="text-slate-400 line-through" />
           <Row label="ราคาใหม่" value={baht(result.price?.total)} strong />
           {result.price?.dueAtCounter != null && (
-            <Row label="ชำระที่ร้าน" value={baht(result.price.dueAtCounter)} />
+            <Row label="จ่ายที่ร้าน" value={baht(result.price.dueAtCounter)} />
           )}
         </div>
       ) : (
@@ -144,7 +144,7 @@ export default function EditModal({ r, rules, onClose, onDone }) {
                   className={chip(ymd === d.ymd, d.closed)}
                 >
                   {d.label} <span className="font-normal opacity-80">{d.display}</span>
-                  {d.closed && ' (ปิด)'}
+                  {d.closed && ' (ร้านปิด)'}
                 </button>
               ))}
             </div>
@@ -167,7 +167,7 @@ export default function EditModal({ r, rules, onClose, onDone }) {
                 ))}
               </div>
             ) : (
-              <p className="text-xs text-slate-500">ไม่มีรอบที่จองได้ในวันนี้</p>
+              <p className="text-xs text-slate-500">วันที่เลือกไม่มีรอบว่าง</p>
             )}
           </fieldset>
 
@@ -231,7 +231,8 @@ export default function EditModal({ r, rules, onClose, onDone }) {
             </div>
             {outOfGameRange && (
               <p className="mt-1.5 text-[11px] font-semibold text-amber-700">
-                {r.game.name} เล่นได้ {gameRange[0]}–{gameRange[1]} คน — เปลี่ยนเกมก่อนถ้าต้องการ
+                {r.game.name} เล่นได้ {gameRange[0]}–{gameRange[1]} คน — ถ้าจะใช้จำนวนนี้
+                ให้เปลี่ยนเกมก่อน
               </p>
             )}
           </div>
@@ -240,7 +241,7 @@ export default function EditModal({ r, rules, onClose, onDone }) {
             <p className="rounded-xl bg-slate-50 p-3 text-xs text-slate-600">
               ใหม่: <strong>{formatThaiDate(ymd)}</strong> {hhmm}–
               {timeTH(new Date(new Date(newStart).getTime() + duration * HOUR).toISOString())} น. •{' '}
-              {players} คน — ราคาใหม่จะคำนวณหลังบันทึก
+              {players} คน — ราคาใหม่จะคิดให้หลังบันทึก
             </p>
           )}
         </div>

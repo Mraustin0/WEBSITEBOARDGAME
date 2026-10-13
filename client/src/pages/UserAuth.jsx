@@ -4,14 +4,14 @@ import { api } from '../lib/api.js';
 import { homeFor, setSession } from '../lib/session.js';
 
 const FEATURES = [
-  { icon: 'fa-map', label: 'ผังร้าน 2D Floor Plan', desc: 'ตรวจสอบสถานะโต๊ะว่างสดใหม่' },
+  { icon: 'fa-map', label: 'ดูผังโต๊ะว่างแบบเรียลไทม์', desc: 'เห็นโต๊ะว่างทุกโซนก่อนมาถึงร้าน' },
+  { icon: 'fa-users', label: 'เลือกเกมพร้อมจองโต๊ะ', desc: 'ร้านเตรียมเกมไว้ให้ที่โต๊ะ' },
   {
     icon: 'fa-hourglass-half',
-    label: 'นับเวลา & คืนเกมอัจฉริยะ',
-    desc: 'คุมเวลาเล่นและสั่งอาหารเครื่องดื่ม',
+    label: 'ดูเวลา ต่อเวลา คืนเกมเองได้',
+    desc: 'จัดการโต๊ะที่กำลังเล่นจากมือถือ',
   },
-  { icon: 'fa-users', label: 'LFG Match Squad', desc: 'ค้นหาเพื่อนร่วมตามระดับทักษะ' },
-  { icon: 'fa-star', label: 'สะสมแต้ม BoardPoints', desc: 'แลกชั่วโมงฟรีและเมนูพิเศษ' },
+  { icon: 'fa-star', label: 'รีวิวเกม', desc: 'ให้คะแนนและอ่านรีวิวจากสมาชิก' },
 ];
 
 export default function UserAuth() {
@@ -60,8 +60,8 @@ export default function UserAuth() {
       setSession({ token, user });
       goNext(user);
     } catch (err) {
-      if (err.status === 401) setError('อีเมลหรือรหัสผ่านไม่ถูกต้อง');
-      else if (err.status === 403) setError('บัญชีถูกระงับหรือรออนุมัติ — ติดต่อพนักงาน');
+      if (err.status === 401) setError('ชื่อผู้ใช้/อีเมล หรือรหัสผ่านไม่ถูกต้อง');
+      else if (err.status === 403) setError('บัญชีนี้ถูกระงับหรือยังรออนุมัติ — ติดต่อพนักงาน');
       else if (err.status === 400) {
         setError(err.message);
         setFieldErrors(err.details ?? {});
@@ -94,7 +94,7 @@ export default function UserAuth() {
       setSession({ token, user });
       goNext(user);
     } catch (err) {
-      if (err.status === 409) setError('อีเมลหรือชื่อผู้ใช้นี้ถูกใช้งานแล้ว');
+      if (err.status === 409) setError('อีเมลหรือชื่อผู้ใช้นี้มีคนใช้แล้ว');
       else if (err.status === 400) {
         setError(err.message);
         setFieldErrors(err.details ?? {});
@@ -112,9 +112,9 @@ export default function UserAuth() {
           <i className="fa-solid fa-dice-d20" />
         </div>
         <div className="leading-none">
-          <div className="font-bold text-slate-900 text-sm tracking-tight">BoardMatch</div>
+          <div className="font-bold text-slate-900 text-sm tracking-tight">Boardgame Everyday</div>
           <div className="text-[10px] text-slate-400 tracking-widest font-semibold">
-            TABLETOP CAFE
+            คาเฟ่บอร์ดเกม
           </div>
         </div>
       </header>
@@ -125,16 +125,15 @@ export default function UserAuth() {
         <div className="hidden lg:flex flex-1 p-10 flex-col gap-6 overflow-y-auto">
           <span className="inline-flex items-center gap-2 text-xs font-bold text-emerald-700 bg-emerald-100 px-3 py-1.5 rounded-full self-start">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            TABLETOP LOUNGE &amp; COMMUNITY HUB
+            คาเฟ่บอร์ดเกม
           </span>
 
           <div>
             <h1 className="text-4xl font-bold text-slate-900 leading-tight">
-              ยินดีต้อนรับสู่ <span className="text-[#064e3b]">BoardMatch</span>
+              ยินดีต้อนรับสู่ <span className="text-[#064e3b]">Boardgame Everyday</span>
             </h1>
             <p className="text-slate-500 mt-2 text-sm leading-relaxed">
-              พื้นที่เชื่อมต่อคอมมูนิตี้บอร์ดเกม ระบบจัดสรรผังโต๊ะเล่นเกมอัจฉริยะ
-              และคอมมูนิตี้สำหรับผู้เล่นทุกระดับ
+              ดูโต๊ะว่าง เลือกเกม และจองโต๊ะได้ในไม่กี่คลิก มาถึงร้านก็เล่นได้เลย
             </p>
           </div>
 
@@ -155,17 +154,17 @@ export default function UserAuth() {
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="text-center text-white opacity-60">
                 <i className="fa-solid fa-dice-d20 text-5xl mb-2 block" />
-                <div className="text-sm font-medium">Board Game Cafe</div>
+                <div className="text-sm font-medium">Boardgame Everyday</div>
               </div>
             </div>
             {/* Stats overlay */}
             <div className="absolute bottom-3 left-3 right-3 flex items-center gap-3 bg-black/40 backdrop-blur-sm rounded-xl px-4 py-2">
               <i className="fa-solid fa-chess-knight text-white text-sm" />
               <span className="text-white text-xs font-semibold flex-1">
-                1,240+ เกมพร้อมให้บริการ
+                บอร์ดเกมพร้อมเล่นทุกวัน
               </span>
               <span className="text-white/60 text-xs">•</span>
-              <span className="text-emerald-300 text-xs font-semibold">42 โต๊ะ Real-time</span>
+              <span className="text-emerald-300 text-xs font-semibold">ผังโต๊ะเรียลไทม์</span>
             </div>
           </div>
 
@@ -210,7 +209,7 @@ export default function UserAuth() {
                     : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
-                สมัครสมาชิกใหม่
+                สมัครสมาชิก
               </button>
             </div>
 
@@ -219,7 +218,7 @@ export default function UserAuth() {
               <form onSubmit={onLogin} noValidate>
                 <h2 className="text-xl font-bold text-slate-900 mb-1">ยินดีต้อนรับกลับมา</h2>
                 <p className="text-xs text-slate-400 mb-5">
-                  กรุณากรอกข้อมูลเพื่อเข้าสู่ระบบ BoardMatch Lounge
+                  เข้าสู่ระบบเพื่อจองโต๊ะและดูการจองของคุณ
                 </p>
 
                 {error && (
@@ -231,14 +230,14 @@ export default function UserAuth() {
                 <div className="space-y-4">
                   <div>
                     <label className="block text-xs font-semibold text-slate-600 mb-1.5">
-                      ชื่อผู้ใช้ หรือ อีเมล
+                      ชื่อผู้ใช้หรืออีเมล
                     </label>
                     <div className="relative">
                       <i className="fa-regular fa-envelope absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm" />
                       <input
                         className="w-full border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 text-sm outline-none focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b] transition"
                         type="email"
-                        placeholder="gawin.tabletop@example.com"
+                        placeholder="เช่น gawin_dice หรือ you@example.com"
                         autoComplete="email"
                         value={login.email}
                         onChange={setL('email')}
@@ -286,13 +285,11 @@ export default function UserAuth() {
                         checked={remember}
                         onChange={(e) => setRemember(e.target.checked)}
                       />
-                      จดจำการเข้าสู่ระบบ
+                      จำฉันไว้
                     </label>
                     <button
                       type="button"
-                      onClick={() =>
-                        setError('ลืมรหัสผ่าน: แจ้งพนักงานที่หน้าร้านเพื่อรีเซ็ตรหัสผ่านให้')
-                      }
+                      onClick={() => setError('ลืมรหัสผ่าน? แจ้งพนักงานที่ร้านให้ช่วยตั้งรหัสใหม่')}
                       className="text-xs text-[#064e3b] font-semibold hover:underline"
                     >
                       ลืมรหัสผ่าน?
@@ -310,7 +307,7 @@ export default function UserAuth() {
 
                 <div className="flex items-center gap-3 my-5">
                   <div className="flex-1 h-px bg-slate-100" />
-                  <span className="text-xs text-slate-400">หรือดำเนินการต่อด้วย</span>
+                  <span className="text-xs text-slate-400">หรือเข้าสู่ระบบด้วย (เร็ว ๆ นี้)</span>
                   <div className="flex-1 h-px bg-slate-100" />
                 </div>
 
@@ -368,7 +365,7 @@ export default function UserAuth() {
               <form onSubmit={onRegister} noValidate>
                 <h2 className="text-xl font-bold text-slate-900 mb-1">สร้างบัญชีสมาชิกใหม่</h2>
                 <p className="text-xs text-slate-400 mb-5">
-                  เริ่มต้นสะสมแต้มและจับคู่บอร์ดเกมกันทันที
+                  สมัครฟรี แล้วจองโต๊ะพร้อมเลือกเกมได้ทันที
                 </p>
 
                 {error && (
@@ -381,7 +378,7 @@ export default function UserAuth() {
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-semibold text-slate-600 mb-1.5">
-                        ชื่อ-นามสกุล
+                        ชื่อที่แสดง
                       </label>
                       <input
                         className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b] transition"
@@ -393,7 +390,7 @@ export default function UserAuth() {
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-slate-600 mb-1.5">
-                        ชื่อผู้ใช้ (Handle)
+                        ชื่อผู้ใช้
                       </label>
                       <input
                         className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b] transition"
@@ -411,12 +408,12 @@ export default function UserAuth() {
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-600 mb-1.5">
-                      อีเมลที่ติดต่อได้
+                      อีเมล
                     </label>
                     <input
                       className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b] transition"
                       type="email"
-                      placeholder="gawin@boardmatch.cafe"
+                      placeholder="you@example.com"
                       autoComplete="email"
                       value={reg.email}
                       onChange={setR('email')}
@@ -428,8 +425,7 @@ export default function UserAuth() {
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-600 mb-1.5">
-                      เบอร์โทรศัพท์{' '}
-                      <span className="text-slate-400 font-normal">(สำหรับยืนยันตัวตน)</span>
+                      เบอร์โทรศัพท์ <span className="text-slate-400 font-normal">(ไม่บังคับ)</span>
                     </label>
                     <input
                       className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b] transition"
@@ -509,7 +505,7 @@ export default function UserAuth() {
                         type="button"
                         className="text-[#064e3b] font-semibold hover:underline"
                       >
-                        ข้อกำหนดการใช้โต๊ะ
+                        ข้อกำหนดการใช้บริการ
                       </button>{' '}
                       และ{' '}
                       <button
@@ -518,7 +514,7 @@ export default function UserAuth() {
                       >
                         นโยบายความเป็นส่วนตัว
                       </button>{' '}
-                      ของ BoardMatch
+                      ของ Boardgame Everyday
                     </span>
                   </label>
                 </div>
@@ -532,8 +528,7 @@ export default function UserAuth() {
                     'กำลังสร้างบัญชี...'
                   ) : (
                     <>
-                      ยืนยันการสมัครสมาชิก (Create Member Account){' '}
-                      <i className="fa-solid fa-circle-check text-emerald-300" />
+                      สมัครสมาชิก <i className="fa-solid fa-circle-check text-emerald-300" />
                     </>
                   )}
                 </button>

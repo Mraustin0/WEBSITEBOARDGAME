@@ -83,11 +83,11 @@ export default function UserProfile() {
       const merged = { ...stored, ...user };
       setSession({ user: merged });
       setStored(merged);
-      showToast('บันทึกข้อมูลเรียบร้อยแล้ว');
+      showToast('บันทึกข้อมูลแล้ว');
     } catch (err) {
       showToast(
         err.status === 409
-          ? 'ชื่อผู้ใช้หรืออีเมลนี้ถูกใช้แล้ว'
+          ? 'ชื่อผู้ใช้หรืออีเมลนี้มีคนใช้แล้ว'
           : (err.message ?? 'บันทึกไม่สำเร็จ'),
         false,
       );
@@ -110,13 +110,13 @@ export default function UserProfile() {
       });
       // token เดิมถูกยกเลิกหลังเปลี่ยนรหัส → ใช้ token ใหม่ที่ server ส่งมา
       if (res?.token) setSession({ token: res.token });
-      showToast('เปลี่ยนรหัสผ่านเรียบร้อยแล้ว');
+      showToast('เปลี่ยนรหัสผ่านแล้ว');
       setPw({ oldPassword: '', newPassword: '', confirm: '' });
     } catch (err) {
       const msg = /old password incorrect/.test(err.message)
         ? 'รหัสผ่านเดิมไม่ถูกต้อง'
         : /must differ/.test(err.message)
-          ? 'รหัสผ่านใหม่ต้องไม่ซ้ำรหัสเดิม'
+          ? 'รหัสผ่านใหม่ต้องไม่ซ้ำกับรหัสเดิม'
           : err.details?.newPassword
             ? 'รหัสผ่านใหม่ต้องยาวอย่างน้อย 6 ตัวอักษร'
             : (err.message ?? 'เปลี่ยนรหัสผ่านไม่สำเร็จ');
@@ -167,7 +167,11 @@ export default function UserProfile() {
             <div className="text-sm text-slate-400">{profile.email}</div>
             <div className="mt-1 inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full">
               <i className="fa-solid fa-circle-check text-[10px]" />
-              {stored.role === 'staff' ? 'Staff' : stored.role === 'admin' ? 'Admin' : 'Member'}
+              {stored.role === 'staff'
+                ? 'พนักงาน'
+                : stored.role === 'admin'
+                  ? 'ผู้ดูแลร้าน'
+                  : 'สมาชิก'}
             </div>
           </div>
         </div>
@@ -184,7 +188,7 @@ export default function UserProfile() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-slate-500 mb-1.5">
-                ชื่อผู้ใช้ (Handle)
+                ชื่อผู้ใช้
               </label>
               <input
                 className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]"
@@ -200,7 +204,7 @@ export default function UserProfile() {
                 className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]"
                 value={profile.displayName}
                 onChange={setP('displayName')}
-                placeholder="ชื่อจริง"
+                placeholder="ชื่อที่อยากให้แสดง"
               />
             </div>
           </div>
@@ -332,7 +336,7 @@ export default function UserProfile() {
             <i className="fa-solid fa-triangle-exclamation text-sm" /> ออกจากระบบ
           </h2>
           <p className="text-sm text-slate-500 mb-4">
-            ออกจากระบบในอุปกรณ์นี้ — token จะถูกลบออกทันที
+            ออกจากระบบบนอุปกรณ์นี้ ครั้งหน้าต้องเข้าสู่ระบบใหม่
           </p>
           <button
             onClick={logout}

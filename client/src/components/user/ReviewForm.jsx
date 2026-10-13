@@ -13,14 +13,14 @@ export default function ReviewForm({ gameId, gameName, initial, onSaved, onCance
 
   async function onSubmit(e) {
     e.preventDefault();
-    if (!rating) return setError('เลือกคะแนน 1–10 ก่อน');
+    if (!rating) return setError('เลือกคะแนน 1–10 ก่อนส่ง');
     setBusy(true);
     setError('');
     try {
       const saved = await submitReview({ game: gameId, rating, comment: comment.trim() });
       onSaved?.(saved);
     } catch (err) {
-      setError(err.status === 401 ? 'เข้าสู่ระบบก่อนรีวิว' : thaiError(err));
+      setError(err.status === 401 ? 'เข้าสู่ระบบก่อนเขียนรีวิว' : thaiError(err));
     } finally {
       setBusy(false);
     }
@@ -66,7 +66,7 @@ export default function ReviewForm({ gameId, gameName, initial, onSaved, onCance
         onChange={(e) => setComment(e.target.value)}
         maxLength={2000}
         rows={3}
-        placeholder="เล่าความรู้สึกหลังเล่น (ไม่บังคับ)"
+        placeholder="เล่นแล้วเป็นยังไงบ้าง (ไม่บังคับ)"
         className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
       />
       {error && <p className="text-xs text-red-600 font-semibold">{error}</p>}

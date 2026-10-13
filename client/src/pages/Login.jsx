@@ -25,14 +25,14 @@ export default function Login() {
         body: { email: form.email.trim(), password: form.password },
       });
       if (!isStaff(user)) {
-        setError('บัญชีนี้เป็นบัญชีสมาชิก — เข้าสู่ระบบที่หน้าสมาชิกแทน');
+        setError('บัญชีนี้เป็นบัญชีสมาชิก กรุณาเข้าสู่ระบบที่หน้าสมาชิก');
         return; // ยังไม่เก็บ token
       }
       setSession({ token, user });
       navigate('/admin', { replace: true });
     } catch (err) {
       if (err.status === 401) setError('อีเมลหรือรหัสผ่านไม่ถูกต้อง');
-      else if (err.status === 403) setError('บัญชีถูกระงับหรือรออนุมัติ');
+      else if (err.status === 403) setError('บัญชีนี้ถูกระงับหรือยังรออนุมัติ');
       else if (err.status === 400) {
         setError(err.message);
         setFieldErrors(err.details ?? {});
@@ -45,16 +45,16 @@ export default function Login() {
   return (
     <div className="login-page">
       <aside className="login-hero">
-        <span className="badge-live">● Internal Operations</span>
+        <span className="badge-live">● สำหรับพนักงาน</span>
         <h1>Boardgame Everyday</h1>
-        <p>ระบบบริหารจัดการร้านบอร์ดเกมครบวงจร</p>
-        <small>ผังโต๊ะ • คลังเกม • การจอง • รายงาน</small>
+        <p>ระบบหลังร้านสำหรับดูแลคาเฟ่บอร์ดเกม</p>
+        <small>ผังโต๊ะ • คลังบอร์ดเกม • การจอง • รายงาน</small>
       </aside>
 
       <main className="login-form-wrap">
         <form className="login-form" onSubmit={onSubmit} noValidate>
           <h2>ยินดีต้อนรับกลับมา</h2>
-          <p className="muted">เข้าสู่ระบบเพื่อจัดการร้านของคุณและบริการลูกค้า</p>
+          <p className="muted">เข้าสู่ระบบด้วยบัญชีพนักงาน</p>
           {error && <div className="form-error">{error}</div>}
 
           <label className="field">

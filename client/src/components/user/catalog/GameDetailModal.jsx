@@ -136,7 +136,7 @@ export default function GameDetailModal({ game, slotEntry, slot, onClose, notify
           </button>
           {game.rating && (
             <span className="absolute bottom-3 right-3 bg-slate-900/90 text-amber-300 text-xs px-2.5 py-1 rounded-full font-bold flex items-center gap-1">
-              <span className="text-amber-400">★</span> {game.rating} BGG
+              <span className="text-amber-400">★</span> คะแนน BGG {game.rating}
             </span>
           )}
         </div>
@@ -170,9 +170,9 @@ export default function GameDetailModal({ game, slotEntry, slot, onClose, notify
           </div>
 
           <div className="text-xs text-slate-600 bg-white border border-slate-200 rounded-xl px-3 py-2.5 flex flex-wrap gap-x-4 gap-y-1">
-            <span className="font-bold text-slate-800">กล่องในร้าน {copies} กล่อง</span>
+            <span className="font-bold text-slate-800">มีทั้งหมด {copies} กล่อง</span>
             <span>
-              <i className="fa-solid fa-box-open text-emerald-600 mr-1"></i>บนชั้น{' '}
+              <i className="fa-solid fa-box-open text-emerald-600 mr-1"></i>ว่าง{' '}
               {game.copiesInVault ?? 0}
             </span>
             <span>
@@ -198,7 +198,9 @@ export default function GameDetailModal({ game, slotEntry, slot, onClose, notify
               disabled
               className="w-full bg-slate-100 text-slate-500 border border-slate-200 font-semibold py-3 px-4 rounded-xl text-sm cursor-not-allowed"
             >
-              {status.tone === 'repair' ? 'เกมนี้ส่งซ่อม — จองไม่ได้' : 'ช่วงเวลาที่เลือกไม่ว่าง'}
+              {status.tone === 'repair'
+                ? 'เกมนี้ส่งซ่อม — ยังจองไม่ได้'
+                : 'ช่วงเวลาที่เลือกไม่ว่าง'}
             </button>
           )}
 

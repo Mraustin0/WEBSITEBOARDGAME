@@ -49,7 +49,7 @@ export default function Reservations() {
       setOverview(ov);
       setItems(rows);
     } catch (err) {
-      setError(err.status === 401 ? 'เซสชันหมดอายุ หรือยังไม่ได้เข้าสู่ระบบ' : err.message);
+      setError(err.status === 401 ? 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่' : err.message);
     } finally {
       setLoading(false);
     }
@@ -103,15 +103,15 @@ export default function Reservations() {
     <div className="reservations-page">
       <div className="page-head">
         <div>
-          <h1>จัดการการจองล่วงหน้า</h1>
-          <p className="muted">ดูและจัดการการจองทั้งหมดตามวัน สัปดาห์ หรือเดือน</p>
+          <h1>การจอง</h1>
+          <p className="muted">ดูและจัดการการจองรายวัน รายสัปดาห์ หรือรายเดือน</p>
         </div>
         <div className="head-actions">
           <button type="button" className="btn-ghost" onClick={() => setShowWalkIn(true)}>
-            + เปิดโต๊ะ Walk-in
+            + เปิดโต๊ะลูกค้าหน้าร้าน
           </button>
           <button type="button" className="btn-primary" onClick={() => setShowNew(true)}>
-            + เพิ่มการจองใหม่
+            + เพิ่มการจอง
           </button>
         </div>
       </div>

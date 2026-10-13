@@ -3,15 +3,14 @@ import { api } from '../../lib/api.js';
 import './settings.css';
 
 const NAV = [
-  { id: 'store', label: 'ข้อมูลร้าน', en: 'General Info' },
-  { id: 'pricing', label: 'อัตราค่าบริการ', en: 'Pricing & Rates' },
-  { id: 'booking', label: 'นโยบายการจอง', en: 'Booking Policy' },
-  { id: 'operatingHours', label: 'เวลาทำการ', en: 'Operating Hours' },
-  { id: 'noShow', label: 'นโยบาย No-show', en: 'No-Show & Deposit' },
+  { id: 'store', label: 'ข้อมูลร้าน', en: 'ชื่อร้าน ที่อยู่ ช่องทางติดต่อ' },
+  { id: 'pricing', label: 'ค่าบริการ', en: 'ราคารายชั่วโมงและแพ็กเกจ' },
+  { id: 'booking', label: 'กติกาการจอง', en: 'เวลาเล่นและการยกเลิก' },
+  { id: 'operatingHours', label: 'เวลาทำการ', en: 'เวลาเปิด–ปิดแต่ละวัน' },
+  { id: 'noShow', label: 'ไม่มาตามนัดและมัดจำ', en: 'มัดจำและการระงับบัญชี' },
 ];
 
 const DAY_NAMES = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
-const DAY_EN = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const ORDER = [1, 2, 3, 4, 5, 6, 0];
 const TIME_RE = /^([01]\d|2[0-4]):[0-5]\d$/;
 const clone = (o) => JSON.parse(JSON.stringify(o));
@@ -90,7 +89,7 @@ export default function Settings() {
     return (
       <div className="st">
         <div className="panel st-loading">
-          {error ? <div className="form-error">{error}</div> : 'กำลังโหลดการตั้งค่า...'}
+          {error ? <div className="form-error">{error}</div> : 'กำลังโหลด...'}
         </div>
       </div>
     );
@@ -133,13 +132,13 @@ export default function Settings() {
       ...Object.values(form.booking).filter((v) => typeof v !== 'string'),
       ...Object.values(form.noShow),
     ];
-    if (nums.some((v) => v === '' || Number(v) < 0)) return 'กรุณากรอกตัวเลขให้ครบ และต้องไม่ติดลบ';
+    if (nums.some((v) => v === '' || Number(v) < 0)) return 'กรอกตัวเลขให้ครบ และห้ามติดลบ';
     if (form.booking.minHours > form.booking.maxHours)
-      return 'จำนวนชั่วโมงขั้นต่ำต้องไม่มากกว่าขั้นสูงสุด';
+      return 'เวลาเล่นขั้นต่ำต้องไม่มากกว่าเวลาเล่นสูงสุด';
     const badDay = form.operatingHours.days.find(
       (d) => !d.closed && !(TIME_RE.test(d.open) && TIME_RE.test(d.close)),
     );
-    if (badDay) return `เวลาของวัน${DAY_NAMES[badDay.day]}ต้องอยู่ในรูปแบบ HH:MM (เช่น 10:00)`;
+    if (badDay) return `กรอกเวลาของวัน${DAY_NAMES[badDay.day]}ให้ถูกรูปแบบ เช่น 10:00`;
     return '';
   }
 
@@ -156,7 +155,7 @@ export default function Settings() {
       setOk(true);
       setTimeout(() => setOk(false), 3000);
     } catch (err) {
-      if (err.status === 403) setError('บัญชีนี้ไม่มีสิทธิ์แก้ไขการตั้งค่า (ต้องเป็น admin)');
+      if (err.status === 403) setError('บัญชีนี้ไม่มีสิทธิ์แก้ไขการตั้งค่าร้าน');
       else if (err.status === 400)
         setError(`ข้อมูลไม่ถูกต้อง: ${fmtDetails(err.details) || err.message}`);
       else if (err.status !== 401) setError(err.message);
@@ -176,24 +175,19 @@ export default function Settings() {
     <div className="st">
       <div className="page-head">
         <div>
-          <p className="st-crumb">ภาพรวมระบบ / ตั้งค่า</p>
-          <h1>
-            ตั้งค่าร้านค้าและระบบ
-            <span className="st-title-en">Store Settings</span>
-          </h1>
-          <p className="st-lead">
-            จัดการข้อมูลทั่วไป อัตราค่าบริการ กติกาการจอง และเวลาทำการของร้าน
-          </p>
+          <p className="st-crumb">บริหารร้าน / ตั้งค่าร้าน</p>
+          <h1>ตั้งค่าร้าน</h1>
+          <p className="st-lead">ข้อมูลร้าน ค่าบริการ กติกาการจอง และเวลาเปิด–ปิดร้าน</p>
         </div>
       </div>
 
       {error && <div className="form-error">{error}</div>}
-      {ok && <div className="st-ok">บันทึกการตั้งค่าเรียบร้อยแล้ว</div>}
+      {ok && <div className="st-ok">บันทึกการตั้งค่าแล้ว</div>}
 
       <div className="st-layout">
         {/* Sidebar ตามดีไซน์ */}
         <aside className="st-nav panel">
-          <p className="st-nav-title">การตั้งค่าหลัก</p>
+          <p className="st-nav-title">หมวดการตั้งค่า</p>
           {NAV.map((n) => (
             <button
               key={n.id}
@@ -262,14 +256,14 @@ export default function Settings() {
                       unit="฿ / คน / ชม."
                     />
                   </Field>
-                  <Field label="แพ็กเกจ 3 ชม. เหมาจ่าย" hint="ต่อคน">
+                  <Field label="เหมา 3 ชม." hint="ต่อคน">
                     <NumInput
                       value={pr.flat3hPerPerson}
                       onChange={set('pricing', 'flat3hPerPerson')}
                       unit="฿ / คน"
                     />
                   </Field>
-                  <Field label="เป้าหมายรายได้ต่อวัน" hint="ใช้คำนวณ % เป้าหมายในหน้าภาพรวม">
+                  <Field label="เป้าหมายรายได้ต่อวัน" hint="ใช้คำนวณ % เป้าหมายในหน้าภาพรวมร้าน">
                     <NumInput
                       value={pr.revenueTargetPerDay}
                       onChange={set('pricing', 'revenueTargetPerDay')}
@@ -277,9 +271,7 @@ export default function Settings() {
                     />
                   </Field>
                 </div>
-                <p className="st-note">
-                  ราคาใหม่มีผลกับการจองใหม่เท่านั้น (การจองเดิมเก็บราคาตอนจองไว้)
-                </p>
+                <p className="st-note">ราคาใหม่ใช้กับการจองใหม่เท่านั้น การจองเดิมยังใช้ราคาเดิม</p>
               </div>
             )}
 
@@ -308,7 +300,7 @@ export default function Settings() {
                     step={0.5}
                   />
                 </Field>
-                <Field label="ผ่อนผันเวลาเกิน" hint="เกินเวลานี้ค่อยคิด overtime">
+                <Field label="ผ่อนผันเวลาเกิน" hint="เล่นเกินไม่เกินนี้ ยังไม่คิดค่าล่วงเวลา">
                   <NumInput
                     value={bk.overtimeGraceMin}
                     onChange={set('booking', 'overtimeGraceMin')}
@@ -342,7 +334,7 @@ export default function Settings() {
                       onChange={(e) => set('operatingHours', 'enforce')(e.target.checked)}
                     />
                     <span>
-                      บังคับเวลาทำการ — ไม่ให้สมาชิกจองนอกเวลา (admin ยังเปิดโต๊ะนอกเวลาได้)
+                      ใช้เวลาทำการ — สมาชิกจองนอกเวลาไม่ได้ (พนักงานยังเปิดโต๊ะนอกเวลาได้)
                     </span>
                   </label>
                   <button type="button" className="btn-ghost st-btn" onClick={copyMonday}>
@@ -363,7 +355,6 @@ export default function Settings() {
                           />
                           <div>
                             <b>{DAY_NAMES[n]}</b>
-                            <small>{DAY_EN[n]}</small>
                           </div>
                         </label>
                         <div className="st-day-times">
@@ -403,17 +394,20 @@ export default function Settings() {
 
             {section === 'noShow' && (
               <div className="st-grid-3">
-                <Field label="ผ่อนผันมาสาย" hint="เกินเวลานี้ถือว่า no-show">
+                <Field label="ผ่อนผันมาสาย" hint="มาสายเกินนี้ถือว่าไม่มาตามนัด">
                   <NumInput value={ns.graceMin} onChange={set('noShow', 'graceMin')} unit="นาที" />
                 </Field>
-                <Field label="เงินมัดจำต่อคน" hint="แสดงในระบบ — ยังไม่ตัดบัตรจริง">
+                <Field label="มัดจำต่อคน" hint="ใช้แสดงยอดในระบบ ยังไม่มีการตัดเงินจริง">
                   <NumInput
                     value={ns.depositPerPerson}
                     onChange={set('noShow', 'depositPerPerson')}
                     unit="฿ / คน"
                   />
                 </Field>
-                <Field label="ระงับบัญชีหลัง no-show" hint="ครบจำนวนครั้งนี้ควรระงับ">
+                <Field
+                  label="ระงับบัญชีเมื่อไม่มาตามนัดครบ"
+                  hint="ครบจำนวนนี้จะขึ้นเป็นบัญชีที่ควรระงับ"
+                >
                   <NumInput
                     value={ns.suspendAfter}
                     onChange={set('noShow', 'suspendAfter')}
@@ -445,7 +439,7 @@ export default function Settings() {
               setError('');
             }}
           >
-            ยกเลิก (Discard)
+            ยกเลิกการแก้ไข
           </button>
           <button
             type="button"

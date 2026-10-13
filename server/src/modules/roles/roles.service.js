@@ -186,9 +186,9 @@ export async function removeMember(id, userId, actor, req) {
 export async function ensureSystemRoles() {
   const defaults = [
     {
-      name: 'Super Admin',
+      name: 'ผู้ดูแลระบบ',
       slug: 'admin',
-      description: 'ผู้ดูแลระบบสูงสุด',
+      description: 'เข้าถึงและแก้ไขได้ทุกเมนู',
       isSystem: true,
       permissions: PERMISSION_CATALOG.map((p) => ({
         key: p.key,
@@ -199,9 +199,9 @@ export async function ensureSystemRoles() {
       })),
     },
     {
-      name: 'Member',
+      name: 'สมาชิก',
       slug: 'user',
-      description: 'สมาชิกทั่วไป',
+      description: 'ลูกค้าที่สมัครสมาชิก ไม่มีสิทธิ์เข้าหลังร้าน',
       isSystem: true,
       permissions: [],
     },
@@ -219,17 +219,17 @@ export async function ensureSystemRoles() {
   });
   const starters = [
     {
-      name: 'Store Manager',
+      name: 'ผู้จัดการร้าน',
       slug: 'manager',
-      description: 'ผู้จัดการร้าน — ทุกอย่างยกเว้นจัดการสิทธิ์',
+      description: 'ใช้ได้ทุกเมนู ยกเว้นแก้ไขบทบาทและสิทธิ์',
       permissions: PERMISSION_CATALOG.map((p) =>
         p.key === 'roles' ? perm(p.key, true) : perm(p.key, true, true, true, true),
       ),
     },
     {
-      name: 'Game Master',
+      name: 'พนักงานหน้าร้าน',
       slug: 'staff',
-      description: 'พนักงานหน้าร้าน — ผังโต๊ะ เช็คบิล คลังเกม แจ้งซ่อม',
+      description: 'ดูแลการจอง เช็คบิล แจ้งซ่อม และดูคลังบอร์ดเกม',
       permissions: [
         perm('floor', true, true),
         perm('checkout', true, true),
