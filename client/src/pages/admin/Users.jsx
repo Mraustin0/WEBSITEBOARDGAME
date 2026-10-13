@@ -5,14 +5,28 @@ import './users.css';
 const LIMIT = 10;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-const ROLES = {
-  admin: {
+/** fallback ถ้า API โหลดบทบาทไม่สำเร็จ */
+const FALLBACK_ROLES = [
+  {
+    slug: 'admin',
+    name: 'Super Admin',
     label: 'ผู้ดูแลระบบ',
-    en: 'Admin',
-    desc: 'จัดการร้านได้ทุกเมนู รวมถึงผู้ใช้และการตั้งค่า',
+    description: 'จัดการร้านได้ทุกเมนู รวมถึงผู้ใช้และการตั้งค่า',
   },
-  user: { label: 'สมาชิก', en: 'Member', desc: 'ใช้งานทั่วไป จองโต๊ะและดูการจองของตัวเอง' },
-};
+  {
+    slug: 'user',
+    name: 'Member',
+    label: 'สมาชิก',
+    description: 'ใช้งานทั่วไป จองโต๊ะและดูการจองของตัวเอง',
+  },
+];
+
+function roleLabel(slug, roleList) {
+  const r = (roleList || []).find((x) => x.slug === slug);
+  if (r) return r.name || r.label || slug;
+  const fb = FALLBACK_ROLES.find((x) => x.slug === slug);
+  return fb?.label || fb?.name || slug;
+}
 
 const STATUSES = {
   active: { label: 'ปกติ', className: 'ok' },
@@ -103,29 +117,33 @@ function Modal({ title, subtitle, onClose, children }) {
   );
 }
 
-function RoleOptions({ value, onChange }) {
+function RoleOptions({ value, onChange, roles }) {
+  const list = roles?.length ? roles : FALLBACK_ROLES;
   return (
     <div className="us-role-opts">
-      {Object.entries(ROLES).map(([key, r]) => (
-        <label key={key} className={'us-role-opt' + (value === key ? ' on' : '')}>
-          <input
-            type="radio"
-            name="role"
-            value={key}
-            checked={value === key}
-            onChange={() => onChange(key)}
-          />
-          <span className="us-role-opt-title">
-            {r.label} ({r.en})
-          </span>
-          <span className="us-muted">{r.desc}</span>
-        </label>
-      ))}
+      {list.map((r) => {
+        const key = r.slug;
+        const title = r.name || r.label || key;
+        const desc = r.description || r.desc || '';
+        return (
+          <label key={key} className={'us-role-opt' + (value === key ? ' on' : '')}>
+            <input
+              type="radio"
+              name="role"
+              value={key}
+              checked={value === key}
+              onChange={() => onChange(key)}
+            />
+            <span className="us-role-opt-title">{title}</span>
+            {desc ? <span className="us-muted">{desc}</span> : null}
+          </label>
+        );
+      })}
     </div>
   );
 }
 
-function AddUserModal({ onClose, onDone }) {
+function AddUserModal({ onClose, onDone, roles }) {
   const [form, setForm] = useState({ username: '', email: '', password: '', role: 'user' });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -136,24 +154,16 @@ function AddUserModal({ onClose, onDone }) {
     setBusy(true);
     setError('');
     try {
-      const { username, email, password } = form;
-      const res = await api('/auth/register', {
+      const { username, email, password, role } = form;
+      // ใช้ endpoint admin ที่รองรับ role ได้เลย
+      await api('/admin/users', {
         method: 'POST',
-        body: { username, email, password },
+        body: { username, email, password, role: role || 'user' },
       });
-      const id = res?.user?.id ?? res?.user?._id;
-      if (form.role === 'admin' && id) {
-        try {
-          await api(`/admin/users/${id}/role`, { method: 'PUT', body: { role: 'admin' } });
-        } catch {
-          onDone({
-            tone: 'err',
-            text: `สร้างบัญชี "${username}" แล้ว แต่ตั้งเป็นผู้ดูแลไม่สำเร็จ กรุณาแก้สิทธิ์อีกครั้ง`,
-          });
-          return;
-        }
-      }
-      onDone({ tone: 'ok', text: `เพิ่มผู้ใช้ "${username}" เรียบร้อย` });
+      onDone({
+        tone: 'ok',
+        text: `เพิ่มผู้ใช้ "${username}" เป็น ${roleLabel(role, roles)} เรียบร้อย`,
+      });
     } catch (err) {
       setError(errorText(err, 'เพิ่มผู้ใช้ไม่สำเร็จ'));
       setBusy(false);
@@ -200,7 +210,11 @@ function AddUserModal({ onClose, onDone }) {
         </label>
         <div>
           <span className="us-label">สิทธิ์การใช้งาน</span>
-          <RoleOptions value={form.role} onChange={(role) => setForm((f) => ({ ...f, role }))} />
+          <RoleOptions
+            value={form.role}
+            onChange={(role) => setForm((f) => ({ ...f, role }))}
+            roles={roles}
+          />
         </div>
         {error && <div className="us-error">{error}</div>}
         <footer className="us-modal-foot">
@@ -216,7 +230,7 @@ function AddUserModal({ onClose, onDone }) {
   );
 }
 
-function EditRoleModal({ user, onClose, onDone }) {
+function EditRoleModal({ user, onClose, onDone, roles }) {
   const [role, setRole] = useState(user.role);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -228,7 +242,7 @@ function EditRoleModal({ user, onClose, onDone }) {
       await api(`/admin/users/${user._id}/role`, { method: 'PUT', body: { role } });
       onDone({
         tone: 'ok',
-        text: `เปลี่ยนสิทธิ์ของ "${user.username}" เป็น ${ROLES[role].label} แล้ว`,
+        text: `เปลี่ยนสิทธิ์ของ "${user.username}" เป็น ${roleLabel(role, roles)} แล้ว`,
       });
     } catch (err) {
       setError(err.message || 'เปลี่ยนสิทธิ์ไม่สำเร็จ');
@@ -239,7 +253,7 @@ function EditRoleModal({ user, onClose, onDone }) {
   return (
     <Modal title="แก้ไขสิทธิ์" subtitle={`${user.username} · ${user.email}`} onClose={onClose}>
       <div className="us-form">
-        <RoleOptions value={role} onChange={setRole} />
+        <RoleOptions value={role} onChange={setRole} roles={roles} />
         {error && <div className="us-error">{error}</div>}
         <footer className="us-modal-foot">
           <button type="button" className="us-btn" onClick={onClose} disabled={busy}>
@@ -323,7 +337,36 @@ export default function Users() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState(null);
   const [modal, setModal] = useState(null); // { type: 'add' | 'role' | 'delete', user? }
+  const [roleList, setRoleList] = useState(FALLBACK_ROLES);
   const me = currentUserId();
+
+  // โหลดรายการบทบาทจากระบบ Roles เพื่อให้เลือกได้ยืดหยุ่น
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api('/roles');
+        const items = res?.items ?? [];
+        if (!cancelled && items.length) {
+          setRoleList(
+            items.map((r) => ({
+              slug: r.slug,
+              name: r.name,
+              label: r.name,
+              description: r.description || '',
+              memberCount: r.memberCount ?? 0,
+              isSystem: !!r.isSystem,
+            })),
+          );
+        }
+      } catch {
+        // ใช้ FALLBACK_ROLES ต่อไป
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // หน่วงการพิมพ์ค้นหา 300ms
   useEffect(() => {
@@ -391,6 +434,24 @@ export default function Users() {
     if (afterDelete && data.items.length === 1 && page > 1) setPage(page - 1);
     else load();
     loadStats();
+    // รีเฟรชจำนวนสมาชิกในแต่ละบทบาท
+    api('/roles')
+      .then((res) => {
+        const items = res?.items ?? [];
+        if (items.length) {
+          setRoleList(
+            items.map((r) => ({
+              slug: r.slug,
+              name: r.name,
+              label: r.name,
+              description: r.description || '',
+              memberCount: r.memberCount ?? 0,
+              isSystem: !!r.isSystem,
+            })),
+          );
+        }
+      })
+      .catch(() => {});
   }
 
   function pickRole(next) {
@@ -398,10 +459,16 @@ export default function Users() {
     setPage(1);
   }
 
+  // แท็บกรองตามบทบาท — ดึงจาก roleList ที่โหลดจาก API
   const tabs = [
     { key: '', label: 'ทั้งหมด', count: stats.total },
-    { key: 'user', label: 'สมาชิก', count: members },
-    { key: 'admin', label: 'ผู้ดูแล', count: stats.admins },
+    ...roleList.map((r) => ({
+      key: r.slug,
+      label: r.name || r.label || r.slug,
+      count:
+        r.memberCount ??
+        (r.slug === 'user' ? members : r.slug === 'admin' ? stats.admins : undefined),
+    })),
   ];
 
   const cards = [
@@ -541,9 +608,7 @@ export default function Users() {
                         </div>
                       </td>
                       <td>
-                        <span className={'us-role ' + u.role}>
-                          {ROLES[u.role]?.label ?? u.role}
-                        </span>
+                        <span className={'us-role ' + u.role}>{roleLabel(u.role, roleList)}</span>
                         {u.tier && u.tier !== 'regular' && (
                           <small className="us-muted"> · {TIERS[u.tier] || u.tier}</small>
                         )}
@@ -679,9 +744,16 @@ export default function Users() {
         </div>
       </section>
 
-      {modal?.type === 'add' && <AddUserModal onClose={() => setModal(null)} onDone={done} />}
+      {modal?.type === 'add' && (
+        <AddUserModal onClose={() => setModal(null)} onDone={done} roles={roleList} />
+      )}
       {modal?.type === 'role' && (
-        <EditRoleModal user={modal.user} onClose={() => setModal(null)} onDone={done} />
+        <EditRoleModal
+          user={modal.user}
+          onClose={() => setModal(null)}
+          onDone={done}
+          roles={roleList}
+        />
       )}
       {modal?.type === 'delete' && (
         <DeleteModal
