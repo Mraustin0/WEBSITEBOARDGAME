@@ -19,7 +19,11 @@ export const dowOf = (ymd) => new Date(`${ymd}T12:00:00+07:00`).getUTCDay();
 export function openHours(rules, ymd) {
   const cfg = rules?.OPERATING?.days?.find((d) => d.day === dowOf(ymd));
   if (!cfg) return { open: 600, close: 1440, closed: false };
-  return { open: fromHHMM(cfg.open), close: fromHHMM(cfg.close), closed: Boolean(cfg.closed) };
+  const open = fromHHMM(cfg.open);
+  let close = fromHHMM(cfg.close);
+  // ปิดหลังเที่ยงคืน (เช่น 18:00–02:00 หรือ 10:00–00:00) → นับ close เป็นของวันถัดไป (เหมือน server)
+  if (close <= open) close += 1440;
+  return { open, close, closed: Boolean(cfg.closed) };
 }
 
 /** วันที่จองได้: วันนี้ ถึง วันนี้ + MAX_ADVANCE_DAYS (เวลาไทย) */
@@ -57,7 +61,8 @@ export function startTimes(rules, ymd, { stepMin = 60, now = new Date() } = {}) 
   const grace = (rules?.START_GRACE_MIN ?? 15) * MINUTE;
   const maxAhead = now.getTime() + (rules?.MAX_ADVANCE_DAYS ?? 3) * 24 * 60 * MINUTE;
   const out = [];
-  for (let m = open; m + minHours * 60 <= close; m += stepMin) {
+  // เวลาเริ่มอยู่ในวันที่เลือกเท่านั้น (ก่อน 24:00) แต่เล่นยาวข้ามเที่ยงคืนได้ถ้าร้านยังเปิด
+  for (let m = open; m < 1440 && m + minHours * 60 <= close; m += stepMin) {
     const hhmm = toHHMM(m);
     const t = new Date(toISO(ymd, hhmm)).getTime();
     if (t < now.getTime() - grace || t > maxAhead) continue;

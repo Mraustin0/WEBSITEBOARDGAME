@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../lib/api.js';
+import { setSession } from '../../lib/session.js';
 import './profile.css';
 
 const ROLE_TH = { admin: 'ผู้ดูแลระบบ', user: 'สมาชิก' };
@@ -116,14 +117,20 @@ export default function Profile() {
     }
     setPwBusy(true);
     try {
-      await api('/auth/password', {
+      const res = await api('/auth/password', {
         method: 'PUT',
         body: { oldPassword: pw.oldPassword, newPassword: pw.newPassword },
       });
+      // token เดิมถูกยกเลิกหลังเปลี่ยนรหัส → ใช้ token ใหม่ต่อ (ไม่ถูกเด้งออก)
+      if (res?.token) setSession({ token: res.token });
       setPw({ oldPassword: '', newPassword: '', confirm: '' });
       setNotice('เปลี่ยนรหัสผ่านแล้ว');
     } catch (err) {
-      setPwError(err.message || 'เปลี่ยนรหัสผ่านไม่สำเร็จ');
+      setPwError(
+        /old password incorrect/.test(err.message)
+          ? 'รหัสผ่านเดิมไม่ถูกต้อง'
+          : err.message || 'เปลี่ยนรหัสผ่านไม่สำเร็จ',
+      );
     } finally {
       setPwBusy(false);
     }

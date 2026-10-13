@@ -67,6 +67,8 @@ const ReservationSchema = new Schema(
       overtimeHours: Number,
       overtimeCharge: Number,
       total: Number,
+      deposit: Number, // มัดจำที่จ่ายตอนจอง
+      balanceDue: Number, // ยอดที่เก็บหน้าร้าน = total − deposit
       condition: { type: String, enum: ['good', 'damaged'] },
       damageNote: String,
       inspectedBy: { type: Types.ObjectId, ref: 'User' },

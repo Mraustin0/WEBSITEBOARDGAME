@@ -195,3 +195,37 @@ Schema ขยายรองรับ:
 
 - `npm run seed` — ถ้ามี `BGG_TOKEN` จะดึงรูป/เรตติ้ง/หมวดให้ 6 เกมตัวอย่างอัตโนมัติ (ไม่มี token ก็ยัง seed ได้ แค่ไม่มีรูป)
 - `npm run bgg:refresh` — เติมข้อมูล BGG ให้ทุกเกมในคลังที่มี `bggId` แต่ยังไม่มีรูป (`-- --all` = อัปเดตทุกเกม) ดึงทีละ 20 เกม เว้น 5 วิ
+
+## 10. แก้บั๊ก / ช่องโหว่ + หน้าเว็บสมาชิกใช้ API จริง (Oat — 14 ต.ค.)
+
+### Backend (ที่ทีมต้องรู้)
+
+| เรื่อง                                                      | เดิม                                                                   | ตอนนี้                                                                                                                               |
+| ----------------------------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| บัญชี admin                                                 | พนักงานที่มีสิทธิ์ `users` / `roles` สร้าง/ตั้ง/แก้/ระงับ/ลบ admin ได้ | เฉพาะ admin เท่านั้น → อื่น ๆ ได้ `403 only admin can manage admin accounts` (ทั้ง `/api/admin/users*` และ `/api/roles/:id/members`) |
+| อนุมัติบัญชีผ่าน `PATCH /admin/users/:id {status:'active'}` | ไม่เช็ค `users:approve`                                                | ต้องมี `users:approve` เหมือน `/approve`                                                                                             |
+| รหัสผ่านเดิมผิด (`PUT /auth/password`)                      | 401 (หน้าเว็บเตะออก)                                                   | **400** `old password incorrect`                                                                                                     |
+| เปลี่ยนรหัสผ่าน                                             | token เก่าใช้ต่อได้ 7 วัน                                              | token เก่าใช้ไม่ได้ทันที — response มี `token` ใหม่ ให้เก็บแทน                                                                       |
+| `POST /auth/register`                                       | รับแค่ username/email/password                                         | รับ `displayName`, `phone` เพิ่ม (ไม่บังคับ)                                                                                         |
+| JSON เสีย / body > 1MB                                      | 500                                                                    | 400 / 413                                                                                                                            |
+| `GET /api/games`, `/api/games/:id`                          | ส่ง `createdBy` (id admin)                                             | ไม่ส่งแล้ว                                                                                                                           |
+| ชื่อ role ภาษาไทยล้วน                                       | สร้างไม่ได้ (slug ว่าง)                                                | ได้ slug อัตโนมัติ `role-xxxx`                                                                                                       |
+| ราคา                                                        | ส่วนลดนักศึกษา/มัดจำในหน้าตั้งค่าไม่มีผล                               | คิดจริง — ดู docs/API-B.md ตาราง "กฎการจอง"                                                                                          |
+| ลบเกม / ลบผู้ใช้                                            | รีวิวค้าง                                                              | ลบรีวิวที่เกี่ยวข้องด้วย                                                                                                             |
+| audit hash chain                                            | รัน seed ระหว่าง server เปิด → verify พัง                              | อ่าน head จาก DB ทุกครั้ง + `seq` unique                                                                                             |
+
+### ตั้งค่า env ใหม่ (`server/.env`)
+
+- `TRUST_PROXY` — จำนวน proxy ข้างหน้า (ค่าเริ่มต้น 0). deploy หลัง proxy (Render/Railway) ตั้ง `1`
+- `CLIENT_ORIGIN` — ใส่หลาย origin คั่นด้วย `,` ได้ (dev อนุญาต localhost:5173/5174 ให้อัตโนมัติ)
+- production: `JWT_SECRET` ต้องสุ่มยาว ≥ 32 ตัว (ค่าตัวอย่างจะ start ไม่ขึ้น), `seed:demo` รันไม่ได้
+
+### Seed
+
+- `npm run seed` ไม่ทับข้อมูลเกมที่มีอยู่แล้ว (เดิมรีเซ็ตจำนวนกล่อง/ชื่อทุกครั้ง) และไม่ใส่ URL รูปปลอม — รูปมาจาก BGG (ต้องมี `BGG_TOKEN`) หรือ `npm run bgg:refresh`
+
+### หน้าเว็บสมาชิก
+
+- URL: `/catalog` (คลังเกม) · `/booking` (จองโต๊ะ, รับ `?game=&date=&time=&hours=&players=&table=`) · `/reservations` · `/profile` · `/signin`
+- สมาชิกเข้า `/admin` ไม่ได้ · พนักงานทุก role ล็อกอินหลังร้านที่ `/login` ได้
+- ตัวช่วยกลาง: `lib/session.js` (login/logout/useSession), `lib/booking.js` (วัน/รอบเวลาตามกฎร้าน, ข้อความ error ภาษาไทย), `services/api.js` (API ฝั่งสมาชิกทั้งหมด), `components/user/Toast.jsx`, `components/user/ReviewForm.jsx`

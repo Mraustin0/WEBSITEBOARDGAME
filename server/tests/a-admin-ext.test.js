@@ -154,19 +154,22 @@ describeIf('admin extensions (integration)', () => {
       }).distinct('_id');
       await User.updateMany({ _id: { $in: others } }, { status: 'suspended' });
 
-      // manager (มีสิทธิ์ users) ลด admin คนสุดท้ายไม่ได้
-      const demote = await send('ax_manager', 'put', `/api/admin/users/${u.ax_admin.id}/role`, {
-        role: 'user',
-      });
-      expect(demote.status).toBe(400);
-      expect(demote.body.error).toMatch(/last active admin/);
-      const suspend = await send(
-        'ax_manager',
-        'patch',
-        `/api/admin/users/${u.ax_admin.id}/suspend`,
-      );
-      expect(suspend.status).toBe(400);
-      await User.updateMany({ _id: { $in: others } }, { status: 'active' });
+      try {
+        // manager (มีสิทธิ์ users) แตะบัญชี admin ไม่ได้เลย (กันยกระดับสิทธิ์) — รวมถึง admin คนสุดท้าย
+        const demote = await send('ax_manager', 'put', `/api/admin/users/${u.ax_admin.id}/role`, {
+          role: 'user',
+        });
+        expect(demote.status).toBe(403);
+        expect(demote.body.error).toMatch(/only admin/);
+        const suspend = await send(
+          'ax_manager',
+          'patch',
+          `/api/admin/users/${u.ax_admin.id}/suspend`,
+        );
+        expect(suspend.status).toBe(403);
+      } finally {
+        await User.updateMany({ _id: { $in: others } }, { status: 'active' });
+      }
     });
 
     it('renaming a role slug moves its members along', async () => {

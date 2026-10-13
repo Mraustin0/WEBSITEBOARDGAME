@@ -4,10 +4,13 @@ import { logger } from './lib/logger.js';
 import { createApp } from './app.js';
 import { startLifecycleJob } from './modules/reservations/reservations.lifecycle.js';
 import { ensureSystemRoles } from './modules/roles/roles.service.js';
+import { AuditLog } from './models/audit.model.js';
 
 async function main() {
   await connectDb(env.MONGODB_URI);
   await ensureSystemRoles().catch((err) => logger.warn({ err }, 'ensureSystemRoles failed'));
+  // audit.seq เปลี่ยนเป็น unique — DB เก่ามี index seq_1 แบบไม่ unique อยู่ → สร้าง index ใหม่ให้ตรง schema
+  await AuditLog.syncIndexes().catch((err) => logger.warn({ err }, 'audit index sync failed'));
   const app = createApp();
   startLifecycleJob(); // booked → playing อัตโนมัติเมื่อถึงเวลาเริ่ม
   const server = app.listen(env.PORT, () => {

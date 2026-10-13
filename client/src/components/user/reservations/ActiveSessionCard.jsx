@@ -133,9 +133,9 @@ export default function ActiveSessionCard({
       </div>
 
       {/* เกมที่เล่นอยู่ + ยอดตอนนี้ */}
-      <div className="grid gap-3 md:grid-cols-[1fr_auto]">
-        <div className="flex items-center gap-3 rounded-2xl border border-slate-200 p-3">
-          <GameCover game={game} className="h-20 w-20" />
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
+        <div className="flex min-w-0 items-center gap-3 rounded-2xl border border-slate-200 p-3">
+          <GameCover game={game} className="h-16 w-16 shrink-0 sm:h-20 sm:w-20" />
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-bold uppercase text-emerald-700">บอร์ดเกมบนโต๊ะ</p>
             <p className="truncate text-base font-bold">{game?.name ?? 'ยังไม่ได้เลือกเกม'}</p>
@@ -149,7 +149,11 @@ export default function ActiveSessionCard({
               <p className="text-[11px] text-slate-500">เลือกเกมจากคลังได้ระหว่างเล่น</p>
             )}
           </div>
-          <button type="button" onClick={() => onChangeGame(r)} className={BTN.secondary}>
+          <button
+            type="button"
+            onClick={() => onChangeGame(r)}
+            className={`${BTN.secondary} shrink-0`}
+          >
             <i className="fa-solid fa-right-left text-emerald-700" aria-hidden="true"></i>
             {game ? 'เปลี่ยน' : 'เลือกเกม'}
           </button>

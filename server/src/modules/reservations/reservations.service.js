@@ -367,6 +367,7 @@ export async function returnGame(
       overtimeHours: bill.overtimeHours,
       overtimeCharge: bill.overtimeCharge,
       total: bill.total,
+      ...(bill.deposit ? { deposit: bill.deposit, balanceDue: bill.balanceDue } : {}),
       condition,
       damageNote,
       inspectedBy: (await isStaff(user)) ? user._id : undefined,
@@ -376,7 +377,7 @@ export async function returnGame(
     r.payment = {
       status: 'paid',
       method: paymentMethod,
-      amount: bill.total,
+      amount: bill.balanceDue ?? bill.total, // หักมัดจำแล้ว
       paidAt: now,
       receivedBy: user._id,
     };
@@ -492,7 +493,7 @@ export async function pay(id, admin, method) {
   r.payment = {
     status: 'paid',
     method,
-    amount: r.checkout?.total ?? r.price.total,
+    amount: r.checkout?.balanceDue ?? r.checkout?.total ?? r.price.total,
     paidAt: new Date(),
     receivedBy: admin._id,
   };

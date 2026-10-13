@@ -185,6 +185,38 @@ describeIf('admin escalation + password (integration)', () => {
     expect(res.status).toBe(200);
   });
 
+  it('a staff role with roles:edit cannot add/remove admins via role membership', async () => {
+    const created = await request(app)
+      .post('/api/roles')
+      .set(auth('oa_admin'))
+      .send({
+        name: 'OA Role Manager',
+        slug: 'oa-rolemgr',
+        permissions: [{ key: 'roles', view: true, edit: true, del: false, approve: false }],
+      });
+    expect(created.status).toBe(201);
+    await register('oa_rolemgr', 'oa-rolemgr');
+    const roles = await request(app).get('/api/roles').set(auth('oa_admin'));
+    const adminRole = roles.body.items.find((r) => r.slug === 'admin');
+
+    const promote = await request(app)
+      .post(`/api/roles/${adminRole._id}/members`)
+      .set(auth('oa_rolemgr'))
+      .send({ userIds: [u.oa_member.id] });
+    expect(promote.status).toBe(403);
+    const demote = await request(app)
+      .delete(`/api/roles/${adminRole._id}/members/${u.oa_admin.id}`)
+      .set(auth('oa_rolemgr'));
+    expect(demote.status).toBe(403);
+    const moveAdmin = await request(app)
+      .post(`/api/roles/${created.body._id}/members`)
+      .set(auth('oa_rolemgr'))
+      .send({ userIds: [u.oa_admin.id] });
+    expect(moveAdmin.status).toBe(403);
+    expect((await User.findById(u.oa_member.id)).role).toBe('user');
+    expect((await User.findById(u.oa_admin.id)).role).toBe('admin');
+  });
+
   it('role with a Thai-only name gets an auto slug', async () => {
     const res = await request(app)
       .post('/api/roles')

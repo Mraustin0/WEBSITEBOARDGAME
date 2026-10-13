@@ -17,7 +17,7 @@ export function useToast() {
   const el = toast ? (
     <div
       role={toast.ok ? 'status' : 'alert'}
-      className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] max-w-[calc(100vw-32px)] px-5 py-3 rounded-2xl shadow-xl text-sm font-semibold flex items-center gap-2 ${
+      className={`fixed top-20 left-1/2 -translate-x-1/2 z-[100] max-w-[calc(100vw-32px)] px-5 py-3 rounded-2xl shadow-xl text-sm font-semibold flex items-center gap-2 ${
         toast.ok ? 'bg-emerald-700 text-white' : 'bg-red-600 text-white'
       }`}
     >

@@ -1,6 +1,6 @@
 import { Role, PERMISSION_CATALOG } from '../../models/role.model.js';
 import { User } from '../../models/user.model.js';
-import { badRequest, conflict, notFound } from '../../lib/errors.js';
+import { badRequest, conflict, forbidden, notFound } from '../../lib/errors.js';
 import { logAudit } from '../../lib/audit.js';
 import { clearPermissionCache } from '../../lib/permissions.js';
 
@@ -136,6 +136,12 @@ export async function addMembers(id, userIds, actor, req) {
   if (userIds.map(String).includes(String(actor._id))) {
     throw badRequest('cannot change your own role');
   }
+  // บัญชี admin ตั้ง/ถอดได้เฉพาะ admin (กันพนักงานที่มีสิทธิ์ roles ยกระดับคนอื่นเป็น admin)
+  if (actor?.role !== 'admin') {
+    const touchesAdmin =
+      role.slug === 'admin' || (await User.exists({ _id: { $in: userIds }, role: 'admin' }));
+    if (touchesAdmin) throw forbidden('only admin can manage admin accounts');
+  }
   if (role.slug !== 'admin') await assertNotLastAdmin(userIds);
   await User.updateMany({ _id: { $in: userIds } }, { role: role.slug });
   logAudit({
@@ -158,6 +164,9 @@ export async function removeMember(id, userId, actor, req) {
   if (!user) throw notFound('user not found');
   if (user.role !== role.slug) throw badRequest('user is not in this role');
   if (String(user._id) === String(actor._id)) throw badRequest('cannot change your own role');
+  if (role.slug === 'admin' && actor?.role !== 'admin') {
+    throw forbidden('only admin can manage admin accounts');
+  }
   if (role.slug === 'admin') await assertNotLastAdmin(user._id);
   user.role = 'user';
   await user.save();
