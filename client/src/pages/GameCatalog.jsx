@@ -1,6 +1,6 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { GAME_DATA, TIME_SLOTS } from '../data/mockData';
-import { fetchGames } from '../services/api.js';
+import { fetchGames, searchBGG, fetchBGGGame } from '../services/api.js';
 
 export default function GameCatalog({
   selectedGame: _selectedGame,
@@ -12,6 +12,51 @@ export default function GameCatalog({
   const [sortOrder, setSortOrder] = useState('popular');
   const [selectedCat, setSelectedCat] = useState('all');
   const [selectedPax, setSelectedPax] = useState('all');
+
+  // BGG live search state
+  const [showBgg, setShowBgg] = useState(false);
+  const [bggQ, setBggQ] = useState('');
+  const [bggLoading, setBggLoading] = useState(false);
+  const [bggResults, setBggResults] = useState([]);
+  const [bggGame, setBggGame] = useState(null);
+  const [bggDetailLoading, setBggDetailLoading] = useState(false);
+  const [bggError, setBggError] = useState('');
+  const bggInputRef = useRef(null);
+
+  async function doBggSearch(e) {
+    e?.preventDefault();
+    if (!bggQ.trim()) return;
+    setBggLoading(true);
+    setBggError('');
+    setBggResults([]);
+    setBggGame(null);
+    try {
+      const results = await searchBGG(bggQ.trim());
+      setBggResults(results || []);
+      if (!results?.length) setBggError('ไม่พบเกมใน BGG');
+    } catch {
+      setBggError('ค้นหาไม่สำเร็จ ลองใหม่อีกครั้ง');
+    } finally {
+      setBggLoading(false);
+    }
+  }
+
+  async function viewBggGame(bggId) {
+    setBggDetailLoading(true);
+    setBggGame(null);
+    try {
+      const g = await fetchBGGGame(bggId);
+      setBggGame(g);
+    } catch {
+      setBggError('โหลดข้อมูลเกมไม่สำเร็จ');
+    } finally {
+      setBggDetailLoading(false);
+    }
+  }
+
+  function closeBggModal() {
+    setBggGame(null);
+  }
 
   useEffect(() => {
     let active = true;
@@ -250,6 +295,192 @@ export default function GameCatalog({
           </div>
         </div>
       </section>
+
+      {/* BGG Live Search Panel */}
+      <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <button
+          onClick={() => {
+            setShowBgg((v) => !v);
+            if (!showBgg) setTimeout(() => bggInputRef.current?.focus(), 50);
+          }}
+          className="w-full flex items-center justify-between px-5 py-3.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition"
+        >
+          <span className="flex items-center gap-2.5">
+            <span className="w-7 h-7 rounded-lg bg-[#063b2d] flex items-center justify-center text-white text-xs shrink-0">
+              <i className="fa-solid fa-dice"></i>
+            </span>
+            ค้นหาเกมจาก BoardGameGeek
+            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+              LIVE API
+            </span>
+          </span>
+          <i
+            className={`fa-solid fa-chevron-down text-slate-400 text-xs transition-transform ${showBgg ? 'rotate-180' : ''}`}
+          ></i>
+        </button>
+
+        {showBgg && (
+          <div className="px-5 pb-5 border-t border-slate-100">
+            <form onSubmit={doBggSearch} className="flex gap-2 mt-4">
+              <div className="relative flex-1">
+                <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                <input
+                  ref={bggInputRef}
+                  value={bggQ}
+                  onChange={(e) => setBggQ(e.target.value)}
+                  type="text"
+                  placeholder="ชื่อเกม เช่น Catan, Wingspan, Pandemic..."
+                  className="w-full border border-slate-200 rounded-xl pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={bggLoading || !bggQ.trim()}
+                className="px-5 py-2.5 bg-[#064e3b] text-white rounded-xl text-sm font-semibold hover:bg-emerald-900 disabled:opacity-50 transition shrink-0 flex items-center gap-2"
+              >
+                {bggLoading ? (
+                  <i className="fa-solid fa-spinner fa-spin"></i>
+                ) : (
+                  <i className="fa-solid fa-search"></i>
+                )}
+                ค้นหา BGG
+              </button>
+            </form>
+
+            {bggError && (
+              <p className="mt-3 text-sm text-red-500 flex items-center gap-1.5">
+                <i className="fa-solid fa-circle-exclamation"></i> {bggError}
+              </p>
+            )}
+
+            {bggResults.length > 0 && (
+              <div className="mt-4">
+                <p className="text-xs text-slate-500 mb-2">
+                  พบ <strong>{bggResults.length}</strong> เกม — คลิกเพื่อดูรายละเอียด
+                </p>
+                <div className="max-h-64 overflow-y-auto divide-y divide-slate-100 rounded-xl border border-slate-200">
+                  {bggResults.map((r) => (
+                    <button
+                      key={r.bggId}
+                      onClick={() => viewBggGame(r.bggId)}
+                      className="w-full flex items-center justify-between px-4 py-3 hover:bg-emerald-50 transition text-left"
+                    >
+                      <div>
+                        <span className="text-sm font-semibold text-slate-800">{r.name}</span>
+                        {r.yearPublished && (
+                          <span className="text-xs text-slate-400 ml-2">({r.yearPublished})</span>
+                        )}
+                      </div>
+                      <span className="text-xs text-slate-400 shrink-0 ml-2">BGG #{r.bggId}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </section>
+
+      {/* BGG Game Detail Modal */}
+      {(bggGame || bggDetailLoading) && (
+        <div
+          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+          onClick={closeBggModal}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {bggDetailLoading ? (
+              <div className="flex items-center justify-center p-16 text-slate-400">
+                <i className="fa-solid fa-spinner fa-spin text-3xl"></i>
+              </div>
+            ) : (
+              bggGame && (
+                <>
+                  <div className="relative h-52 bg-slate-100">
+                    {bggGame.image ? (
+                      <img
+                        src={bggGame.image}
+                        alt={bggGame.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-5xl text-slate-300">
+                        <i className="fa-solid fa-chess"></i>
+                      </div>
+                    )}
+                    <button
+                      onClick={closeBggModal}
+                      className="absolute top-3 right-3 w-8 h-8 bg-black/60 hover:bg-black/80 text-white rounded-full flex items-center justify-center transition"
+                    >
+                      <i className="fa-solid fa-xmark text-sm"></i>
+                    </button>
+                    {bggGame.bggAverage && (
+                      <span className="absolute bottom-3 right-3 bg-slate-900/90 text-amber-300 text-xs px-2.5 py-1 rounded-full font-bold flex items-center gap-1">
+                        <span className="text-amber-400">★</span> {bggGame.bggAverage?.toFixed(1)}
+                      </span>
+                    )}
+                  </div>
+                  <div className="p-5 space-y-3">
+                    <div>
+                      <h3 className="font-bold text-lg text-slate-900">{bggGame.name}</h3>
+                      {bggGame.yearPublished && (
+                        <p className="text-sm text-slate-400">{bggGame.yearPublished}</p>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 bg-slate-50 rounded-xl p-3 text-center">
+                      <div>
+                        <span className="text-[10px] text-slate-500 uppercase font-semibold block">
+                          ผู้เล่น
+                        </span>
+                        <span className="text-xs font-bold">
+                          {bggGame.minPlayers}–{bggGame.maxPlayers} คน
+                        </span>
+                      </div>
+                      <div className="border-x border-slate-200">
+                        <span className="text-[10px] text-slate-500 uppercase font-semibold block">
+                          เวลา
+                        </span>
+                        <span className="text-xs font-bold">{bggGame.playtimeMin} นาที</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-500 uppercase font-semibold block">
+                          ความยาก
+                        </span>
+                        <span className="text-xs font-bold">
+                          {bggGame.bggWeight?.toFixed(1) ?? '-'} / 5
+                        </span>
+                      </div>
+                    </div>
+                    {bggGame.categories?.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {bggGame.categories.slice(0, 5).map((c) => (
+                          <span
+                            key={c}
+                            className="text-[11px] bg-emerald-50 border border-emerald-200 text-emerald-800 px-2 py-0.5 rounded-md font-medium"
+                          >
+                            {c}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <a
+                      href={`https://boardgamegeek.com/boardgame/${bggGame.bggId}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block w-full text-center py-2.5 border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-50 transition"
+                    >
+                      <i className="fa-solid fa-arrow-up-right-from-square mr-1.5"></i>
+                      ดูบน BoardGameGeek
+                    </a>
+                  </div>
+                </>
+              )
+            )}
+          </div>
+        </div>
+      )}
 
       {filteredGames.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 py-2">

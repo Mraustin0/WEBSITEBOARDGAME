@@ -175,6 +175,14 @@ const Icon = ({ name, className = 'w-4 h-4' }) => (
 );
 
 export default function MyReservations() {
+  const [toast, setToast] = useState(null); // { msg, ok }
+  const toastTimer = useRef(null);
+  function showToast(msg, ok = true) {
+    clearTimeout(toastTimer.current);
+    setToast({ msg, ok });
+    toastTimer.current = setTimeout(() => setToast(null), 3500);
+  }
+
   const [activeTab, setActiveTab] = useState('active');
   const [activeModal, setActiveModal] = useState(null); // 'return' | 'switch' | 'edit' | 'cancel' | 'request' | 'allHistory' | 'newBooking' | null
   const [selectedReservation, setSelectedReservation] = useState(null);
@@ -539,9 +547,9 @@ export default function MyReservations() {
         await returnGame(activeSession._id);
       }
       setActiveSession(null);
-      alert('คืนบอร์ดเกมเข้าคลังเรียบร้อย สถานะถูกเปลี่ยนเป็น available แล้ว');
+      showToast('คืนบอร์ดเกมเข้าคลังเรียบร้อย');
     } catch (err) {
-      alert(`คืนเกมไม่สำเร็จ: ${err.message}`);
+      showToast(`คืนเกมไม่สำเร็จ: ${err.message}`, false);
     } finally {
       setLoading(false);
       setActiveModal(null);
@@ -564,7 +572,7 @@ export default function MyReservations() {
       }
       setLoading(false);
       setActiveModal(null);
-      alert(`เปลี่ยนบอร์ดเกมเป็น ${gameName} เรียบร้อยแล้ว`);
+      showToast(`เปลี่ยนบอร์ดเกมเป็น ${gameName} เรียบร้อยแล้ว`);
     }, 600);
   };
 
@@ -586,7 +594,7 @@ export default function MyReservations() {
       }
       setLoading(false);
       setActiveModal(null);
-      alert('แก้ไขข้อมูลการจองเรียบร้อยแล้ว');
+      showToast('แก้ไขข้อมูลการจองเรียบร้อยแล้ว');
     }, 600);
   };
 
@@ -601,9 +609,9 @@ export default function MyReservations() {
           prev.filter((r) => r.id !== selectedReservation.id && r._id !== selectedReservation._id),
         );
       }
-      alert('ยกเลิกการจองเรียบร้อย คืนสิทธิ์โต๊ะเข้าสู่ระบบแล้ว');
+      showToast('ยกเลิกการจองเรียบร้อย');
     } catch (err) {
-      alert(`ยกเลิกไม่สำเร็จ: ${err.message}`);
+      showToast(`ยกเลิกไม่สำเร็จ: ${err.message}`, false);
     } finally {
       setLoading(false);
       setActiveModal(null);
@@ -618,15 +626,15 @@ export default function MyReservations() {
         if (activeSession?._id) {
           await extendReservation(activeSession._id, hours);
         }
-        alert('ส่งคำขอต่อเวลาเรียบร้อยแล้ว');
+        showToast('ส่งคำขอต่อเวลาเรียบร้อยแล้ว');
       } else {
         if (activeSession?._id) {
           await callGM(activeSession._id, 'issue', 'เรียก GM ช่วยสอนเล่นที่โต๊ะ');
         }
-        alert('เรียก GM เรียบร้อยแล้ว! เจ้าหน้าที่จะมาที่โต๊ะในสักครู่');
+        showToast('เรียก GM เรียบร้อยแล้ว!');
       }
     } catch (err) {
-      alert(`ดำเนินการไม่สำเร็จ: ${err.message}`);
+      showToast(`ดำเนินการไม่สำเร็จ: ${err.message}`, false);
     } finally {
       setLoading(false);
       setActiveModal(null);
@@ -655,7 +663,7 @@ export default function MyReservations() {
       setUpcomingReservations([newRes, ...upcomingReservations]);
       setLoading(false);
       setActiveModal(null);
-      alert('จองโต๊ะสำเร็จแล้ว!');
+      showToast('จองโต๊ะสำเร็จแล้ว!');
     }, 600);
   };
 
@@ -666,7 +674,7 @@ export default function MyReservations() {
 
   const handleShare = (resId) => {
     navigator.clipboard?.writeText?.(`https://boardgamevault.app/join/${resId}`);
-    alert(`คัดลอกลิงก์ชวนเพื่อนเรียบร้อยแล้ว! (รหัสการจอง #${resId})`);
+    showToast(`คัดลอกลิงก์แล้ว! (รหัสการจอง #${resId})`);
   };
 
   const tabs = [
@@ -691,6 +699,18 @@ export default function MyReservations() {
   return (
     <div className="min-h-screen bg-[#f2f5f4] text-emerald-950 font-sans pb-16">
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');`}</style>
+
+      {/* Toast */}
+      {toast && (
+        <div
+          className={`fixed top-5 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-2.5 px-5 py-3 rounded-2xl shadow-lg text-sm font-semibold text-white transition-all ${
+            toast.ok ? 'bg-emerald-600' : 'bg-red-500'
+          }`}
+        >
+          <i className={`fa-solid ${toast.ok ? 'fa-circle-check' : 'fa-circle-xmark'}`} />
+          {toast.msg}
+        </div>
+      )}
 
       {/* ===== Sticky Header Bar ===== */}
       <div className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-200 shadow-sm transition-all">
@@ -1263,70 +1283,203 @@ export default function MyReservations() {
       {/* MODAL 4: Cancel Reservation */}
       {activeModal === 'cancel' && selectedReservation && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 relative text-emerald-950">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 relative text-emerald-950">
             <button
               onClick={() => setActiveModal(null)}
               className="absolute top-5 right-5 text-slate-400 hover:text-slate-600"
             >
               <Icon name="close" className="w-5 h-5" />
             </button>
-            <h3 className="text-xl font-bold text-red-600 mb-2">ยืนยันยกเลิกการจอง</h3>
-            <p className="text-xs text-slate-600 mb-4">
-              คุณต้องการยกเลิกการจอง <strong>{selectedReservation.tableName}</strong> สำหรับวันที่{' '}
-              {selectedReservation.date} ใช่หรือไม่?
+
+            <div className="flex items-center gap-2 text-[10px] font-bold text-red-600 tracking-wider uppercase mb-1">
+              <div className="w-6 h-6 rounded-lg bg-red-100 flex items-center justify-center">
+                <Icon name="calendar" className="w-3.5 h-3.5" />
+              </div>
+              CANCEL RESERVATION • ยกเลิกการจองโต๊ะ
+            </div>
+            <h3 className="text-xl font-bold mt-1 mb-1">ยืนยันการยกเลิกการจองโต๊ะ?</h3>
+            <p className="text-xs text-slate-500 mb-4">
+              คุณต้องการยกเลิกการจองโต๊ะ <strong>{selectedReservation.tableName}</strong> ในวันที่{' '}
+              {selectedReservation.date} ใช่หรือไม่? เมื่อยืนยันแล้วข้อมูลการจัดสรรจะถูกลบออกจากระบบ
             </p>
 
-            <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+            {/* Booking detail card */}
+            <div className="border border-slate-200 rounded-2xl p-3.5 space-y-2 bg-slate-50 mb-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="bg-emerald-900 text-white text-[10px] font-bold px-2 py-0.5 rounded-md">
+                    {selectedReservation.tableName?.match(/T-\d+|VIP-\d+/)?.[0] ?? 'T-??'}
+                  </span>
+                  <span className="text-xs font-bold">{selectedReservation.tableName}</span>
+                </div>
+                <span className="text-[10px] font-mono text-slate-400">
+                  #{selectedReservation.id}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-1.5 text-[11px] text-slate-600">
+                <span className="flex items-center gap-1.5">
+                  <Icon name="calendar" className="w-3 h-3 text-emerald-700" />{' '}
+                  {selectedReservation.date}
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <Icon name="clock" className="w-3 h-3 text-emerald-700" />{' '}
+                  {selectedReservation.time}
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <Icon name="user" className="w-3 h-3 text-emerald-700" />{' '}
+                  {selectedReservation.pax}
+                </span>
+                <span className="flex items-center gap-1.5 text-emerald-700 font-semibold">
+                  ✓ ไม่มีค่าธรรมเนียมยกเลิก
+                </span>
+              </div>
+              {selectedReservation.gameName && (
+                <div className="flex items-center gap-2.5 pt-2 border-t border-slate-200">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
+                    <Icon name="dice" className="w-4 h-4 text-emerald-700" />
+                  </div>
+                  <span className="text-xs font-semibold">{selectedReservation.gameName}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Warning */}
+            <div className="flex items-start gap-2.5 bg-red-50 border border-red-200 rounded-xl p-3 mb-4">
+              <Icon name="alertTriangle" className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+              <p className="text-[11px] text-red-700">
+                <strong>หมายเหตุ:</strong> เมื่อยกเลิกแล้วการจองโต๊ะ {selectedReservation.tableName}{' '}
+                และการจัดสรรบอร์ดเกม {selectedReservation.gameName}{' '}
+                จะถูกปล่อยคืนสู่ระบบให้สมาชิกท่านอื่นในทันที
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2">
               <button
                 onClick={() => setActiveModal(null)}
-                className="px-4 py-2 bg-slate-100 rounded-xl text-xs font-medium"
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-medium"
               >
-                เก็บไว้ก่อน
+                กลับ (รักษาการจองไว้)
               </button>
               <button
                 onClick={handleConfirmCancel}
                 disabled={loading}
-                className="px-5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold"
+                className="flex items-center gap-1.5 px-5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold"
               >
-                {loading ? 'กำลังยกเลิก...' : 'ยืนยันยกเลิกจอง'}
+                <Icon name="calendar" className="w-3.5 h-3.5" />
+                {loading ? 'กำลังยกเลิก...' : 'ยืนยันยกเลิกการจอง'}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* MODAL 5: Quick Requests (Extend / Call GM) */}
-      {activeModal === 'request' && (
+      {/* MODAL 5: GM Assistance (Rules / Extend / Issue) */}
+      {activeModal === 'request' && activeSession && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 relative text-emerald-950">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 relative text-emerald-950">
             <button
               onClick={() => setActiveModal(null)}
               className="absolute top-5 right-5 text-slate-400 hover:text-slate-600"
             >
               <Icon name="close" className="w-5 h-5" />
             </button>
-            <h3 className="text-xl font-bold mb-2">
-              {requestType === 'extend' ? 'คำขอต่อเวลาใช้งานโต๊ะ' : 'เรียก GM ผู้ช่วยสอนเล่น'}
-            </h3>
-            <p className="text-xs text-slate-500 mb-4">
-              {requestType === 'extend'
-                ? 'ระบบจะตรวจสอบคิวการจองถัดไปของโต๊ะ T-04'
-                : 'เจ้าหน้าที่จะมาช่วยสอนกติกาที่โต๊ะ T-04 ภายใน 3-5 นาที'}
+
+            <div className="flex items-center gap-2 text-[10px] font-bold text-emerald-700 tracking-wider uppercase mb-1">
+              <div className="w-6 h-6 rounded-lg bg-emerald-100 flex items-center justify-center">
+                <Icon name="headset" className="w-3.5 h-3.5" />
+              </div>
+              SERVICE & GM ASSISTANCE • โต๊ะ{' '}
+              {activeSession.tableName?.match(/T-\d+|VIP-\d+/)?.[0] ?? 'T-04'}
+            </div>
+            <h3 className="text-xl font-bold mt-1 mb-1">เรียกเจ้าหน้าที่ Game Master (GM)</h3>
+            <p className="text-xs text-slate-500 mb-3">
+              เลือกเรื่องที่ต้องการความช่วยเหลือ เจ้าหน้าที่ GM ประจำโซนจะมาบริการคุณภายใน 1-3 นาที
             </p>
+
+            {/* Location bar */}
+            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 mb-4 text-xs">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+              <span className="font-semibold">โต๊ะประจำคุณ: {activeSession.tableName}</span>
+              <span className="text-slate-400 ml-auto">
+                เหลือเวลา {activeSession.timeRemaining}
+              </span>
+            </div>
+
+            {/* Radio options */}
+            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">
+              ระบุสิ่งที่ต้องการความช่วยเหลือ
+            </p>
+            <div className="space-y-2 mb-4">
+              {[
+                {
+                  value: 'gm',
+                  icon: 'book',
+                  label: 'ขอคำแนะนำ / สอนวิธีเล่นเกม (Rules & Tutorial)',
+                  desc: `ให้ GM ช่วยอธิบายกติกาเบื้องต้น หรือตอบข้อสงสัยระหว่างเล่น ${activeSession.currentGame?.name ?? ''}`,
+                },
+                {
+                  value: 'extend',
+                  icon: 'clockPlus',
+                  label: 'ขอต่อเวลาการเล่น (Request Time Extension)',
+                  desc: `ตรวจสอบสถานะโต๊ะ ${activeSession.tableName?.match(/T-\d+|VIP-\d+/)?.[0] ?? ''} ว่าสามารถต่อเวลาเพิ่ม 1-2 ชม. ได้หรือไม่`,
+                },
+                {
+                  value: 'issue',
+                  icon: 'alertTriangle',
+                  label: 'ปัญหาอุปกรณ์เกม / อื่นๆ (Game Issue / Other)',
+                  desc: 'แจ้งอุปกรณ์เกมสูญหาย หรือต้องการความช่วยเหลืออื่นๆ',
+                },
+              ].map((opt) => (
+                <label
+                  key={opt.value}
+                  className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition ${
+                    requestType === opt.value
+                      ? 'border-emerald-500 bg-emerald-50'
+                      : 'border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="requestType"
+                    value={opt.value}
+                    checked={requestType === opt.value}
+                    onChange={() => setRequestType(opt.value)}
+                    className="mt-0.5 accent-emerald-700"
+                  />
+                  <div>
+                    <p className="text-xs font-bold">{opt.label}</p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">{opt.desc}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+
+            {/* Textarea */}
+            <div className="mb-4">
+              <label className="block text-[11px] font-bold text-slate-500 mb-1.5">
+                รายละเอียดเพิ่มเติม (ถ้ามี)
+              </label>
+              <textarea
+                rows={2}
+                placeholder="เช่น สงสัยเรื่องการใช้การ์ด Action, อยากต่อเวลาตั้งแต่ 18:00 น..."
+                className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500 resize-none"
+              />
+            </div>
 
             <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
               <button
                 onClick={() => setActiveModal(null)}
-                className="px-4 py-2 bg-slate-100 rounded-xl text-xs font-medium"
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-medium"
               >
                 ยกเลิก
               </button>
               <button
                 onClick={handleConfirmRequest}
                 disabled={loading}
-                className="px-5 py-2 bg-emerald-800 text-white rounded-xl text-xs font-bold"
+                className="flex items-center gap-1.5 px-5 py-2 bg-emerald-800 hover:bg-emerald-900 text-white rounded-xl text-xs font-bold"
               >
-                {loading ? 'กำลังส่งคำขอ...' : 'ยืนยันส่งคำขอ'}
+                <Icon name="headset" className="w-3.5 h-3.5" />
+                {loading ? 'กำลังส่ง...' : 'ส่งสัญญาณเรียกเจ้าหน้าที่'}
               </button>
             </div>
           </div>
