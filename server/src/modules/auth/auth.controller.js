@@ -19,8 +19,7 @@ export const updateProfile = async (req, res) => {
 };
 
 export const changePassword = async (req, res) => {
-  await service.changePassword(req.user._id, req.body);
-  res.json({ ok: true });
+  res.json(await service.changePassword(req.user._id, req.body));
 };
 
 export const logout = (_req, res) => res.status(204).end();

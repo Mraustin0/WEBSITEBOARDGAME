@@ -32,6 +32,7 @@ export const bookingBody = z
     startAt: z.coerce.date(),
     durationHours: hours,
     package: pkg.default('hourly'),
+    student: z.boolean().default(false), // ขอส่วนลดนักศึกษา (ตรวจบัตรหน้าร้าน)
     note: note.default(''),
   })
   .refine(flatNeeds3h, flatMsg);
@@ -44,6 +45,7 @@ export const updateBody = z
     startAt: z.coerce.date(),
     durationHours: hours,
     package: pkg,
+    student: z.boolean(),
     note,
   })
   .partial()
@@ -63,6 +65,7 @@ export const adminBookingBody = z
     startAt: z.coerce.date().optional(),
     durationHours: hours,
     package: pkg.default('hourly'),
+    student: z.boolean().default(false),
     user: objectId.optional(),
     customer: z
       .object({

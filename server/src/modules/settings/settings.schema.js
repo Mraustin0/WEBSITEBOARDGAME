@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-const hhmm = z.string().regex(/^([01]\d|2[0-4]):[0-5]\d$/, 'use HH:MM');
+const hhmm = z.string().regex(/^(([01]\d|2[0-3]):[0-5]\d|24:00)$/, 'use HH:MM (00:00–24:00)');
 const money = z.coerce.number().min(0).max(100000);
 
 const day = z.object({

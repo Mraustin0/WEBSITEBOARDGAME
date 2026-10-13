@@ -25,21 +25,26 @@ export function hashOf(doc, prevHash) {
 
 // เขียนทีละรายการตามลำดับ (กัน chain แตกเมื่อมีหลาย request พร้อมกัน)
 let queue = Promise.resolve();
-let head = null; // { seq, hash } ล่าสุด
 
+/** อ่าน head จาก DB ทุกครั้ง — script อื่น (seed, bgg:refresh) อาจเขียน audit จาก process อื่นไปแล้ว */
 async function lastHead() {
-  if (head) return head;
   const last = await AuditLog.findOne().sort({ seq: -1 }).select('seq hash').lean();
-  head = last?.hash ? { seq: last.seq, hash: last.hash } : { seq: 0, hash: GENESIS };
-  return head;
+  return last?.hash ? { seq: last.seq, hash: last.hash } : { seq: 0, hash: GENESIS };
 }
 
 async function append(doc) {
-  const prev = await lastHead();
-  const entry = { ...doc, seq: prev.seq + 1, createdAt: new Date(), prevHash: prev.hash };
-  entry.hash = hashOf(entry, prev.hash);
-  await AuditLog.create(entry);
-  head = { seq: entry.seq, hash: entry.hash };
+  // seq เป็น unique → ถ้าอีก process เขียนตัดหน้า (E11000) อ่าน head ใหม่แล้วลองอีกครั้ง
+  for (let attempt = 0; ; attempt++) {
+    const prev = await lastHead();
+    const entry = { ...doc, seq: prev.seq + 1, createdAt: new Date(), prevHash: prev.hash };
+    entry.hash = hashOf(entry, prev.hash);
+    try {
+      await AuditLog.create(entry);
+      return;
+    } catch (err) {
+      if (err?.code !== 11000 || attempt >= 4) throw err;
+    }
+  }
 }
 
 /** รอให้ audit ที่ค้างในคิวเขียนเสร็จ (ใช้ในเทส / ก่อน verify) */
@@ -47,10 +52,8 @@ export function flushAudit() {
   return queue;
 }
 
-/** ลืม head ที่ cache ไว้ (เช่น หลังล้าง collection ในเทส) */
-export function resetAuditHead() {
-  head = null;
-}
+/** (คงไว้ให้เทสเดิมเรียกได้) — ตอนนี้อ่าน head จาก DB ทุกครั้งแล้ว ไม่มี cache ให้ล้าง */
+export function resetAuditHead() {}
 
 /**
  * บันทึก audit log — fire-and-forget (ไม่ block request, error แค่ log)
@@ -85,13 +88,12 @@ export function logAudit({
     targetType,
     targetId: targetId ? String(targetId) : '',
     meta,
-    ip: req?.ip || req?.headers?.['x-forwarded-for'] || '',
+    ip: req?.ip || '', // req.ip เคารพ TRUST_PROXY — ไม่อ่าน X-Forwarded-For ตรง ๆ (ปลอมได้)
     userAgent: req?.headers?.['user-agent'] || '',
   };
   queue = queue
     .then(() => append(doc))
     .catch((err) => {
-      head = null; // อ่าน head ใหม่จาก DB รอบหน้า
       logger.warn({ err }, 'audit log failed'); // ไม่ให้ audit พัง request หลัก
     });
 }

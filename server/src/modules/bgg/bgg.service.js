@@ -206,7 +206,7 @@ export async function hot() {
       name: it.name?.value || '',
       yearPublished: it.yearpublished?.value ? Number(it.yearpublished.value) : undefined,
       thumbnail: it.thumbnail?.value || '',
-      image: it.image?.value || it.thumbnail?.value || '',
+      image: it.thumbnail?.value || '', // hot list ของ BGG มีแค่รูปเล็ก — รูปเต็มได้ตอน import
     }));
 }
 

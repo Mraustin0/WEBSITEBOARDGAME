@@ -2,6 +2,7 @@ import { Game } from '../../models/game.model.js';
 import { conflict, notFound } from '../../lib/errors.js';
 import { logAudit } from '../../lib/audit.js';
 import { Reservation } from '../../models/reservation.model.js';
+import { Review } from '../../models/review.model.js';
 import { copyBreakdown, onGameCopiesChanged } from '../reservations/reservations.lifecycle.js';
 
 /** รวมสถานะรายกล่องของทั้งร้าน */
@@ -71,6 +72,9 @@ function buildFilter({
   return filter;
 }
 
+// endpoint สาธารณะ — ไม่ส่ง id ของ admin ที่สร้างเกมออกไป
+const PUBLIC_EXCLUDE = '-createdBy -__v';
+
 export async function list(query) {
   const { sort, order, page, limit } = query;
   const filter = buildFilter(query);
@@ -79,6 +83,7 @@ export async function list(query) {
 
   const [games, total, t] = await Promise.all([
     Game.find(filter)
+      .select(PUBLIC_EXCLUDE)
       .sort({ [sortField]: sortDir })
       .skip((page - 1) * limit)
       .limit(limit)
@@ -133,7 +138,7 @@ export async function findById(id) {
 
 /** รายละเอียดเกม + สถานะรายกล่อง */
 export async function detail(id) {
-  const game = await Game.findById(id).lean();
+  const game = await Game.findById(id).select(PUBLIC_EXCLUDE).lean();
   if (!game) throw notFound('game not found');
   const b = (await copyBreakdown([game])).get(String(game._id));
   return { ...game, copiesInVault: b.inVault, copiesInPlay: b.inPlay, copiesInRepair: b.inRepair };
@@ -185,6 +190,7 @@ export async function remove(id, req) {
   if (active) throw conflict(`game has ${active} active reservation(s)`);
   const game = await Game.findByIdAndDelete(id);
   if (!game) throw notFound('game not found');
+  await Review.deleteMany({ game: game._id }); // รีวิวของเกมที่ถูกลบไม่มีที่แสดงแล้ว
   logAudit({
     req,
     actor: req?.user,

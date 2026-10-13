@@ -3,7 +3,7 @@
 // ต้องรัน seed (เกม) กับ seed:tables ก่อน — รันซ้ำได้ (ลบเฉพาะข้อมูลที่ script นี้สร้าง)
 // usage: npm run --workspace server seed:demo
 import bcrypt from 'bcryptjs';
-import { env } from '../src/config/env.js';
+import { env, isProd } from '../src/config/env.js';
 import { connectDb, disconnectDb } from '../src/lib/db.js';
 import { logger } from '../src/lib/logger.js';
 import { User } from '../src/models/user.model.js';
@@ -13,6 +13,12 @@ import { Reservation } from '../src/models/reservation.model.js';
 import { Review } from '../src/models/review.model.js';
 import { calcPrice } from '../src/modules/reservations/reservations.rules.js';
 import { ensureSystemRoles } from '../src/modules/roles/roles.service.js';
+
+// สร้างบัญชี admin รหัสผ่านที่ทุกคนรู้ (demo1234) — ห้ามรันบนระบบจริง
+if (isProd) {
+  console.error('seed:demo is disabled in production (creates demo_admin / demo1234)');
+  process.exit(1);
+}
 
 const TAG = 'demo-seed';
 const H = 60 * 60 * 1000;

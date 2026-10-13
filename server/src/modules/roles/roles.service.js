@@ -50,7 +50,9 @@ export async function detail(id) {
 }
 
 export async function create(data, actor, req) {
-  const slug = data.slug || slugify(data.name);
+  // ชื่อภาษาไทยล้วน slugify แล้วว่าง → สร้าง slug อัตโนมัติ
+  const slug = data.slug || slugify(data.name) || `role-${Date.now().toString(36)}`;
+  if (slug === 'admin' || slug === 'user') throw conflict('role slug is reserved');
   const exists = await Role.findOne({ $or: [{ slug }, { name: data.name }] });
   if (exists) throw conflict('role name or slug already exists');
   const role = await Role.create({

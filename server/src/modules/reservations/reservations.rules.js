@@ -23,6 +23,8 @@ export const RULES = {
   CANCEL_CUTOFF_HOURS: 2, // สมาชิกยกเลิกเองได้ถึงก่อนเริ่ม 2 ชม. (0 = ยกเลิกได้ตลอดจนถึงเวลาเริ่ม)
   OPERATING: { enforce: false, days: DEFAULT_DAYS },
   PEAK: { enabled: false, perPersonHour: 80, start: '17:00', end: '23:00' },
+  STUDENT: { enabled: false, percent: 15 }, // ส่วนลดนักศึกษา (พนักงานตรวจบัตรหน้าร้าน)
+  DEPOSIT: { perPerson: 0, perTable: 0 }, // มัดจำต่อการจอง (0 = ไม่เก็บ) — ไม่มา = ริบ
 };
 
 export const PACKAGES = ['hourly', 'flat3h'];
@@ -73,6 +75,7 @@ export function calcPrice({
   pkg = 'hourly',
   rules = RULES,
   startAt,
+  student = false,
 }) {
   const perPerson = rules.PRICE_PER_PERSON_HOUR;
   // ช่วง peak คิดราคาต่อคนสูงกว่า (เฉพาะรายชั่วโมง, แพ็กเกจเหมาไม่คิด peak)
@@ -83,14 +86,26 @@ export function calcPrice({
       ? players * rules.FLAT_3H_PER_PERSON + rules.FLAT_HOURS * tableExtraPerHour
       : players * (perPerson * (durationHours - peakHours) + peakPerPerson * peakHours) +
         tableExtraPerHour * durationHours;
+  const subtotal = Math.round(total);
+  // ส่วนลดนักศึกษา (ถ้าร้านเปิดใช้และลูกค้าเลือก) — คิดจากยอดค่าเล่นทั้งหมด
+  const studentPct = student && rules.STUDENT?.enabled ? (rules.STUDENT.percent ?? 0) : 0;
+  const discount = Math.round((subtotal * studentPct) / 100);
+  const finalTotal = subtotal - discount;
+  // มัดจำ = ต่อคน × ผู้เล่น + ต่อโต๊ะ (ไม่เกินยอดรวม) → หักออกตอนเช็คบิล, ไม่มา = ริบ
+  const deposit = Math.min(
+    finalTotal,
+    Math.round(players * (rules.DEPOSIT?.perPerson ?? 0) + (rules.DEPOSIT?.perTable ?? 0)),
+  );
   return {
-    total: Math.round(total),
+    total: finalTotal,
     package: pkg,
     perPersonHour: perPerson,
     tableExtraPerHour,
     players,
     hours: durationHours,
     ...(peakHours ? { peakHours, peakPerPersonHour: peakPerPerson } : {}),
+    ...(discount ? { subtotal, studentDiscountPercent: studentPct, discount } : {}),
+    ...(deposit ? { deposit, dueAtCounter: finalTotal - deposit } : {}),
   };
 }
 
@@ -107,6 +122,7 @@ export function calcCheckout({
   tableExtraPerHour = 0,
   perPersonHour,
   bookedTotal,
+  deposit = 0,
   rules = RULES,
 }) {
   const actualMinutes = Math.max(0, Math.round((now - startedAt) / MINUTE_MS));
@@ -124,6 +140,10 @@ export function calcCheckout({
     bookedTotal,
     overtimeCharge,
     total: bookedTotal + overtimeCharge,
+    // มัดจำที่จ่ายตอนจองหักออกจากยอดที่ต้องจ่ายหน้าร้าน
+    ...(deposit
+      ? { deposit, balanceDue: Math.max(0, bookedTotal + overtimeCharge - deposit) }
+      : {}),
   };
 }
 

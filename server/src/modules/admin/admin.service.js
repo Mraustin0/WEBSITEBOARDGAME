@@ -1,8 +1,10 @@
 import bcrypt from 'bcryptjs';
 import { User } from '../../models/user.model.js';
-import { badRequest, conflict, notFound } from '../../lib/errors.js';
+import { badRequest, conflict, forbidden, notFound } from '../../lib/errors.js';
+import { can } from '../../lib/permissions.js';
 import { logAudit } from '../../lib/audit.js';
 import { Reservation } from '../../models/reservation.model.js';
+import { Review } from '../../models/review.model.js';
 import { getRules } from '../settings/settings.service.js';
 import { assertNotLastAdmin, assertRoleExists } from '../roles/roles.service.js';
 
@@ -52,6 +54,17 @@ async function assertNoActiveBookings(userId) {
     status: { $in: ['booked', 'playing'] },
   });
   if (active) throw conflict(`user has ${active} active reservation(s) — cancel them first`);
+}
+
+/**
+ * บัญชี admin (Super Admin) จัดการได้เฉพาะ admin เท่านั้น
+ * — กันพนักงานที่มีสิทธิ์ users (เช่น ผู้จัดการร้าน) สร้าง/ตั้ง/แก้/ระงับ/ลบ admin เพื่อยกระดับสิทธิ์ตัวเอง
+ */
+function assertCanManageAdmin(actor, { targetRole, newRole } = {}) {
+  if (actor?.role === 'admin') return;
+  if (targetRole === 'admin' || newRole === 'admin') {
+    throw forbidden('only admin can manage admin accounts');
+  }
 }
 
 const BCRYPT_ROUNDS = 10;
@@ -108,6 +121,7 @@ export async function createUser(data, actor, req) {
     $or: [{ email: data.email }, { username: data.username }],
   });
   if (exists) throw conflict('username or email already used');
+  assertCanManageAdmin(actor, { newRole: data.role });
   await assertRoleExists(data.role || 'user');
   const passwordHash = await bcrypt.hash(data.password, BCRYPT_ROUNDS);
   const user = await User.create({
@@ -139,10 +153,16 @@ export async function updateUser(actorId, targetId, data, actor, req) {
   if (self && data.status && data.status !== 'active') {
     throw badRequest('cannot suspend your own account');
   }
+  const target = await User.findById(targetId).select('role status').lean();
+  if (!target) throw notFound('user not found');
+  assertCanManageAdmin(actor, { targetRole: target.role, newRole: data.role });
   if (data.role) await assertRoleExists(data.role);
+  // เปลี่ยน pending → active = อนุมัติบัญชี ต้องมีสิทธิ์ users:approve เหมือน PATCH /approve
+  if (target.status === 'pending' && data.status === 'active') {
+    if (!(await can(actor, 'users', 'approve'))) throw forbidden('no permission: users:approve');
+  }
   if ((data.role && data.role !== 'admin') || (data.status && data.status !== 'active')) {
-    const target = await User.findById(targetId).select('role').lean();
-    if (target?.role === 'admin') await assertNotLastAdmin(targetId);
+    if (target.role === 'admin') await assertNotLastAdmin(targetId);
   }
   if (data.status === 'suspended') data.suspendedAt = new Date();
   if (data.status === 'active') Object.assign(data, { suspendedAt: null, suspendedReason: '' });
@@ -169,11 +189,11 @@ export async function updateRole(actorId, targetId, role, actor, req) {
   if (String(actorId) === String(targetId)) {
     throw badRequest('cannot change your own role');
   }
+  const target = await User.findById(targetId).select('role').lean();
+  if (!target) throw notFound('user not found');
+  assertCanManageAdmin(actor, { targetRole: target.role, newRole: role });
   await assertRoleExists(role);
-  if (role !== 'admin') {
-    const target = await User.findById(targetId).select('role').lean();
-    if (target?.role === 'admin') await assertNotLastAdmin(targetId);
-  }
+  if (role !== 'admin' && target.role === 'admin') await assertNotLastAdmin(targetId);
   const user = await User.findByIdAndUpdate(
     targetId,
     { role },
@@ -197,7 +217,9 @@ export async function suspend(actorId, targetId, reason, actor, req) {
     throw badRequest('cannot suspend your own account');
   }
   const target = await User.findById(targetId).select('role').lean();
-  if (target?.role === 'admin') await assertNotLastAdmin(targetId);
+  if (!target) throw notFound('user not found');
+  assertCanManageAdmin(actor, { targetRole: target.role });
+  if (target.role === 'admin') await assertNotLastAdmin(targetId);
   const user = await User.findByIdAndUpdate(
     targetId,
     {
@@ -221,6 +243,9 @@ export async function suspend(actorId, targetId, reason, actor, req) {
 }
 
 export async function unsuspend(targetId, actor, req) {
+  const target = await User.findById(targetId).select('role').lean();
+  if (!target) throw notFound('user not found');
+  assertCanManageAdmin(actor, { targetRole: target.role });
   const user = await User.findByIdAndUpdate(
     targetId,
     { status: 'active', suspendedAt: null, suspendedReason: '' },
@@ -267,10 +292,12 @@ export async function remove(actorId, targetId, actor, req) {
   }
   const target = await User.findById(targetId).select('role').lean();
   if (!target) throw notFound('user not found');
+  assertCanManageAdmin(actor, { targetRole: target.role });
   if (target.role === 'admin') await assertNotLastAdmin(targetId);
   await assertNoActiveBookings(targetId);
   const user = await User.findByIdAndDelete(targetId);
   if (!user) throw notFound('user not found');
+  await Review.deleteMany({ user: user._id });
   logAudit({
     req,
     actor,

@@ -102,7 +102,15 @@ async function gameFullError(game, { startAt, endAt }, { excludeId, now = new Da
  * ใช้ร่วมกันทั้ง create / update / quote
  */
 async function validateBooking(
-  { table: tableId, game: gameId, players, startAt, durationHours, package: pkg = 'hourly' },
+  {
+    table: tableId,
+    game: gameId,
+    players,
+    startAt,
+    durationHours,
+    package: pkg = 'hourly',
+    student = false,
+  },
   { userId, excludeId, staff = false, now = new Date() },
 ) {
   const rules = await getRules();
@@ -145,6 +153,7 @@ async function validateBooking(
     pkg,
     rules,
     startAt,
+    student,
   });
   return { table, game, endAt, price };
 }
@@ -244,6 +253,7 @@ export async function update(id, user, patch) {
     startAt: patch.startAt ?? r.startAt,
     durationHours: patch.durationHours ?? r.durationHours,
     package: patch.package ?? r.price?.package ?? 'hourly',
+    student: patch.student ?? Boolean(r.price?.discount),
   };
   if (next.package === 'flat3h' && next.durationHours !== RULES.FLAT_HOURS) {
     throw badRequest(`flat3h package must be ${RULES.FLAT_HOURS} hours`);
@@ -317,6 +327,7 @@ async function billFor(r, now = new Date()) {
     tableExtraPerHour: r.price?.tableExtraPerHour ?? 0,
     perPersonHour: r.price?.perPersonHour,
     bookedTotal: r.price.total,
+    deposit: r.price?.deposit ?? 0,
     rules: await getRules(),
   });
 }
@@ -465,6 +476,7 @@ export async function extend(id, user, hours) {
   r.durationHours = newDuration;
   r.price.total += charge;
   r.price.hours = newDuration;
+  if (r.price.deposit) r.price.dueAtCounter = r.price.total - r.price.deposit;
   r.extensions.push({ hours, charge, at: now, by: user._id });
   await r.save();
   await resolveTimeAlerts(r._id); // ต่อเวลาแล้ว (ถ้าใกล้หมดอีกจะแจ้งใหม่ตามเวลาใหม่)

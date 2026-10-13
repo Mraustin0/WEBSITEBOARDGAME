@@ -4,7 +4,7 @@ import helmet from 'helmet';
 import pinoHttp from 'pino-http';
 import swaggerUi from 'swagger-ui-express';
 
-import { env } from './config/env.js';
+import { clientOrigins, env } from './config/env.js';
 import { logger } from './lib/logger.js';
 import { openapiSpec } from './lib/openapi.js';
 import { errorHandler, notFoundHandler } from './middleware/error.js';
@@ -29,11 +29,8 @@ import shiftRoutes from './modules/shifts/shifts.routes.js';
 export function createApp() {
   const app = express();
 
-  app.set('trust proxy', 1);
+  app.set('trust proxy', env.TRUST_PROXY);
   app.use(helmet());
-  const clientOrigins = Array.from(
-    new Set([env.CLIENT_ORIGIN, 'http://localhost:5174', 'http://localhost:5173']),
-  );
   app.use(cors({ origin: clientOrigins, credentials: true }));
   app.use(express.json({ limit: '1mb' }));
   app.use(pinoHttp({ logger, autoLogging: { ignore: (req) => req.url === '/api/health' } }));
@@ -47,7 +44,9 @@ export function createApp() {
     swaggerUi.setup(openapiSpec, { customSiteTitle: 'Boardgame Everyday API' }),
   );
 
-  app.use('/api/auth', authLimiter, authRoutes);
+  // จำกัดเฉพาะ login / register (กันเดารหัส) — /me, /password ไม่ต้องแชร์โควตานี้
+  app.use(['/api/auth/login', '/api/auth/register'], authLimiter);
+  app.use('/api/auth', authRoutes);
   app.use('/api/games', gamesRoutes);
   app.use('/api/reviews', reviewsRoutes);
   app.use('/api/bgg', bggLimiter, bggRoutes);

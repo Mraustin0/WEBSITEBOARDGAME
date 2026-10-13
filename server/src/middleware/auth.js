@@ -21,9 +21,12 @@ export async function requireAuth(req, _res, next) {
     if (!token) throw unauthorized('no token');
     const payload = jwt.verify(token, env.JWT_SECRET);
     const user = await User.findById(payload.sub).select(
-      '_id username email role status tier displayName phone lineId avatar noShowCount playCount',
+      '_id username email role status tier displayName phone lineId avatar noShowCount playCount passwordChangedAt',
     );
     if (!user) throw unauthorized('user not found');
+    if (user.passwordChangedAt && payload.iat < Math.floor(user.passwordChangedAt / 1000)) {
+      throw unauthorized('password changed — please log in again');
+    }
     if (user.status === 'suspended') throw forbidden('account suspended');
     if (user.status === 'pending') throw forbidden('account pending approval');
     req.user = user;

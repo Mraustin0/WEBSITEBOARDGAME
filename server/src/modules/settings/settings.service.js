@@ -48,6 +48,14 @@ export function rulesFromSettings(s) {
       start: s?.pricing?.peakStart ?? RULES.PEAK.start,
       end: s?.pricing?.peakEnd ?? RULES.PEAK.end,
     },
+    STUDENT: {
+      enabled: s?.pricing?.studentDiscountEnabled ?? false,
+      percent: s?.pricing?.studentDiscountPercent ?? RULES.STUDENT.percent,
+    },
+    DEPOSIT: {
+      perPerson: s?.noShow?.depositPerPerson ?? 0,
+      perTable: s?.noShow?.depositPerTable ?? 0,
+    },
     NO_SHOW_GRACE_MIN: s?.noShow?.graceMin ?? 30,
     NO_SHOW_SUSPEND_AFTER: s?.noShow?.suspendAfter ?? 3,
   };

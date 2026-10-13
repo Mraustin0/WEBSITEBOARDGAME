@@ -11,6 +11,8 @@ const UserSchema = new Schema(
     username: { type: String, required: true, unique: true, trim: true, minlength: 3 },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     passwordHash: { type: String, required: true },
+    // token ที่ออกก่อนเวลานี้ใช้ไม่ได้ (เปลี่ยนรหัสผ่าน → token เก่าที่หลุดไปหมดอายุทันที)
+    passwordChangedAt: { type: Date, default: null },
     role: { type: String, default: 'user', index: true },
     status: {
       type: String,

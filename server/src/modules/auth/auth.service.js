@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import { User } from '../../models/user.model.js';
 import { signToken } from '../../middleware/auth.js';
-import { conflict, forbidden, notFound, unauthorized } from '../../lib/errors.js';
+import { badRequest, conflict, forbidden, notFound, unauthorized } from '../../lib/errors.js';
 import { logAudit } from '../../lib/audit.js';
 
 const BCRYPT_ROUNDS = 10;
@@ -43,10 +43,13 @@ export async function changePassword(userId, { oldPassword, newPassword }) {
   const user = await User.findById(userId);
   if (!user) throw notFound('user not found');
   const ok = await bcrypt.compare(oldPassword, user.passwordHash);
-  if (!ok) throw unauthorized('old password incorrect');
+  // 400 ไม่ใช่ 401 — 401 ทำให้หน้าเว็บเข้าใจว่า token หมดอายุแล้วเตะออกจากระบบ
+  if (!ok) throw badRequest('old password incorrect');
   user.passwordHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+  user.passwordChangedAt = new Date();
   await user.save();
-  return { ok: true };
+  // token เก่าทุกตัวใช้ไม่ได้แล้ว → ส่ง token ใหม่ให้เครื่องนี้ใช้ต่อ
+  return { ok: true, token: signToken(user) };
 }
 
 export async function updateProfile(userId, data) {

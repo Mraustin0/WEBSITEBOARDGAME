@@ -50,7 +50,7 @@ const AuditLogSchema = new Schema(
     ip: { type: String, default: '' },
     userAgent: { type: String, default: '' },
     // hash chain (Integrity Verification Badge)
-    seq: { type: Number, index: true },
+    seq: { type: Number, index: true, unique: true, sparse: true }, // ลำดับใน chain ห้ามซ้ำ
     prevHash: { type: String, default: '' },
     hash: { type: String, default: '' },
     createdAt: { type: Date, default: Date.now },
