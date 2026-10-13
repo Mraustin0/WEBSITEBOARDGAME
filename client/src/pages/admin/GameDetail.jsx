@@ -4,6 +4,7 @@ import { Gamepad, Users, ClockCircle, Scale, Box } from 'reicon-react';
 import { api } from '../../lib/api.js';
 import { timeTH } from '../../lib/date.js';
 import './inventory.css';
+import { copyLabel } from '../../lib/copies.js';
 
 const STATUS = {
   available: { label: 'พร้อมให้บริการ', tone: 'ok' },
@@ -190,7 +191,7 @@ export default function GameDetail() {
             <div className="gd-status-row">
               <span className={`inv-badge inv-badge-${st.tone}`}>
                 ● {st.label}
-                {copies > 1 ? ` · ${copies} กล่อง` : ''}
+                {copyLabel(game)}
               </span>
               {game.bggAverage != null && (
                 <span className="gd-bgg-pill">★ BGG {Number(game.bggAverage).toFixed(1)}/10</span>
@@ -274,6 +275,13 @@ export default function GameDetail() {
                 <div>
                   <span className="inv-meta-k">จำนวนกล่อง</span>
                   <strong>{copies} กล่อง</strong>
+                  {(game.copiesInRepair > 0 || game.copiesInPlay > 0) && (
+                    <span className="muted">
+                      {' '}
+                      (ว่าง {game.copiesInVault ?? copies} · เล่นอยู่ {game.copiesInPlay ?? 0} ·
+                      ซ่อม {game.copiesInRepair ?? 0})
+                    </span>
+                  )}
                 </div>
               </div>
             </div>

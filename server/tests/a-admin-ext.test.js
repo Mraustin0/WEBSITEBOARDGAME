@@ -95,7 +95,10 @@ describeIf('admin extensions (integration)', () => {
       expect(res.status).toBe(200);
       const slugs = res.body.items.map((r) => r.slug);
       expect(slugs).toEqual(expect.arrayContaining(['admin', 'user', 'staff', 'manager']));
-      expect(res.body.items.find((r) => r.slug === 'staff').memberCount).toBe(1);
+      // นับจาก DB จริง — DB อาจมี staff คนอื่นอยู่แล้ว (เช่น demo_staff จาก seed:demo)
+      const staffCount = await User.countDocuments({ role: 'staff' });
+      expect(staffCount).toBeGreaterThanOrEqual(1);
+      expect(res.body.items.find((r) => r.slug === 'staff').memberCount).toBe(staffCount);
       expect(res.body.catalog.map((c) => c.key)).toContain('audit');
     });
 
