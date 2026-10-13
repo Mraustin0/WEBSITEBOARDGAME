@@ -33,12 +33,24 @@ describe('reservation rules (unit)', () => {
     expect(p.hours).toBe(2);
   });
 
-  it('rejects bookings in the past or more than 3 days ahead', () => {
-    const now = new Date('2026-10-01T10:00:00Z');
+  it('rejects bookings in the past or more than 3 calendar days ahead (Bangkok)', () => {
+    const now = new Date('2026-10-01T10:00:00Z'); // 1 ต.ค. 17:00 เวลาไทย
     expect(bookingWindowError(new Date(now.getTime() - 60 * 60 * 1000), now)).toMatch(/past/);
     expect(bookingWindowError(new Date(now.getTime() - 5 * 60 * 1000), now)).toBeNull();
     expect(bookingWindowError(new Date(now.getTime() + 3 * 24 * H), now)).toBeNull();
-    expect(bookingWindowError(new Date(now.getTime() + 3 * 24 * H + 1), now)).toMatch(/3 days/);
+    // วันสุดท้าย (4 ต.ค.) จองได้ทั้งวัน แม้จะเลยเวลาปัจจุบันไปแล้ว
+    expect(bookingWindowError(new Date('2026-10-04T23:30:00+07:00'), now)).toBeNull();
+    expect(bookingWindowError(new Date('2026-10-05T00:00:00+07:00'), now)).toMatch(/3 days/);
+  });
+
+  it('last bookable day has slots even when checked before opening time', () => {
+    const now = new Date('2026-10-14T05:00:00+07:00'); // เช็กตอนตี 5 (ก่อนร้านเปิด)
+    const rules = { ...RULES, MAX_ADVANCE_DAYS: 10 };
+    expect(bookingWindowError(new Date('2026-10-24T10:00:00+07:00'), now, rules)).toBeNull();
+    expect(bookingWindowError(new Date('2026-10-24T22:00:00+07:00'), now, rules)).toBeNull();
+    expect(bookingWindowError(new Date('2026-10-25T10:00:00+07:00'), now, rules)).toMatch(
+      /10 days/,
+    );
   });
 
   it('detects overlapping intervals (touching edges are not overlap)', () => {

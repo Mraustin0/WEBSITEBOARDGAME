@@ -1,6 +1,6 @@
 // Business rules ของการจอง — pure functions (ไม่แตะ DB) เพื่อ test ง่าย
 // ค่าจริงมาจากหน้า "ตั้งค่าร้าน" (settings) — RULES คือค่า default ถ้ายังไม่ได้ตั้ง
-import { HOUR_MS, MINUTE_MS } from '../../lib/time.js';
+import { HOUR_MS, MINUTE_MS, addDays, toLocalDateString } from '../../lib/time.js';
 
 export const DEFAULT_DAYS = [0, 1, 2, 3, 4, 5, 6].map((day) => ({
   day, // 0 = อาทิตย์ ... 6 = เสาร์
@@ -153,7 +153,10 @@ export function bookingWindowError(startAt, now = new Date(), rules = RULES) {
   if (startAt.getTime() < now.getTime() - rules.START_GRACE_MIN * MINUTE_MS) {
     return 'startAt is in the past';
   }
-  if (startAt.getTime() > now.getTime() + rules.MAX_ADVANCE_DAYS * 24 * HOUR_MS) {
+  // นับเป็น "วันตามปฏิทิน" (เวลาไทย): จองล่วงหน้า N วัน = จองได้ทุกเวลาจนถึงสิ้นวันที่ วันนี้ + N
+  // (เดิมนับ now + N×24 ชม. → วันสุดท้ายจองได้แค่รอบที่ก่อนเวลาปัจจุบัน หรือไม่มีรอบเลยถ้าเช็กก่อนร้านเปิด)
+  const lastDay = addDays(toLocalDateString(now), rules.MAX_ADVANCE_DAYS);
+  if (toLocalDateString(startAt) > lastDay) {
     return `can book at most ${rules.MAX_ADVANCE_DAYS} days in advance`;
   }
   return null;

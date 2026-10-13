@@ -59,13 +59,15 @@ export function startTimes(rules, ymd, { stepMin = 60, now = new Date() } = {}) 
   if (closed) return [];
   const minHours = rules?.MIN_HOURS ?? 1;
   const grace = (rules?.START_GRACE_MIN ?? 15) * MINUTE;
-  const maxAhead = now.getTime() + (rules?.MAX_ADVANCE_DAYS ?? 3) * 24 * 60 * MINUTE;
+  // จองล่วงหน้า N วัน = นับตามปฏิทินไทย (วันสุดท้ายจองได้ทั้งวัน) — ตรงกับ server
+  const today = now.toLocaleDateString('en-CA', { timeZone: TZ });
+  if (ymd > addDays(today, rules?.MAX_ADVANCE_DAYS ?? 3)) return [];
   const out = [];
   // เวลาเริ่มอยู่ในวันที่เลือกเท่านั้น (ก่อน 24:00) แต่เล่นยาวข้ามเที่ยงคืนได้ถ้าร้านยังเปิด
   for (let m = open; m < 1440 && m + minHours * 60 <= close; m += stepMin) {
     const hhmm = toHHMM(m);
     const t = new Date(toISO(ymd, hhmm)).getTime();
-    if (t < now.getTime() - grace || t > maxAhead) continue;
+    if (t < now.getTime() - grace) continue;
     out.push(hhmm);
   }
   return out;
