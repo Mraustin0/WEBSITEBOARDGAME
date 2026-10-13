@@ -333,6 +333,8 @@ button:disabled {
   font-size: var(--fs-detail);
 }
 .res-actions {
+  flex-wrap: wrap;
+  gap: 8px;
   display: flex;
   gap: var(--space-sm);
   justify-content: flex-end;
@@ -409,4 +411,20 @@ button:disabled {
   .field-row {
     flex-direction: column;
   }
+}
+
+.res-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.res-actions button {
+  min-height: 36px;
+  padding: 0 14px;
+  font-size: var(--fs-detail, 12px);
+  white-space: nowrap;
+}
+.res-item.is-pending {
+  border-color: #f59e0b;
 }

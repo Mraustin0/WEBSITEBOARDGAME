@@ -2,23 +2,29 @@ import { timeTH } from '../../../lib/date.js';
 import {
   customerName,
   customerPhone,
+  displayStatus,
   endAtOf,
   gameName,
-  statusOf,
+  needsConfirm,
   tableCode,
 } from '../../../lib/reservationStatus.js';
 
-// การ์ดหนึ่งรายการในรายการจอง
-// 1. เพิ่ม onCheckout เข้ามาใน Props
-export default function ReservationItem({ r, busy, onCancel, onNoShow, onCheckout }) {
-  const st = statusOf(r.status);
+/** การ์ดหนึ่งรายการในรายการจอง — ปุ่มสั้น อ่านง่าย */
+export default function ReservationItem({ r, busy, onCancel, onNoShow, onCheckout, onConfirm }) {
+  const st = displayStatus(r);
+  const pending = needsConfirm(r);
+  const canConfirm = pending && typeof onConfirm === 'function';
   const canCancel = r.status === 'booked' || r.status === 'playing';
   const canNoShow = r.status === 'booked';
-  const canCheckout = r.status === 'playing'; // 2. เพิ่มเงื่อนไขให้เช็คบิลได้เฉพาะโต๊ะที่กำลังเล่น
+  const canCheckout = r.status === 'playing';
   const dim = r.status === 'cancelled' || r.status === 'no_show';
 
+  const showActions = canConfirm || canCancel || canNoShow || canCheckout;
+
   return (
-    <li className={`res-item tone-${st.tone}${dim ? ' is-dim' : ''}`}>
+    <li
+      className={`res-item tone-${st.tone}${dim ? ' is-dim' : ''}${pending ? ' is-pending' : ''}`}
+    >
       <div className="res-item-top">
         <div className="res-time">
           {timeTH(r.startAt)} – {timeTH(endAtOf(r))}
@@ -34,24 +40,41 @@ export default function ReservationItem({ r, busy, onCancel, onNoShow, onCheckou
         {gameName(r) && <span> • {gameName(r)}</span>}
       </div>
 
-      {/* 3. อัปเดตให้แสดงกล่องปุ่มเมื่อมีสิทธิเช็คบิล */}
-      {(canCancel || canNoShow || canCheckout) && (
+      {showActions && (
         <div className="res-actions">
-          {/* ปุ่มเช็คบิล (แสดงเฉพาะตอนกำลังเล่น) */}
+          {canConfirm && (
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={busy}
+              title="ยืนยันการจองออนไลน์"
+              onClick={() => onConfirm(r)}
+            >
+              ยืนยัน
+            </button>
+          )}
+
           {canCheckout && (
             <button
               type="button"
               className="btn-primary"
               disabled={busy}
+              title="เช็คบิลและคืนเกม"
               onClick={() => onCheckout(r)}
             >
-              เช็คบิล / คืนเกม
+              เช็คบิล
             </button>
           )}
 
           {canNoShow && (
-            <button type="button" className="btn-ghost" disabled={busy} onClick={() => onNoShow(r)}>
-              ลูกค้าไม่มา
+            <button
+              type="button"
+              className="btn-ghost"
+              disabled={busy}
+              title="บันทึกว่าลูกค้าไม่มาตามนัด"
+              onClick={() => onNoShow(r)}
+            >
+              ไม่มา
             </button>
           )}
 
@@ -60,9 +83,10 @@ export default function ReservationItem({ r, busy, onCancel, onNoShow, onCheckou
               type="button"
               className="btn-danger"
               disabled={busy}
+              title="ยกเลิกการจอง"
               onClick={() => onCancel(r)}
             >
-              ยกเลิกการจอง
+              ยกเลิก
             </button>
           )}
         </div>

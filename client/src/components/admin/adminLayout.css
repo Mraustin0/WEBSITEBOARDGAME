@@ -24,7 +24,17 @@
 }
 .nav-ico {
   width: 20px;
-  text-align: center;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: inherit;
+}
+.nav-ico svg {
+  display: block;
+  width: 20px;
+  height: 20px;
 }
 .session-box {
   padding: 10px 12px;
@@ -120,4 +130,14 @@
 }
 .user-dropdown-item.danger:hover {
   background: var(--color-error-bg);
+}
+
+.user-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.user-dropdown-item svg {
+  flex-shrink: 0;
+  opacity: 0.85;
 }

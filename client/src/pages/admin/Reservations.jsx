@@ -92,6 +92,11 @@ export default function Reservations() {
     runAction(r, `/reservations/admin/${r._id}/no-show`, { method: 'PATCH' });
   }
 
+  function onConfirm(r) {
+    if (!window.confirm(`ยืนยันการจองของ ${customerName(r)}?`)) return;
+    runAction(r, `/reservations/admin/${r._id}/confirm`, { method: 'PATCH' });
+  }
+
   const step = range === 'day' ? 1 : range === 'week' ? 7 : 30;
 
   return (
@@ -157,6 +162,7 @@ export default function Reservations() {
           onSearch={setQ}
           onCancel={onCancel}
           onNoShow={onNoShow}
+          onConfirm={onConfirm}
           onCheckout={(r) => setCheckoutReservation(r)} /* <-- เพิ่มบรรทัดนี้ลงไปครับ */
         />
       </div>

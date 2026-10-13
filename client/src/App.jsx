@@ -21,6 +21,7 @@ import MemberDetail from './pages/admin/MemberDetail.jsx';
 import Profile from './pages/admin/Profile.jsx';
 import Audit from './pages/admin/Audit.jsx';
 import Roles from './pages/admin/Roles.jsx';
+import Tables from './pages/admin/Tables.jsx';
 
 /** หน้าหลังร้าน: ต้อง login และเป็นพนักงาน/แอดมิน (สมาชิกถูกส่งกลับหน้าคลังเกม) */
 function RequireStaff({ children }) {
@@ -86,6 +87,7 @@ export default function App() {
       >
         <Route index element={<Dashboard />} />
         <Route path="reservations" element={<Reservations />} />
+        <Route path="tables" element={<Tables />} />
         <Route path="settings" element={<Settings />} />
         <Route path="maintenance" element={<Maintenance />} />
         <Route path="reports" element={<Reports />} />

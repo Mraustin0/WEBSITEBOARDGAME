@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react';
+import { needsConfirm } from '../../../lib/reservationStatus.js';
 import ReservationItem from './ReservationItem.jsx';
 
 const TABS = [
   { key: 'all', label: 'ทั้งหมด' },
+  { key: 'pending', label: 'รอยืนยัน' },
   { key: 'booked', label: 'จองล่วงหน้า' },
   { key: 'playing', label: 'กำลังเล่น' },
 ];
 
-// รายการจองด้านขวา: ค้นหา (ส่ง ?q= ไป server) + แท็บกรองสถานะ (กรองฝั่ง client)
-// 1. รับ onCheckout เข้ามาตรงนี้
 export default function TodayList({
   items,
   loading,
@@ -17,19 +17,26 @@ export default function TodayList({
   onCancel,
   onNoShow,
   onCheckout,
+  onConfirm,
 }) {
   const [tab, setTab] = useState('all');
   const [text, setText] = useState('');
 
-  // หน่วงการค้นหา 400ms ไม่ให้ยิง API ทุกตัวอักษร
   useEffect(() => {
     const id = setTimeout(() => onSearch(text.trim()), 400);
     return () => clearTimeout(id);
   }, [text]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const count = (key) =>
-    key === 'all' ? items.length : items.filter((i) => i.status === key).length;
-  const shown = tab === 'all' ? items : items.filter((i) => i.status === tab);
+  const matchTab = (r, key) => {
+    if (key === 'all') return true;
+    if (key === 'pending') return needsConfirm(r);
+    if (key === 'booked') return r.status === 'booked' && !needsConfirm(r);
+    if (key === 'playing') return r.status === 'playing';
+    return r.status === key;
+  };
+
+  const count = (key) => items.filter((i) => matchTab(i, key)).length;
+  const shown = items.filter((i) => matchTab(i, tab));
 
   return (
     <section className="panel today-list">
@@ -72,7 +79,8 @@ export default function TodayList({
             busy={busyId === r._id}
             onCancel={onCancel}
             onNoShow={onNoShow}
-            onCheckout={onCheckout} /* <-- 2. ส่งคำสั่งต่อไปให้ปุ่มใน ReservationItem */
+            onCheckout={onCheckout}
+            onConfirm={onConfirm}
           />
         ))}
       </ul>

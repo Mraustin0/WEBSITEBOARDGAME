@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Box, CheckCircle, Gamepad, Tuning } from 'reicon-react';
 import { api } from '../../lib/api.js';
 import './inventory.css';
 import { copyLabel } from '../../lib/copies.js';
@@ -214,6 +215,16 @@ function AddGameModal({ onClose, onCreated }) {
             {bggNote}
           </p>
         )}
+
+        <a
+          className="bgg-powered"
+          href="https://boardgamegeek.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Powered by BoardGameGeek"
+        >
+          <img src="/powered-by-bgg.png" alt="Powered by BGG" height={28} />
+        </a>
 
         <label className="field">
           <span>ชื่อเกม *</span>
@@ -485,7 +496,9 @@ export default function Inventory() {
         >
           <div className="inv-kpi-top">
             <span className="inv-kpi-label">เกมทั้งหมดในคลัง</span>
-            <span className="inv-kpi-ico">📦</span>
+            <span className="inv-kpi-ico">
+              <Box size={18} />
+            </span>
           </div>
           <strong>{counts.all}</strong>
           <small className="muted">TOTAL VAULT</small>
@@ -500,7 +513,9 @@ export default function Inventory() {
         >
           <div className="inv-kpi-top">
             <span className="inv-kpi-label">พร้อมให้บริการ</span>
-            <span className="inv-kpi-ico">✓</span>
+            <span className="inv-kpi-ico">
+              <CheckCircle size={18} />
+            </span>
           </div>
           <strong>{counts.available}</strong>
           <small className="muted">{pct(counts.available)}% · IN-VAULT</small>
@@ -515,7 +530,9 @@ export default function Inventory() {
         >
           <div className="inv-kpi-top">
             <span className="inv-kpi-label">กำลังอยู่บนโต๊ะ</span>
-            <span className="inv-kpi-ico">🎮</span>
+            <span className="inv-kpi-ico">
+              <Gamepad size={18} />
+            </span>
           </div>
           <strong>{counts.in_use}</strong>
           <small className="muted">{pct(counts.in_use)}% · IN-PLAY</small>
@@ -530,7 +547,9 @@ export default function Inventory() {
         >
           <div className="inv-kpi-top">
             <span className="inv-kpi-label">ส่งซ่อม / บำรุง</span>
-            <span className="inv-kpi-ico">🔧</span>
+            <span className="inv-kpi-ico">
+              <Tuning size={18} />
+            </span>
           </div>
           <strong>{counts.maintenance}</strong>
           <small className="muted">{pct(counts.maintenance)}% · MAINTENANCE</small>
@@ -594,7 +613,9 @@ export default function Inventory() {
                 {g.image || g.thumbnail ? (
                   <img src={g.image || g.thumbnail} alt="" loading="lazy" />
                 ) : (
-                  <div className="inv-card-ph">🎲</div>
+                  <div className="inv-card-ph">
+                    <Gamepad size={48} />
+                  </div>
                 )}
                 <div className="inv-card-badges">
                   <span className={`inv-badge inv-badge-${st.tone}`}>

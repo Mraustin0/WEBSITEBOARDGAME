@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Gamepad, Users, ClockCircle, Scale, Box } from 'reicon-react';
 import { api } from '../../lib/api.js';
 import { timeTH } from '../../lib/date.js';
 import './inventory.css';
@@ -103,13 +104,25 @@ export default function GameDetail() {
   }
 
   async function remove() {
-    if (!window.confirm(`ลบเกม "${game?.name}" ออกจากคลัง?`)) return;
+    if (
+      !window.confirm(
+        `ลบเกม "${game?.name}" ออกจากคลัง?\n\nถ้ายังมีการจองที่รอยืนยัน / จองล่วงหน้า / กำลังเล่น ระบบจะไม่ให้ลบ`,
+      )
+    ) {
+      return;
+    }
     setBusy(true);
+    setError('');
     try {
       await api(`/games/${id}`, { method: 'DELETE' });
       navigate('/admin/inventory', { replace: true });
     } catch (err) {
-      setError(err.message || 'ลบไม่สำเร็จ');
+      const msg =
+        err.status === 409
+          ? err.message ||
+            'ลบไม่ได้: ยังมีการจองที่ผูกกับเกมนี้ — ไปหน้าการจองแล้วกดยืนยัน ยกเลิก หรือจบรอบก่อน'
+          : err.message || 'ลบไม่สำเร็จ';
+      setError(msg);
       setBusy(false);
     }
   }
@@ -167,7 +180,9 @@ export default function GameDetail() {
             {img ? (
               <img src={img} alt="" className="gd-cover" />
             ) : (
-              <div className="gd-cover ph">🎲</div>
+              <div className="gd-cover ph">
+                <Gamepad size={64} />
+              </div>
             )}
             {game.yearPublished && <span className="gd-year-pill">{game.yearPublished}</span>}
           </div>
@@ -191,6 +206,15 @@ export default function GameDetail() {
                   ดูบน BoardGameGeek ↗
                 </a>
               )}
+              <a
+                className="bgg-powered"
+                href="https://boardgamegeek.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Powered by BoardGameGeek"
+              >
+                <img src="/powered-by-bgg.png" alt="Powered by BGG" height={24} />
+              </a>
             </div>
 
             <h1 className="gd-title">{game.name}</h1>
@@ -214,7 +238,9 @@ export default function GameDetail() {
 
             <div className="gd-fact-row">
               <div className="gd-fact">
-                <span className="gd-fact-ico">👥</span>
+                <span className="gd-fact-ico" aria-hidden="true">
+                  <Users size={20} />
+                </span>
                 <div>
                   <span className="inv-meta-k">จำนวนผู้เล่น</span>
                   <strong>
@@ -223,14 +249,18 @@ export default function GameDetail() {
                 </div>
               </div>
               <div className="gd-fact">
-                <span className="gd-fact-ico">⏱</span>
+                <span className="gd-fact-ico" aria-hidden="true">
+                  <ClockCircle size={20} />
+                </span>
                 <div>
                   <span className="inv-meta-k">เวลาโดยประมาณ</span>
                   <strong>{game.playtimeMin || '—'} นาที</strong>
                 </div>
               </div>
               <div className="gd-fact">
-                <span className="gd-fact-ico">⚖</span>
+                <span className="gd-fact-ico" aria-hidden="true">
+                  <Scale size={20} />
+                </span>
                 <div>
                   <span className="inv-meta-k">ระดับความซับซ้อน</span>
                   <strong>
@@ -239,7 +269,9 @@ export default function GameDetail() {
                 </div>
               </div>
               <div className="gd-fact">
-                <span className="gd-fact-ico">📦</span>
+                <span className="gd-fact-ico" aria-hidden="true">
+                  <Box size={20} />
+                </span>
                 <div>
                   <span className="inv-meta-k">จำนวนกล่อง</span>
                   <strong>{copies} กล่อง</strong>
