@@ -31,7 +31,10 @@ export function createApp() {
 
   app.set('trust proxy', 1);
   app.use(helmet());
-  app.use(cors({ origin: env.CLIENT_ORIGIN, credentials: true }));
+  const clientOrigins = Array.from(
+    new Set([env.CLIENT_ORIGIN, 'http://localhost:5174', 'http://localhost:5173']),
+  );
+  app.use(cors({ origin: clientOrigins, credentials: true }));
   app.use(express.json({ limit: '1mb' }));
   app.use(pinoHttp({ logger, autoLogging: { ignore: (req) => req.url === '/api/health' } }));
 
