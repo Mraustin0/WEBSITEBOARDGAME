@@ -18,6 +18,29 @@ const perm = obj({ key: s, view: b, edit: b, del: b, approve: b });
 const op = (tag, summary, extra = {}) => ({ tags: [tag], summary, security: bearer, ...extra });
 
 export const extPaths = {
+  '/bgg/import/{bggId}': {
+    parameters: [{ name: 'bggId', in: 'path', required: true, schema: n }],
+    post: op(
+      'bgg',
+      'นำเข้าเกมจาก BGG ลงคลังในคำสั่งเดียว (รูปเต็ม, เรตติ้ง, weight, หมวด) — upsert ตาม bggId',
+      {
+        description:
+          'เกมใหม่ → 201 สร้างพร้อมข้อมูลครบ (copies=1). เกมที่มีอยู่แล้ว → 200 อัปเดตเฉพาะข้อมูล BGG ' +
+          '(image, thumbnail, yearPublished, bggAverage/Rating/Weight, categories, mechanics, designers) ' +
+          'ไม่แตะ name/description/ผู้เล่น/เวลาเล่น/copies/shelf — เว้นแต่ส่ง overwrite=true. สิทธิ์ inventory:edit',
+        requestBody: { content: json(obj({ overwrite: { ...b, default: false } })) },
+        responses: {
+          200: ok({ $ref: '#/components/schemas/Game' }, 'อัปเดตเกมเดิม'),
+          201: ok({ $ref: '#/components/schemas/Game' }, 'สร้างเกมใหม่'),
+          403: err('ไม่มีสิทธิ์ inventory:edit'),
+          404: err('ไม่มีเกมนี้บน BGG'),
+          429: err('BGG_RATE_LIMIT'),
+          502: err('BGG_UNREACHABLE / BGG_TIMEOUT / BGG_ERROR'),
+          503: err('BGG_TOKEN_MISSING / BGG_TOKEN_INVALID / BGG_BUSY — ดู details.code'),
+        },
+      },
+    ),
+  },
   '/auth/me': {
     put: op('auth', 'แก้ไขโปรไฟล์ตัวเอง (หน้า 11)', {
       requestBody: body(

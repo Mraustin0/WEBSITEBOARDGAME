@@ -158,3 +158,40 @@ Schema ขยายรองรับ:
 
 - บันทึกกิจกรรมพนักงานครบทุกโมดูล (การจอง, โต๊ะ, ตั้งค่า, ซ่อม, เรียก GM, ผู้ใช้, เกม, สิทธิ์, กะ)
 - `GET /api/audit/verify` → `{ valid, checked, brokenAt }` — ตรวจ hash chain (Tamper-Proof Log) ถ้ามีการแก้/ลบย้อนหลังจะเจอ
+
+## 9. BoardGameGeek (`/api/bgg`) — Oat แก้ให้ A (13 ต.ค.)
+
+> ต้องตั้ง `BGG_TOKEN` ใน `server/.env` (ขอที่ https://boardgamegeek.com/applications) — ห้าม commit token
+
+### Error ที่อ่านรู้เรื่อง
+
+ทุก endpoint ของ `/api/bgg` ตอบ `{ error, details: { code } }` ให้ FE แยกข้อความได้
+
+| HTTP | `details.code`      | ความหมาย / ต้องทำอะไร                                        |
+| ---- | ------------------- | ------------------------------------------------------------ |
+| 503  | `BGG_TOKEN_MISSING` | ยังไม่ได้ตั้ง `BGG_TOKEN` → ใส่ใน `server/.env` แล้ว restart |
+| 503  | `BGG_TOKEN_INVALID` | BGG ปฏิเสธ token (ผิด / หมดอายุ / แอปยังไม่อนุมัติ)          |
+| 503  | `BGG_BUSY`          | BGG ตอบ 202 (กำลังเตรียมข้อมูล) เกิน 3 รอบ → ลองใหม่         |
+| 429  | `BGG_RATE_LIMIT`    | เรียกถี่เกิน → รอสักครู่                                     |
+| 502  | `BGG_UNREACHABLE`   | ต่อ BGG ไม่ได้ (เน็ต / DNS) · `BGG_TIMEOUT` เกิน 10 วิ       |
+| 502  | `BGG_ERROR`         | BGG ตอบ error อื่น                                           |
+
+### นำเข้าเกมในคำสั่งเดียว
+
+`POST /api/bgg/import/:bggId` (สิทธิ์ `inventory:edit`) body ไม่บังคับ `{ overwrite?: boolean }`
+
+- เกมใหม่ → **201** สร้างพร้อม `image` (รูปเต็ม), `thumbnail`, `bggAverage`, `bggRating`, `bggWeight`, `categories`, `mechanics`, `designers`, ผู้เล่น, เวลาเล่น, คำอธิบาย (`copies` = 1)
+- มี `bggId` นี้ในคลังแล้ว → **200** อัปเดตเฉพาะข้อมูลจาก BGG (รูป, เรตติ้ง, หมวด, ปี) **ไม่แตะ** ชื่อ / คำอธิบาย / ผู้เล่น / เวลาเล่น / `copies` / `shelf` ที่ร้านแก้ไว้
+- `overwrite: true` → ทับชื่อ / คำอธิบาย / ผู้เล่น / เวลาเล่น ด้วยข้อมูล BGG ด้วย
+- ตอบเป็น game object เหมือน `GET /api/games/:id` · ไม่มีบน BGG → 404
+
+### รูปเกม
+
+- `thumbnail` = รูปเล็ก ~200px ใช้กับตาราง/รายการ · `image` = รูปเต็ม ใช้กับการ์ด/หน้า detail
+- FE แสดงการ์ดด้วย `game.image || game.thumbnail` (ไม่ใช่ `thumbnail` อย่างเดียว → จะเบลอ)
+- `GET /api/bgg/hot` มีแค่ `thumbnail` (BGG ไม่ส่งรูปเต็มใน hot list) — กด import แล้วจะได้รูปเต็ม
+
+### Seed / เติมรูปให้เกมที่มีอยู่
+
+- `npm run seed` — ถ้ามี `BGG_TOKEN` จะดึงรูป/เรตติ้ง/หมวดให้ 6 เกมตัวอย่างอัตโนมัติ (ไม่มี token ก็ยัง seed ได้ แค่ไม่มีรูป)
+- `npm run bgg:refresh` — เติมข้อมูล BGG ให้ทุกเกมในคลังที่มี `bggId` แต่ยังไม่มีรูป (`-- --all` = อัปเดตทุกเกม) ดึงทีละ 20 เกม เว้น 5 วิ

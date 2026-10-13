@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../lib/api.js';
 import './inventory.css';
+import { copyLabel } from '../../lib/copies.js';
 
 const STATUS = {
   available: { label: 'พร้อมใช้งาน', tone: 'ok' },
@@ -587,7 +588,6 @@ export default function Inventory() {
         {!loading && items.length === 0 && <p className="muted inv-empty">ไม่พบเกมในคลัง</p>}
         {items.map((g) => {
           const st = STATUS[g.status] || STATUS.available;
-          const copies = g.copies ?? 1;
           return (
             <article key={g._id} className="inv-card panel">
               <div className="inv-card-img">
@@ -599,7 +599,7 @@ export default function Inventory() {
                 <div className="inv-card-badges">
                   <span className={`inv-badge inv-badge-${st.tone}`}>
                     {st.label}
-                    {copies > 1 ? ` · ${copies} กล่อง` : ''}
+                    {copyLabel(g)}
                   </span>
                   {g.bggAverage != null && (
                     <span className="inv-rating">★ {Number(g.bggAverage).toFixed(1)}</span>
