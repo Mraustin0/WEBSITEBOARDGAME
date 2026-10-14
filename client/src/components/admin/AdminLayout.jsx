@@ -109,6 +109,14 @@ function UserMenu({ user, onLogout }) {
           >
             <User size={16} /> บัญชีของฉัน
           </Link>
+          <Link
+            to="/"
+            role="menuitem"
+            className="user-dropdown-item"
+            onClick={() => setOpen(false)}
+          >
+            <i className="fa-solid fa-globe" style={{ width: 16 }} /> ไปหน้าเว็บลูกค้า
+          </Link>
           <button
             type="button"
             role="menuitem"

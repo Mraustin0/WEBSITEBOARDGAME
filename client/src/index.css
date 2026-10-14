@@ -100,8 +100,8 @@
   --shadow-3: 0 20px 30px -10px rgba(47, 79, 47, 0.18);
 
   /* ฟอนต์: หัวข้อ Bree Serif (อังกฤษ) + Mitr (ไทย), เนื้อหา Montserrat + IBM Plex Sans Thai */
-  --font-heading: 'Bree Serif', 'Mitr', serif;
-  --font-body: 'Montserrat', 'IBM Plex Sans Thai', sans-serif;
+  --font-heading: 'Kanit', sans-serif;
+  --font-body: 'Kanit', sans-serif;
 
   --fs-main: 40px;
   --fs-title-lg: 28px;

@@ -51,8 +51,8 @@ export default {
         tertiary: '#daa520',
       },
       fontFamily: {
-        heading: ['"Bree Serif"', '"Mitr"', 'serif'],
-        sans: ['"Montserrat"', '"IBM Plex Sans Thai"', 'sans-serif'],
+        heading: ['"Kanit"', 'sans-serif'],
+        sans: ['"Kanit"', 'sans-serif'],
       },
       boxShadow: {
         'glow-emerald': '0 0 25px -2px rgba(47, 79, 47, 0.35)',
