@@ -137,11 +137,15 @@ describeIf('booking flow (integration)', () => {
   });
 
   it('enforces 3-day window, table capacity and game player count', async () => {
+    // นับเป็นวันตามปฏิทินไทย: วันนี้ + 3 จองได้ทั้งวัน, วันนี้ + 4 จองไม่ได้
+    const todayTH = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
+    const day4 = new Date(new Date(`${todayTH}T12:00:00+07:00`).getTime() + 4 * 24 * H);
     const far = await request(app)
       .post('/api/reservations')
       .set(auth(bobT))
-      .send({ table: t2._id, players: 2, startAt: inHours(24 * 3 + 1), durationHours: 1 });
+      .send({ table: t2._id, players: 2, startAt: day4.toISOString(), durationHours: 1 });
     expect(far.status).toBe(400);
+    expect(far.body.error).toMatch(/3 days/);
 
     const tooMany = await request(app)
       .post('/api/reservations')
