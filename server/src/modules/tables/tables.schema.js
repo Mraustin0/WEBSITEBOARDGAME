@@ -12,8 +12,13 @@ const position = z.object({
 });
 
 const fields = {
-  code: z.string().trim().min(1).max(20),
-  name: z.string().trim().max(60),
+  code: z
+    .string()
+    .trim()
+    .min(1, 'กรอกรหัสโต๊ะ')
+    .max(10, 'รหัสโต๊ะไม่เกิน 10 ตัว')
+    .regex(/^[A-Za-z0-9-]+$/, 'รหัสโต๊ะใช้ได้เฉพาะภาษาอังกฤษ ตัวเลข และ - (เช่น A1, VIP-2)'),
+  name: z.string().trim().max(60, 'ชื่อโต๊ะไม่เกิน 60 ตัวอักษร'),
   zone: z.string().trim().min(1).max(40),
   capacity: z.coerce.number().int().min(1).max(30),
   status: z.enum(TABLE_STATUSES),

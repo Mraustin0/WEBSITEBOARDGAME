@@ -7,6 +7,18 @@ import { useToast } from '../components/user/Toast.jsx';
 import { BTN, CARD, INPUT } from '../components/user/brandUi.js';
 import { BoardBorder, Logo } from '../components/brand/Brand.jsx';
 import { MeepleIcon } from '../components/brand/BrandIcons.jsx';
+import FieldError, { FieldHint, PASSWORD_HINT } from '../components/FieldError.jsx';
+import { DUP_ACCOUNT_MSG, useFieldErrors } from '../lib/useFieldErrors.js';
+import {
+  normalizePhone,
+  vConfirm,
+  vEmail,
+  vLineId,
+  vNewPassword,
+  vPersonName,
+  vPhone,
+  vUsername,
+} from '../lib/validate.js';
 
 const labelCls = 'block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1.5';
 const inputCls = `${INPUT} py-2.5`;
@@ -52,16 +64,34 @@ export default function UserProfile() {
   const setP = (k) => (e) => setProfile((f) => ({ ...f, [k]: e.target.value }));
   const setPW = (k) => (e) => setPw((f) => ({ ...f, [k]: e.target.value }));
 
+  // ตรวจเฉพาะช่องที่แก้ (server ก็ตรวจเฉพาะช่องที่ส่งไป) → ข้อมูลเก่าที่ไม่ได้แตะไม่บล็อกการบันทึก
+  const changed = (f, k) => (f[k] ?? '').trim() !== (stored[k] ?? '');
+  const pv = useFieldErrors(profile, (f) => ({
+    username: changed(f, 'username') ? vUsername(f.username) : '',
+    displayName: changed(f, 'displayName') ? vPersonName(f.displayName) : '',
+    email: changed(f, 'email') ? vEmail(f.email) : '',
+    phone: changed(f, 'phone') ? vPhone(f.phone) : '',
+    lineId: changed(f, 'lineId') ? vLineId(f.lineId) : '',
+  }));
+  const wv = useFieldErrors(pw, (f) => ({
+    oldPassword: f.oldPassword ? '' : 'กรอกรหัสผ่านเดิม',
+    newPassword:
+      vNewPassword(f.newPassword) ||
+      (f.oldPassword && f.newPassword === f.oldPassword ? 'รหัสผ่านใหม่ต้องไม่ซ้ำรหัสเดิม' : ''),
+    confirm: vConfirm(f.newPassword, f.confirm),
+  }));
+
   async function saveProfile(e) {
     e.preventDefault();
+    if (!pv.submit()) return;
     setBusyProfile(true);
+    const body = {};
     try {
-      const body = {};
-      if (profile.username !== stored.username) body.username = profile.username;
-      if (profile.displayName !== stored.displayName) body.displayName = profile.displayName;
-      if (profile.email !== stored.email) body.email = profile.email;
-      if (profile.phone !== stored.phone) body.phone = profile.phone;
-      if (profile.lineId !== stored.lineId) body.lineId = profile.lineId;
+      if (changed(profile, 'username')) body.username = profile.username.trim();
+      if (changed(profile, 'displayName')) body.displayName = profile.displayName.trim();
+      if (changed(profile, 'email')) body.email = profile.email.trim();
+      if (changed(profile, 'phone')) body.phone = normalizePhone(profile.phone);
+      if (changed(profile, 'lineId')) body.lineId = profile.lineId.trim();
 
       if (Object.keys(body).length === 0) {
         showToast('ไม่มีอะไรเปลี่ยนแปลง');
@@ -74,12 +104,16 @@ export default function UserProfile() {
       setStored(merged);
       showToast('บันทึกข้อมูลแล้ว');
     } catch (err) {
-      showToast(
-        err.status === 409
-          ? 'ชื่อผู้ใช้หรืออีเมลนี้มีคนใช้แล้ว'
-          : (err.message ?? 'บันทึกไม่สำเร็จ'),
-        false,
-      );
+      if (err.status === 409) {
+        if (!pv.server(err)) {
+          const dup = {};
+          if ('username' in body) dup.username = DUP_ACCOUNT_MSG;
+          if ('email' in body) dup.email = DUP_ACCOUNT_MSG;
+          if (!pv.setErrors(dup)) showToast(DUP_ACCOUNT_MSG, false);
+        }
+      } else if (!(err.status === 400 && pv.server(err))) {
+        showToast(err.message ?? 'บันทึกไม่สำเร็จ', false);
+      }
     } finally {
       setBusyProfile(false);
     }
@@ -87,10 +121,7 @@ export default function UserProfile() {
 
   async function changePassword(e) {
     e.preventDefault();
-    if (pw.newPassword !== pw.confirm) {
-      showToast('รหัสผ่านใหม่ไม่ตรงกัน', false);
-      return;
-    }
+    if (!wv.submit()) return;
     setBusyPw(true);
     try {
       const res = await api('/auth/password', {
@@ -101,15 +132,14 @@ export default function UserProfile() {
       if (res?.token) setSession({ token: res.token });
       showToast('เปลี่ยนรหัสผ่านแล้ว');
       setPw({ oldPassword: '', newPassword: '', confirm: '' });
+      wv.reset();
     } catch (err) {
-      const msg = /old password incorrect/.test(err.message)
-        ? 'รหัสผ่านเดิมไม่ถูกต้อง'
-        : /must differ/.test(err.message)
-          ? 'รหัสผ่านใหม่ต้องไม่ซ้ำกับรหัสเดิม'
-          : err.details?.newPassword
-            ? 'รหัสผ่านใหม่ต้องยาวอย่างน้อย 6 ตัวอักษร'
-            : (err.message ?? 'เปลี่ยนรหัสผ่านไม่สำเร็จ');
-      showToast(msg, false);
+      // server ส่งข้อความไทยมาใน details (เช่น 'รหัสผ่านใหม่ต้องไม่ซ้ำรหัสเดิม') → วางใต้ช่อง
+      if (/old password incorrect/.test(err.message)) {
+        wv.setErrors({ oldPassword: 'รหัสผ่านเดิมไม่ถูกต้อง' });
+      } else if (!(err.status === 400 && wv.server(err))) {
+        showToast(err.message ?? 'เปลี่ยนรหัสผ่านไม่สำเร็จ', false);
+      }
     } finally {
       setBusyPw(false);
     }
@@ -193,7 +223,7 @@ export default function UserProfile() {
         </div>
 
         {/* Profile form */}
-        <form onSubmit={saveProfile} className={`${CARD} space-y-5 p-5 sm:p-6`}>
+        <form onSubmit={saveProfile} noValidate className={`${CARD} space-y-5 p-5 sm:p-6`}>
           <h2 className="flex items-center gap-2 font-heading text-xl text-forest">
             <i className="fa-solid fa-user text-base text-brick-dark" aria-hidden="true" />{' '}
             ข้อมูลส่วนตัว
@@ -207,9 +237,15 @@ export default function UserProfile() {
               <input
                 id="pf-username"
                 className={inputCls}
+                autoComplete="username"
+                autoCapitalize="none"
+                spellCheck={false}
+                maxLength={32}
                 value={profile.username}
                 onChange={setP('username')}
+                {...pv.bind('username')}
               />
+              <FieldError id={pv.errId('username')} msg={pv.errors.username} />
             </div>
             <div>
               <label htmlFor="pf-display" className={labelCls}>
@@ -221,7 +257,11 @@ export default function UserProfile() {
                 value={profile.displayName}
                 onChange={setP('displayName')}
                 placeholder="ชื่อที่อยากให้แสดง"
+                autoComplete="nickname"
+                maxLength={80}
+                {...pv.bind('displayName')}
               />
+              <FieldError id={pv.errId('displayName')} msg={pv.errors.displayName} />
             </div>
           </div>
 
@@ -233,9 +273,14 @@ export default function UserProfile() {
               id="pf-email"
               className={inputCls}
               type="email"
+              inputMode="email"
+              autoComplete="email"
+              maxLength={254}
               value={profile.email}
               onChange={setP('email')}
+              {...pv.bind('email')}
             />
+            <FieldError id={pv.errId('email')} msg={pv.errors.email} />
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -247,10 +292,15 @@ export default function UserProfile() {
                 id="pf-phone"
                 className={inputCls}
                 type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                maxLength={15}
                 value={profile.phone}
                 onChange={setP('phone')}
-                placeholder="081-234-5678"
+                placeholder="0812345678"
+                {...pv.bind('phone')}
               />
+              <FieldError id={pv.errId('phone')} msg={pv.errors.phone} />
             </div>
             <div>
               <label htmlFor="pf-line" className={labelCls}>
@@ -262,7 +312,12 @@ export default function UserProfile() {
                 value={profile.lineId}
                 onChange={setP('lineId')}
                 placeholder="@yourline"
+                autoCapitalize="none"
+                spellCheck={false}
+                maxLength={21}
+                {...pv.bind('lineId')}
               />
+              <FieldError id={pv.errId('lineId')} msg={pv.errors.lineId} />
             </div>
           </div>
 
@@ -272,7 +327,7 @@ export default function UserProfile() {
         </form>
 
         {/* Password form */}
-        <form onSubmit={changePassword} className={`${CARD} space-y-5 p-5 sm:p-6`}>
+        <form onSubmit={changePassword} noValidate className={`${CARD} space-y-5 p-5 sm:p-6`}>
           <h2 className="flex items-center gap-2 font-heading text-xl text-forest">
             <i className="fa-solid fa-lock text-base text-brick-dark" aria-hidden="true" />{' '}
             เปลี่ยนรหัสผ่าน
@@ -290,6 +345,7 @@ export default function UserProfile() {
                 autoComplete="current-password"
                 value={pw.oldPassword}
                 onChange={setPW('oldPassword')}
+                {...wv.bind('oldPassword')}
               />
               <button
                 type="button"
@@ -303,6 +359,7 @@ export default function UserProfile() {
                 />
               </button>
             </div>
+            <FieldError id={wv.errId('oldPassword')} msg={wv.errors.oldPassword} />
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -318,7 +375,9 @@ export default function UserProfile() {
                   autoComplete="new-password"
                   value={pw.newPassword}
                   onChange={setPW('newPassword')}
-                  placeholder="ขั้นต่ำ 6 ตัวอักษร"
+                  placeholder="อย่างน้อย 8 ตัว"
+                  maxLength={128}
+                  {...wv.bind('newPassword', { hintId: 'pw-new-hint' })}
                 />
                 <button
                   type="button"
@@ -332,6 +391,8 @@ export default function UserProfile() {
                   />
                 </button>
               </div>
+              <FieldHint id="pw-new-hint">{PASSWORD_HINT}</FieldHint>
+              <FieldError id={wv.errId('newPassword')} msg={wv.errors.newPassword} />
             </div>
             <div>
               <label htmlFor="pw-confirm" className={labelCls}>
@@ -345,15 +406,14 @@ export default function UserProfile() {
                 value={pw.confirm}
                 onChange={setPW('confirm')}
                 placeholder="พิมพ์อีกครั้ง"
+                maxLength={128}
+                {...wv.bind('confirm')}
               />
+              <FieldError id={wv.errId('confirm')} msg={wv.errors.confirm} />
             </div>
           </div>
 
-          <button
-            type="submit"
-            disabled={busyPw || !pw.oldPassword || !pw.newPassword || !pw.confirm}
-            className={`${BTN.primary} w-full`}
-          >
+          <button type="submit" disabled={busyPw} className={`${BTN.primary} w-full`}>
             {busyPw ? 'กำลังเปลี่ยน...' : 'เปลี่ยนรหัสผ่าน'}
           </button>
         </form>

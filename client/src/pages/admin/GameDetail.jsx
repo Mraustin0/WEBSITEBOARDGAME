@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
+import FieldError from '../../components/FieldError.jsx';
+import { useFieldErrors } from '../../lib/useFieldErrors.js';
+import { gameRules, splitList } from '../../lib/gameRules.js';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Gamepad, Users, ClockCircle, Scale, Box } from 'reicon-react';
 import { api } from '../../lib/api.js';
@@ -64,12 +67,15 @@ export default function GameDetail() {
   }, [load]);
 
   const setField = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  const v = useFieldErrors(form, (f) => (f.name === undefined ? {} : gameRules(f)));
+  const fe = (k) => <FieldError variant="admin" id={v.errId(k)} msg={v.errors[k]} />;
 
   async function save(e) {
     e.preventDefault();
-    setBusy(true);
     setError('');
     setMsg('');
+    if (!v.submit()) return;
+    setBusy(true);
     try {
       const body = {
         name: form.name.trim(),
@@ -79,28 +85,20 @@ export default function GameDetail() {
         status: form.status,
         description: form.description,
         copies: Math.max(1, Number(form.copies) || 1),
-        categories: form.categories
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean),
-        mechanics: form.mechanics
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean),
-        designers: form.designers
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean),
+        categories: splitList(form.categories),
+        mechanics: splitList(form.mechanics),
+        designers: splitList(form.designers),
       };
       if (form.yearPublished !== '') body.yearPublished = Number(form.yearPublished);
-      body.thumbnail = form.thumbnail || '';
-      body.image = form.image || '';
+      body.thumbnail = form.thumbnail.trim();
+      body.image = form.image.trim();
       const updated = await api(`/games/${id}`, { method: 'PUT', body });
       setGame(updated);
       setEdit(false);
       setMsg('บันทึกแล้ว');
       load();
     } catch (err) {
+      if (err.status === 400 && v.server(err)) return;
       setError(err.message || 'บันทึกไม่สำเร็จ');
     } finally {
       setBusy(false);
@@ -156,7 +154,14 @@ export default function GameDetail() {
         <div className="inv-head-actions">
           {!edit ? (
             <>
-              <button type="button" className="btn-ghost" onClick={() => setEdit(true)}>
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={() => {
+                  v.reset();
+                  setEdit(true);
+                }}
+              >
                 แก้ไขเกม
               </button>
               <Link className="btn-ghost" to="/admin/maintenance">
@@ -316,7 +321,7 @@ export default function GameDetail() {
           {tab === 'general' && (
             <section className="panel gd-block">
               {edit ? (
-                <form className="gd-edit" onSubmit={save}>
+                <form className="gd-edit" onSubmit={save} noValidate>
                   <h2>แก้ไขข้อมูลเกม</h2>
                   <label className="field">
                     <span>ชื่อเกม</span>
@@ -325,7 +330,10 @@ export default function GameDetail() {
                       value={form.name}
                       onChange={(e) => setField('name', e.target.value)}
                       required
+                      maxLength={200}
+                      {...v.bind('name')}
                     />
+                    {fe('name')}
                   </label>
                   <div className="inv-form-row">
                     <label className="field">
@@ -333,27 +341,42 @@ export default function GameDetail() {
                       <input
                         className="input"
                         type="number"
+                        min={1}
+                        max={99}
+                        inputMode="numeric"
                         value={form.minPlayers}
                         onChange={(e) => setField('minPlayers', e.target.value)}
+                        {...v.bind('minPlayers')}
                       />
+                      {fe('minPlayers')}
                     </label>
                     <label className="field">
                       <span>ผู้เล่นสูงสุด</span>
                       <input
                         className="input"
                         type="number"
+                        min={1}
+                        max={99}
+                        inputMode="numeric"
                         value={form.maxPlayers}
                         onChange={(e) => setField('maxPlayers', e.target.value)}
+                        {...v.bind('maxPlayers')}
                       />
+                      {fe('maxPlayers')}
                     </label>
                     <label className="field">
                       <span>เวลาเล่น (นาที)</span>
                       <input
                         className="input"
                         type="number"
+                        min={1}
+                        max={1440}
+                        inputMode="numeric"
                         value={form.playtimeMin}
                         onChange={(e) => setField('playtimeMin', e.target.value)}
+                        {...v.bind('playtimeMin')}
                       />
+                      {fe('playtimeMin')}
                     </label>
                     <label className="field">
                       <span>จำนวนกล่อง</span>
@@ -361,10 +384,13 @@ export default function GameDetail() {
                         className="input"
                         type="number"
                         min={1}
-                        max={50}
+                        max={999}
+                        inputMode="numeric"
                         value={form.copies}
                         onChange={(e) => setField('copies', e.target.value)}
+                        {...v.bind('copies')}
                       />
+                      {fe('copies')}
                     </label>
                   </div>
                   <div className="inv-form-row">
@@ -373,9 +399,13 @@ export default function GameDetail() {
                       <input
                         className="input"
                         type="number"
+                        min={1800}
+                        inputMode="numeric"
                         value={form.yearPublished}
                         onChange={(e) => setField('yearPublished', e.target.value)}
+                        {...v.bind('yearPublished')}
                       />
+                      {fe('yearPublished')}
                     </label>
                     <label className="field">
                       <span>สถานะ</span>
@@ -396,7 +426,9 @@ export default function GameDetail() {
                       className="input"
                       value={form.categories}
                       onChange={(e) => setField('categories', e.target.value)}
+                      {...v.bind('categories')}
                     />
+                    {fe('categories')}
                   </label>
                   <label className="field">
                     <span>กลไกเกม (คั่นด้วย ,)</span>
@@ -404,7 +436,9 @@ export default function GameDetail() {
                       className="input"
                       value={form.mechanics}
                       onChange={(e) => setField('mechanics', e.target.value)}
+                      {...v.bind('mechanics')}
                     />
+                    {fe('mechanics')}
                   </label>
                   <label className="field">
                     <span>ผู้ออกแบบ (คั่นด้วย ,)</span>
@@ -412,25 +446,37 @@ export default function GameDetail() {
                       className="input"
                       value={form.designers}
                       onChange={(e) => setField('designers', e.target.value)}
+                      {...v.bind('designers')}
                     />
+                    {fe('designers')}
                   </label>
                   <label className="field">
                     <span>ลิงก์รูปย่อ</span>
                     <input
                       className="input"
                       type="url"
+                      inputMode="url"
+                      placeholder="https://..."
+                      maxLength={2000}
                       value={form.thumbnail}
                       onChange={(e) => setField('thumbnail', e.target.value)}
+                      {...v.bind('thumbnail')}
                     />
+                    {fe('thumbnail')}
                   </label>
                   <label className="field">
                     <span>ลิงก์รูปเต็ม</span>
                     <input
                       className="input"
                       type="url"
+                      inputMode="url"
+                      placeholder="https://..."
+                      maxLength={2000}
                       value={form.image}
                       onChange={(e) => setField('image', e.target.value)}
+                      {...v.bind('image')}
                     />
+                    {fe('image')}
                   </label>
                   {(form.thumbnail || form.image) && (
                     <div className="inv-preview">
@@ -443,7 +489,10 @@ export default function GameDetail() {
                       className="input inv-textarea"
                       value={form.description}
                       onChange={(e) => setField('description', e.target.value)}
+                      maxLength={10000}
+                      {...v.bind('description')}
                     />
+                    {fe('description')}
                   </label>
                   <div className="modal-actions">
                     <button type="submit" className="btn-primary" disabled={busy}>

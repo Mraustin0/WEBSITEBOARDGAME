@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { PAYMENT_METHODS, RESERVATION_STATUSES, SOURCES } from '../../models/reservation.model.js';
 import { PACKAGES, RULES } from './reservations.rules.js';
+import { optionalPersonName, phone } from '../../lib/validators.js';
 
 const objectId = z.string().regex(/^[a-f0-9]{24}$/i, 'invalid id');
 const dateStr = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'use YYYY-MM-DD');
@@ -69,15 +70,15 @@ export const adminBookingBody = z
     user: objectId.optional(),
     customer: z
       .object({
-        name: z.string().trim().max(80).default(''),
-        phone: z.string().trim().max(30).default(''),
+        name: optionalPersonName.default(''),
+        phone: phone.default(''),
       })
       .default({}),
     note: note.default(''),
   })
   .refine(flatNeeds3h, flatMsg)
   .refine((o) => o.user || o.customer.name || o.customer.phone, {
-    message: 'need user or customer name/phone',
+    message: 'ระบุสมาชิก หรือชื่อ/เบอร์โทรลูกค้า',
     path: ['customer'],
   });
 

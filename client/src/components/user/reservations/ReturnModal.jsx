@@ -6,6 +6,9 @@ import { BTN, baht, errText, minutesText } from './utils.js';
 import { hoursLabel } from '../../../lib/booking.js';
 import { timeTH } from '../../../lib/date.js';
 import { checkoutPreview, returnGame } from '../../../services/api.js';
+import FieldError from '../../FieldError.jsx';
+import { useFieldErrors } from '../../../lib/useFieldErrors.js';
+import { vText } from '../../../lib/validate.js';
 
 export default function ReturnModal({ r, onClose, onDone }) {
   const [bill, setBill] = useState(null);
@@ -36,14 +39,16 @@ export default function ReturnModal({ r, onClose, onDone }) {
   }, [id, retry]);
 
   const damaged = hasGame && condition === 'damaged';
-  const noteMissing = damaged && !note.trim();
+  // เกมเสียหาย → ต้องบอกว่าเสียตรงไหน (≤ 500 ตัว ตาม returnBody.damageNote)
+  const v = useFieldErrors({ note }, (f) => ({
+    note: damaged
+      ? vText(f.note, { required: true, max: 500, label: 'รายละเอียดความเสียหาย' })
+      : '',
+  }));
 
   async function submit() {
     if (busy) return;
-    if (noteMissing) {
-      setError('ระบุหน่อยว่าเสียหายตรงไหน');
-      return;
-    }
+    if (!v.submit()) return;
     setBusy(true);
     setError('');
     try {
@@ -54,7 +59,9 @@ export default function ReturnModal({ r, onClose, onDone }) {
       );
       onDone(updated, { damaged });
     } catch (err) {
-      setError(errText(err));
+      if (!(err.status === 400 && v.server(err, { map: { damageNote: 'note' } }))) {
+        setError(errText(err));
+      }
       setBusy(false);
     }
   }
@@ -74,7 +81,7 @@ export default function ReturnModal({ r, onClose, onDone }) {
             type="button"
             className={BTN.cta}
             onClick={submit}
-            disabled={busy || loading || Boolean(loadError) || noteMissing}
+            disabled={busy || loading || Boolean(loadError)}
           >
             <i className="fa-solid fa-box-archive" aria-hidden="true"></i>
             {busy ? 'กำลังบันทึก...' : hasGame ? 'คืนเกม' : 'เช็คบิล'}
@@ -203,9 +210,12 @@ export default function ReturnModal({ r, onClose, onDone }) {
                 maxLength={500}
                 rows={2}
                 required
+                aria-required="true"
                 placeholder="เช่น การ์ดหาย 2 ใบ, กล่องฉีก"
+                {...v.bind('note')}
                 className="w-full rounded-xl border border-ink/15 bg-white px-3 py-2 text-sm placeholder:text-slate-400 focus:border-mustard-dark focus:outline-none focus:ring-2 focus:ring-mustard/40"
               />
+              <FieldError id={v.errId('note')} msg={v.errors.note} />
               <p className="mt-1 text-[11px] text-slate-600">พนักงานจะตรวจสภาพเกมและส่งซ่อมให้</p>
             </div>
           )}

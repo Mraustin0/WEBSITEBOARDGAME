@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
+import FieldError from '../../components/FieldError.jsx';
+import { useFieldErrors } from '../../lib/useFieldErrors.js';
+import { vText } from '../../lib/validate.js';
 import { api } from '../../lib/api.js';
 import './roles.css';
 
@@ -16,6 +19,25 @@ export default function Roles() {
   const [msg, setMsg] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({ name: '', slug: '', description: '' });
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState('');
+  // กฎตาม roles.schema.js (createBody)
+  const cv = useFieldErrors(form, (f) => {
+    const slug = f.slug.trim();
+    return {
+      name: vText(f.name, { required: true, min: 2, max: 60, label: 'ชื่อบทบาท' }),
+      slug: !slug
+        ? ''
+        : slug.length < 2 || slug.length > 40
+          ? 'รหัสบทบาท 2–40 ตัวอักษร'
+          : !/^[a-z0-9_-]+$/.test(slug)
+            ? 'ใช้ได้เฉพาะ a-z ตัวพิมพ์เล็ก ตัวเลข _ และ - (เช่น cashier)'
+            : slug === 'admin' || slug === 'user'
+              ? 'รหัสนี้สงวนไว้สำหรับระบบ'
+              : '',
+      description: vText(f.description, { max: 300, label: 'คำอธิบาย' }),
+    };
+  });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -95,16 +117,25 @@ export default function Roles() {
     }
   }
 
+  function closeCreate() {
+    setShowCreate(false);
+    setCreateError('');
+    cv.reset();
+  }
+
   async function createRole(e) {
     e.preventDefault();
     setError('');
+    setCreateError('');
+    if (!cv.submit()) return;
+    setCreating(true);
     try {
       const role = await api('/roles', {
         method: 'POST',
         body: {
-          name: form.name,
-          slug: form.slug || undefined,
-          description: form.description,
+          name: form.name.trim(),
+          slug: form.slug.trim() || undefined,
+          description: form.description.trim(),
           permissions: catalog.map((c) => EMPTY_PERM(c.key)),
         },
       });
@@ -112,8 +143,21 @@ export default function Roles() {
       setForm({ name: '', slug: '', description: '' });
       await load();
       setSelected(role._id);
+      cv.reset();
     } catch (err) {
-      setError(err.message);
+      if (err.status === 400 && cv.server(err)) return;
+      if (err.status === 409) {
+        const dup = /reserved/.test(err.message)
+          ? { slug: 'รหัสนี้สงวนไว้สำหรับระบบ' }
+          : {
+              name: 'ชื่อหรือรหัสบทบาทนี้ถูกใช้แล้ว',
+              ...(form.slug.trim() && { slug: 'ชื่อหรือรหัสบทบาทนี้ถูกใช้แล้ว' }),
+            };
+        if (cv.setErrors(dup)) return;
+      }
+      setCreateError(err.message);
+    } finally {
+      setCreating(false);
     }
   }
 
@@ -265,39 +309,55 @@ export default function Roles() {
       {showCreate && (
         <div
           className="modal-overlay"
-          onMouseDown={(e) => e.target === e.currentTarget && setShowCreate(false)}
+          onMouseDown={(e) => e.target === e.currentTarget && closeCreate()}
         >
-          <form className="modal" onSubmit={createRole}>
+          <form className="modal" onSubmit={createRole} noValidate>
             <h2>เพิ่มบทบาท</h2>
+            {createError && <div className="error-box">{createError}</div>}
             <label>
               ชื่อบทบาท
               <input
                 required
+                maxLength={60}
                 value={form.name}
                 onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                {...cv.bind('name')}
               />
+              <FieldError variant="admin" id={cv.errId('name')} msg={cv.errors.name} />
             </label>
             <label>
               รหัสบทบาท (ภาษาอังกฤษ เว้นว่างได้)
               <input
                 placeholder="เช่น cashier"
+                maxLength={40}
+                autoCapitalize="none"
+                spellCheck={false}
                 value={form.slug}
                 onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))}
+                {...cv.bind('slug')}
               />
+              <FieldError variant="admin" id={cv.errId('slug')} msg={cv.errors.slug} />
             </label>
             <label>
               คำอธิบาย
               <input
+                maxLength={300}
                 value={form.description}
                 onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                {...cv.bind('description')}
+              />
+              <FieldError
+                variant="admin"
+                id={cv.errId('description')}
+                msg={cv.errors.description}
               />
             </label>
             <div className="modal-actions">
-              <button type="button" className="btn" onClick={() => setShowCreate(false)}>
+              <button type="button" className="btn" onClick={closeCreate} disabled={creating}>
                 ยกเลิก
               </button>
-              <button type="submit" className="btn primary">
-                เพิ่มบทบาท
+              <button type="submit" className="btn primary" disabled={creating}>
+                {creating ? 'กำลังเพิ่ม...' : 'เพิ่มบทบาท'}
               </button>
             </div>
           </form>

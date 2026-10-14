@@ -3,6 +3,9 @@ import { api } from '../../../lib/api.js';
 import { timeTH } from '../../../lib/date.js';
 import { customerName, gameName, tableCode } from '../../../lib/reservationStatus.js';
 import './CheckoutModal.css';
+import FieldError from '../../FieldError.jsx';
+import { useFieldErrors } from '../../../lib/useFieldErrors.js';
+import { vText } from '../../../lib/validate.js';
 
 const money = (n) => Number(n || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 });
 const PAY = [
@@ -22,20 +25,25 @@ export default function CheckoutModal({ isOpen, reservation, onClose, onSuccess 
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [fieldErrors, setFieldErrors] = useState({});
   const [stale, setStale] = useState(false); // true เมื่อชน 409 (สถานะเปลี่ยนไปแล้ว)
   const [condition, setCondition] = useState('good'); // 'good' | 'damaged'
   const [damageNote, setDamageNote] = useState('');
   const [method, setMethod] = useState('qr');
 
   const id = reservation?._id;
+  // ชำรุด → ต้องระบุว่าเสียตรงไหน (≤ 500 ตัว ตาม returnBody.damageNote)
+  const v = useFieldErrors({ damageNote }, (f) => ({
+    damageNote:
+      condition === 'damaged'
+        ? vText(f.damageNote, { required: true, max: 500, label: 'รายละเอียดความเสียหาย' })
+        : '',
+  }));
 
   // จัดการ error ตามเอกสาร: 400 = ข้อมูลผิด, 401 = token, 409 = สถานะชนกัน
   function handleError(err) {
     if (err.status === 401) setError('เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่');
     else if (err.status === 400) {
-      setError(err.message);
-      setFieldErrors(err.details ?? {});
+      if (!v.server(err)) setError(err.message);
     } else if (err.status === 409) {
       setError(`ทำรายการไม่ได้ สถานะการจองเปลี่ยนไปแล้ว: ${err.message}`);
       setStale(true);
@@ -50,7 +58,7 @@ export default function CheckoutModal({ isOpen, reservation, onClose, onSuccess 
     setBill(null);
     setLoading(true);
     setError('');
-    setFieldErrors({});
+    v.reset();
     setStale(false);
     setCondition('good');
     setDamageNote('');
@@ -83,9 +91,9 @@ export default function CheckoutModal({ isOpen, reservation, onClose, onSuccess 
   }, [isOpen]);
 
   async function submit() {
-    setBusy(true);
     setError('');
-    setFieldErrors({});
+    if (!v.submit()) return;
+    setBusy(true);
     try {
       const body = { condition, paymentMethod: method };
       if (condition === 'damaged') body.damageNote = damageNote.trim(); // ชำรุด -> ระบบเปิดใบแจ้งซ่อมให้เอง
@@ -172,12 +180,13 @@ export default function CheckoutModal({ isOpen, reservation, onClose, onSuccess 
                   className="input co-note"
                   rows={3}
                   placeholder="เช่น การ์ดหาย 2 ใบ — ระบบจะเปิดใบแจ้งซ่อมและส่งกล่องนี้ไปซ่อมให้อัตโนมัติ"
+                  maxLength={500}
+                  aria-required="true"
                   value={damageNote}
                   onChange={(e) => setDamageNote(e.target.value)}
+                  {...v.bind('damageNote')}
                 />
-                {fieldErrors.damageNote && (
-                  <small className="field-error">{fieldErrors.damageNote[0]}</small>
-                )}
+                <FieldError variant="admin" id={v.errId('damageNote')} msg={v.errors.damageNote} />
               </label>
             )}
           </section>

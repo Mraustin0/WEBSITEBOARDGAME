@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { optionalEmail, phone } from '../../lib/validators.js';
 
 const hhmm = z.string().regex(/^(([01]\d|2[0-3]):[0-5]\d|24:00)$/, 'use HH:MM (00:00–24:00)');
 const money = z.coerce.number().min(0).max(100000);
@@ -15,9 +16,9 @@ export const settingsBody = z
   .object({
     store: z
       .object({
-        name: z.string().trim().max(100),
-        phone: z.string().trim().max(30),
-        email: z.string().trim().max(100),
+        name: z.string().trim().min(1, 'กรอกชื่อร้าน').max(100, 'ชื่อร้านไม่เกิน 100 ตัวอักษร'),
+        phone,
+        email: optionalEmail,
         address: z.string().trim().max(300),
       })
       .partial(),

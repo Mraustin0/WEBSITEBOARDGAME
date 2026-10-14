@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
+import FieldError, { FieldHint, PASSWORD_HINT } from '../../components/FieldError.jsx';
+import { DUP_ACCOUNT_MSG, useFieldErrors } from '../../lib/useFieldErrors.js';
+import { vEmail, vNewPassword, vText, vUsername } from '../../lib/validate.js';
 import { api } from '../../lib/api.js';
 import './users.css';
 
@@ -81,9 +84,8 @@ function pageList(page, pages) {
 }
 
 function errorText(err, fallback) {
-  if (err.status === 409) return 'ชื่อผู้ใช้หรืออีเมลนี้ถูกใช้แล้ว';
-  if (err.status === 400)
-    return 'ข้อมูลไม่ถูกต้อง (ชื่อผู้ใช้อย่างน้อย 3 ตัวอักษร, รหัสผ่านอย่างน้อย 6 ตัวอักษร)';
+  if (err.status === 409) return DUP_ACCOUNT_MSG;
+  if (err.status === 400) return 'ข้อมูลไม่ถูกต้อง ตรวจสอบช่องที่กรอกอีกครั้ง';
   return err.message || fallback;
 }
 
@@ -148,52 +150,75 @@ function AddUserModal({ onClose, onDone, roles }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const v = useFieldErrors(form, (f) => ({
+    username: vUsername(f.username),
+    email: vEmail(f.email),
+    password: vNewPassword(f.password),
+    role: f.role ? '' : 'เลือกบทบาท',
+  }));
 
   async function submit(e) {
     e.preventDefault();
-    setBusy(true);
     setError('');
+    if (!v.submit()) return;
+    setBusy(true);
+    const username = form.username.trim();
     try {
-      const { username, email, password, role } = form;
+      const { password, role } = form;
       // ใช้ endpoint admin ที่รองรับ role ได้เลย
       await api('/admin/users', {
         method: 'POST',
-        body: { username, email, password, role: role || 'user' },
+        body: { username, email: form.email.trim(), password, role: role || 'user' },
       });
       onDone({
         tone: 'ok',
         text: `เพิ่มผู้ใช้ "${username}" เป็น ${roleLabel(role, roles)} แล้ว`,
       });
     } catch (err) {
-      setError(errorText(err, 'เพิ่มผู้ใช้ไม่สำเร็จ'));
       setBusy(false);
+      if (err.status === 400 && v.server(err)) return;
+      if (
+        err.status === 409 &&
+        (v.server(err) || v.setErrors({ username: DUP_ACCOUNT_MSG, email: DUP_ACCOUNT_MSG }))
+      )
+        return;
+      setError(errorText(err, 'เพิ่มผู้ใช้ไม่สำเร็จ'));
     }
   }
 
   return (
     <Modal title="เพิ่มผู้ใช้" subtitle="สร้างบัญชีและเลือกบทบาท" onClose={onClose}>
-      <form className="us-form" onSubmit={submit}>
+      <form className="us-form" onSubmit={submit} noValidate>
         <label>
           <span>ชื่อผู้ใช้</span>
           <input
             className="input"
             required
-            minLength={3}
             maxLength={32}
+            autoComplete="username"
+            autoCapitalize="none"
+            spellCheck={false}
             value={form.username}
             onChange={set('username')}
             autoFocus
+            {...v.bind('username')}
           />
+          <FieldError variant="admin" id={v.errId('username')} msg={v.errors.username} />
         </label>
         <label>
           <span>อีเมล</span>
           <input
             className="input"
             type="email"
+            inputMode="email"
+            autoComplete="email"
             required
+            maxLength={254}
             value={form.email}
             onChange={set('email')}
+            {...v.bind('email')}
           />
+          <FieldError variant="admin" id={v.errId('email')} msg={v.errors.email} />
         </label>
         <label>
           <span>รหัสผ่าน</span>
@@ -201,12 +226,16 @@ function AddUserModal({ onClose, onDone, roles }) {
             className="input"
             type="password"
             required
-            minLength={6}
             maxLength={128}
             value={form.password}
             onChange={set('password')}
             autoComplete="new-password"
+            {...v.bind('password', { hintId: 'us-add-pw-hint' })}
           />
+          <FieldHint variant="admin" id="us-add-pw-hint">
+            {PASSWORD_HINT}
+          </FieldHint>
+          <FieldError variant="admin" id={v.errId('password')} msg={v.errors.password} />
         </label>
         <div>
           <span className="us-label">บทบาท</span>
@@ -215,6 +244,7 @@ function AddUserModal({ onClose, onDone, roles }) {
             onChange={(role) => setForm((f) => ({ ...f, role }))}
             roles={roles}
           />
+          <FieldError variant="admin" id={v.errId('role')} msg={v.errors.role} />
         </div>
         {error && <div className="us-error">{error}</div>}
         <footer className="us-modal-foot">
@@ -309,6 +339,60 @@ function DeleteModal({ user, onClose, onDone }) {
   );
 }
 
+/** ระงับบัญชี + เหตุผล (ไม่บังคับ ≤ 300 ตัว ตาม suspendBody) — แทน window.prompt */
+function SuspendModal({ user, onClose, onDone }) {
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const v = useFieldErrors({ reason }, (f) => ({
+    reason: vText(f.reason, { max: 300, label: 'เหตุผล' }),
+  }));
+
+  async function submit(e) {
+    e.preventDefault();
+    setError('');
+    if (!v.submit()) return;
+    setBusy(true);
+    try {
+      await suspendUser(user, reason.trim());
+      onDone({ tone: 'ok', text: `ระงับบัญชี ${user.username} แล้ว` });
+    } catch (err) {
+      setBusy(false);
+      if (!(err.status === 400 && v.server(err))) setError(err.message || 'ระงับบัญชีไม่สำเร็จ');
+    }
+  }
+
+  return (
+    <Modal title="ระงับบัญชี" subtitle={`${user.username} · ${user.email}`} onClose={onClose}>
+      <form className="us-form" onSubmit={submit} noValidate>
+        <label>
+          <span>เหตุผลที่ระงับ (ไม่บังคับ)</span>
+          <textarea
+            className="input"
+            rows={3}
+            maxLength={300}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="เช่น ไม่มาตามนัดหลายครั้ง"
+            autoFocus
+            {...v.bind('reason')}
+          />
+          <FieldError variant="admin" id={v.errId('reason')} msg={v.errors.reason} />
+        </label>
+        {error && <div className="us-error">{error}</div>}
+        <footer className="us-modal-foot">
+          <button type="button" className="us-btn" onClick={onClose} disabled={busy}>
+            ยกเลิก
+          </button>
+          <button type="submit" className="us-btn us-btn-warn" disabled={busy}>
+            {busy ? 'กำลังระงับ...' : 'ระงับบัญชี'}
+          </button>
+        </footer>
+      </form>
+    </Modal>
+  );
+}
+
 /**
  * หน้าจัดการผู้ใช้งานและสิทธิ์ (ดีไซน์หน้า 5)
  * ใช้ GET /admin/users, PUT /admin/users/:id/role, DELETE /admin/users/:id, POST /auth/register
@@ -336,7 +420,7 @@ export default function Users() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState(null);
-  const [modal, setModal] = useState(null); // { type: 'add' | 'role' | 'delete', user? }
+  const [modal, setModal] = useState(null); // { type: 'add' | 'role' | 'suspend' | 'delete', user? }
   const [roleList, setRoleList] = useState(FALLBACK_ROLES);
   const me = currentUserId();
 
@@ -668,17 +752,7 @@ export default function Users() {
                             type="button"
                             className="us-btn us-btn-warn"
                             disabled={isMe}
-                            onClick={async () => {
-                              const reason = window.prompt('เหตุผลที่ระงับ (ไม่บังคับ)') ?? '';
-                              try {
-                                await suspendUser(u, reason);
-                                setNotice({ tone: 'ok', text: `ระงับบัญชี ${u.username} แล้ว` });
-                                load();
-                                loadStats();
-                              } catch (err) {
-                                setError(err.message);
-                              }
-                            }}
+                            onClick={() => setModal({ type: 'suspend', user: u })}
                           >
                             ระงับบัญชี
                           </button>
@@ -754,6 +828,9 @@ export default function Users() {
           onDone={done}
           roles={roleList}
         />
+      )}
+      {modal?.type === 'suspend' && (
+        <SuspendModal user={modal.user} onClose={() => setModal(null)} onDone={done} />
       )}
       {modal?.type === 'delete' && (
         <DeleteModal

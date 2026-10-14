@@ -27,6 +27,9 @@ import GamePickerModal from '../components/user/booking/GamePickerModal.jsx';
 import PriceBreakdown from '../components/user/booking/PriceBreakdown.jsx';
 import { baht, estimatePrice } from '../components/user/booking/pricing.js';
 import { BTN } from '../components/user/brandUi.js';
+import FieldError from '../components/FieldError.jsx';
+import { useFieldErrors } from '../lib/useFieldErrors.js';
+import { vText } from '../lib/validate.js';
 import { CalendarIcon, DiceIcon, TableIcon, TrophyIcon } from '../components/brand/BrandIcons.jsx';
 
 const REFRESH_MS = 30_000;
@@ -149,6 +152,9 @@ export default function FloorPlan() {
   const [rawPkg, setRawPkg] = useState('hourly');
   const [rawStudent, setRawStudent] = useState(false);
   const [note, setNote] = useState('');
+  const nv = useFieldErrors({ note }, (f) => ({
+    note: vText(f.note, { max: 300, label: 'หมายเหตุ' }),
+  }));
   const [pickerOpen, setPickerOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(null);
@@ -417,11 +423,12 @@ export default function FloorPlan() {
       return;
     }
     if (!quoteBody || submitting) return;
+    if (!nv.submit()) return;
     setSubmitting(true);
     setSubmitError(null);
     const code = selectedTable?.code ?? '';
     try {
-      const r = await createBooking({ ...quoteBody, note });
+      const r = await createBooking({ ...quoteBody, note: note.trim() });
       const bookedCode = r?.table?.code ?? code;
       showToast(`จองโต๊ะ ${bookedCode} สำเร็จ`);
       setDone({
@@ -432,9 +439,11 @@ export default function FloorPlan() {
       });
       updateParams({ table: null });
       setNote('');
+      nv.reset();
       loadFloor();
       loadAvail();
     } catch (err) {
+      if (err?.status === 400 && nv.server(err)) return;
       const msg = thaiError(err);
       showToast(msg, false);
       if (err?.status === 409) {
@@ -873,16 +882,25 @@ export default function FloorPlan() {
                 </div>
 
                 {loggedIn && (
-                  <label className="block">
-                    <span className={labelCls}>หมายเหตุถึงร้าน (ไม่บังคับ)</span>
+                  <div>
+                    <label htmlFor="booking-note" className={labelCls}>
+                      หมายเหตุถึงร้าน (ไม่บังคับ)
+                    </label>
                     <textarea
+                      id="booking-note"
                       value={note}
-                      onChange={(e) => setNote(e.target.value.slice(0, 300))}
+                      onChange={(e) => setNote(e.target.value)}
+                      maxLength={300}
+                      {...nv.bind('note')}
                       rows={2}
                       placeholder="เช่น ขอที่นั่งใกล้ปลั๊ก, มีเด็กเล็กมาด้วย"
                       className="w-full rounded-xl border border-ink/15 bg-white text-sm p-2.5 outline-none placeholder:text-slate-400 focus:border-forest focus:ring-2 focus:ring-forest/20 resize-none"
                     ></textarea>
-                  </label>
+                    <div className="flex items-start justify-between gap-2">
+                      <FieldError id={nv.errId('note')} msg={nv.errors.note} className="mt-0.5" />
+                      <span className="ml-auto text-[10px] text-slate-500">{note.length}/300</span>
+                    </div>
+                  </div>
                 )}
 
                 {submitError && !quoteNow?.error && (

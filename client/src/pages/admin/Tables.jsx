@@ -1,5 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../../lib/api.js';
+import FieldError from '../../components/FieldError.jsx';
+import { useFieldErrors } from '../../lib/useFieldErrors.js';
+import { vNumber, vTableCode, vText } from '../../lib/validate.js';
 import './tables.css';
 
 const STATUSES = {
@@ -61,9 +64,30 @@ function Modal({ title, subtitle, onClose, children, wide }) {
   );
 }
 
+const POS_KEYS = ['x', 'y', 'w', 'h'];
+const POS_LABEL = { x: 'แนวนอน', y: 'แนวตั้ง', w: 'กว้าง', h: 'สูง' };
+
+// กฎเดียวกับ tables.schema.js
+const tableRules = (f, isEdit) => ({
+  code: isEdit ? '' : vTableCode(f.code),
+  name: vText(f.name, { max: 60, label: 'ชื่อโต๊ะ' }),
+  zone: vText(f.zone, { required: true, max: 40, label: 'โซน' }),
+  capacity: vNumber(f.capacity, { min: 1, max: 30, integer: true, label: 'จำนวนที่นั่ง' }),
+  extraPerHour: vNumber(f.extraPerHour, { min: 0, max: 10000, label: 'ค่าโต๊ะเพิ่ม' }),
+  notes: vText(f.notes, { max: 300, label: 'หมายเหตุ' }),
+  ...Object.fromEntries(
+    POS_KEYS.map((k) => [
+      `position.${k}`,
+      vNumber(f.position?.[k], { min: 0, max: 100, required: false, label: POS_LABEL[k] }),
+    ]),
+  ),
+});
+
 function TableForm({ initial, onSubmit, onCancel, saving, isEdit }) {
   const [form, setForm] = useState(() => ({ ...EMPTY_FORM, ...initial }));
   const [err, setErr] = useState('');
+  const posRef = useRef(null);
+  const v = useFieldErrors(form, (f) => tableRules(f, isEdit));
 
   function set(field, value) {
     setForm((f) => ({ ...f, [field]: value }));
@@ -72,26 +96,18 @@ function TableForm({ initial, onSubmit, onCancel, saving, isEdit }) {
   function setPos(key, value) {
     setForm((f) => ({
       ...f,
-      position: { ...f.position, [key]: Number(value) || 0 },
+      position: { ...f.position, [key]: value },
     }));
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
     setErr('');
+    const all = tableRules(form, isEdit);
+    // ช่องตำแหน่งอยู่ใน <details> — เปิดก่อนโฟกัสช่องที่ผิด
+    if (posRef.current && POS_KEYS.some((k) => all[`position.${k}`])) posRef.current.open = true;
+    if (!v.submit()) return;
     const code = form.code.trim().toUpperCase();
-    if (!code) {
-      setErr('กรอกรหัสโต๊ะ');
-      return;
-    }
-    if (!form.zone.trim()) {
-      setErr('กรอกโซน');
-      return;
-    }
-    if (!form.capacity || form.capacity < 1) {
-      setErr('ต้องมีอย่างน้อย 1 ที่นั่ง');
-      return;
-    }
     try {
       await onSubmit({
         code,
@@ -110,12 +126,15 @@ function TableForm({ initial, onSubmit, onCancel, saving, isEdit }) {
         },
       });
     } catch (error) {
+      if ((error.status === 400 || error.status === 409) && v.server(error)) return;
       setErr(errorText(error, 'บันทึกไม่สำเร็จ'));
     }
   }
 
+  const fe = (k) => <FieldError variant="admin" id={v.errId(k)} msg={v.errors[k]} />;
+
   return (
-    <form className="tbl-form" onSubmit={handleSubmit}>
+    <form className="tbl-form" onSubmit={handleSubmit} noValidate>
       {err && <div className="form-error">{err}</div>}
 
       <div className="tbl-form-grid">
@@ -125,12 +144,16 @@ function TableForm({ initial, onSubmit, onCancel, saving, isEdit }) {
             className="input"
             value={form.code}
             onChange={(e) => set('code', e.target.value.toUpperCase())}
-            placeholder="เช่น A1, VIP1"
-            maxLength={20}
+            placeholder="เช่น A1, VIP-2"
+            maxLength={10}
+            autoCapitalize="characters"
+            spellCheck={false}
             required
             disabled={isEdit}
+            {...v.bind('code')}
           />
           {isEdit && <small className="muted">รหัสโต๊ะแก้ไม่ได้</small>}
+          {fe('code')}
         </label>
 
         <label>
@@ -141,7 +164,9 @@ function TableForm({ initial, onSubmit, onCancel, saving, isEdit }) {
             onChange={(e) => set('name', e.target.value)}
             placeholder="เช่น ห้องส่วนตัว 1"
             maxLength={60}
+            {...v.bind('name')}
           />
+          {fe('name')}
         </label>
 
         <label>
@@ -154,7 +179,9 @@ function TableForm({ initial, onSubmit, onCancel, saving, isEdit }) {
             maxLength={40}
             required
             list="zone-suggestions"
+            {...v.bind('zone')}
           />
+          {fe('zone')}
         </label>
 
         <label>
@@ -164,10 +191,14 @@ function TableForm({ initial, onSubmit, onCancel, saving, isEdit }) {
             type="number"
             min={1}
             max={30}
+            step={1}
+            inputMode="numeric"
             value={form.capacity}
             onChange={(e) => set('capacity', e.target.value)}
             required
+            {...v.bind('capacity')}
           />
+          {fe('capacity')}
         </label>
 
         <label>
@@ -202,9 +233,12 @@ function TableForm({ initial, onSubmit, onCancel, saving, isEdit }) {
             min={0}
             max={10000}
             step={10}
+            inputMode="decimal"
             value={form.extraPerHour}
             onChange={(e) => set('extraPerHour', e.target.value)}
+            {...v.bind('extraPerHour')}
           />
+          {fe('extraPerHour')}
         </label>
 
         <label className="tbl-span-2">
@@ -215,24 +249,29 @@ function TableForm({ initial, onSubmit, onCancel, saving, isEdit }) {
             onChange={(e) => set('notes', e.target.value)}
             maxLength={300}
             placeholder="เช่น ใกล้หน้าต่าง, มีปลั๊ก"
+            {...v.bind('notes')}
           />
+          {fe('notes')}
         </label>
       </div>
 
-      <details className="tbl-pos">
+      <details className="tbl-pos" ref={posRef}>
         <summary>ตำแหน่งบนผังโต๊ะ (ไม่บังคับ)</summary>
         <div className="tbl-form-grid tbl-pos-grid">
-          {['x', 'y', 'w', 'h'].map((k) => (
+          {POS_KEYS.map((k) => (
             <label key={k}>
-              <span>{{ x: 'แนวนอน', y: 'แนวตั้ง', w: 'กว้าง', h: 'สูง' }[k]} (%)</span>
+              <span>{POS_LABEL[k]} (%)</span>
               <input
                 className="input"
                 type="number"
                 min={0}
                 max={100}
-                value={form.position?.[k] ?? 0}
+                inputMode="decimal"
+                value={form.position?.[k] ?? ''}
                 onChange={(e) => setPos(k, e.target.value)}
+                {...v.bind(`position.${k}`)}
               />
+              {fe(`position.${k}`)}
             </label>
           ))}
         </div>

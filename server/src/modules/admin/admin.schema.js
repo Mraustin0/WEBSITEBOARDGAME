@@ -1,5 +1,13 @@
 import { z } from 'zod';
 import { USER_STATUSES, USER_TIERS } from '../../models/user.model.js';
+import {
+  email,
+  lineId,
+  newPassword,
+  optionalPersonName,
+  phone,
+  username,
+} from '../../lib/validators.js';
 
 const objectId = z.string().regex(/^[a-f0-9]{24}$/i, 'invalid id');
 
@@ -19,27 +27,27 @@ export const updateRoleBody = z.object({
 });
 
 export const createUserBody = z.object({
-  username: z.string().trim().min(3).max(32),
-  email: z.string().trim().toLowerCase().email(),
-  password: z.string().min(6).max(128),
+  username,
+  email,
+  password: newPassword,
   role: z.string().trim().min(1).max(40).default('user'),
   status: z.enum(USER_STATUSES).default('active'),
   tier: z.enum(USER_TIERS).default('regular'),
-  displayName: z.string().trim().max(80).optional(),
-  phone: z.string().trim().max(30).optional(),
-  lineId: z.string().trim().max(60).optional(),
+  displayName: optionalPersonName.optional(),
+  phone: phone.optional(),
+  lineId: lineId.optional(),
 });
 
 export const updateUserBody = z
   .object({
-    username: z.string().trim().min(3).max(32).optional(),
-    email: z.string().trim().toLowerCase().email().optional(),
+    username: username.optional(),
+    email: email.optional(),
     role: z.string().trim().min(1).max(40).optional(),
     status: z.enum(USER_STATUSES).optional(),
     tier: z.enum(USER_TIERS).optional(),
-    displayName: z.string().trim().max(80).optional(),
-    phone: z.string().trim().max(30).optional(),
-    lineId: z.string().trim().max(60).optional(),
+    displayName: optionalPersonName.optional(),
+    phone: phone.optional(),
+    lineId: lineId.optional(),
     avatar: z.string().max(500).optional(),
   })
   .refine((o) => Object.keys(o).length > 0, 'nothing to update');

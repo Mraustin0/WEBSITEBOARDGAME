@@ -8,6 +8,7 @@ import ScheduleGrid from '../../components/admin/reservations/ScheduleGrid.jsx';
 import NewBookingModal from '../../components/admin/reservations/NewBookingModal.jsx';
 import WalkInModal from '../../components/admin/reservations/WalkInModal.jsx';
 import CheckoutModal from '../../components/admin/reservations/CheckoutModal.jsx';
+import CancelReasonModal from '../../components/admin/reservations/CancelReasonModal.jsx';
 import './reservations.css';
 
 const RANGES = [
@@ -28,6 +29,7 @@ export default function Reservations() {
   const [showNew, setShowNew] = useState(false);
   const [showWalkIn, setShowWalkIn] = useState(false);
   const [checkoutReservation, setCheckoutReservation] = useState(null);
+  const [cancelling, setCancelling] = useState(null); // การจองที่กำลังจะยกเลิก (เปิด modal เหตุผล)
   const [refreshKey, setRefreshKey] = useState(0);
 
   const load = useCallback(async () => {
@@ -71,20 +73,27 @@ export default function Reservations() {
     try {
       await api(path, options);
       reloadAll();
+      return true;
     } catch (err) {
       setError(err.message);
+      return false;
     } finally {
       setBusyId(null);
     }
   }
 
   function onCancel(r) {
-    const reason = window.prompt(`ยกเลิกการจองของ ${customerName(r)}\nเหตุผล (ไม่บังคับ):`, '');
-    if (reason === null) return;
-    runAction(r, `/reservations/${r._id}/cancel`, {
+    setCancelling(r);
+  }
+
+  async function confirmCancel(reason) {
+    const r = cancelling;
+    if (!r) return;
+    await runAction(r, `/reservations/${r._id}/cancel`, {
       method: 'PATCH',
-      body: { reason: reason.trim() || undefined },
+      body: { reason: reason || undefined },
     });
+    setCancelling(null);
   }
 
   function onNoShow(r) {
@@ -185,6 +194,15 @@ export default function Reservations() {
             setShowWalkIn(false);
             reloadAll();
           }}
+        />
+      )}
+
+      {cancelling && (
+        <CancelReasonModal
+          title={`ยกเลิกการจองของ ${customerName(cancelling)}`}
+          busy={busyId === cancelling._id}
+          onClose={() => setCancelling(null)}
+          onConfirm={confirmCancel}
         />
       )}
 

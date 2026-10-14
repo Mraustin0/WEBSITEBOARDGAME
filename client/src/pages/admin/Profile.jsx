@@ -2,6 +2,18 @@ import { useEffect, useState } from 'react';
 import { api } from '../../lib/api.js';
 import { setSession } from '../../lib/session.js';
 import './profile.css';
+import FieldError, { PASSWORD_HINT } from '../../components/FieldError.jsx';
+import { DUP_ACCOUNT_MSG, useFieldErrors } from '../../lib/useFieldErrors.js';
+import {
+  normalizePhone,
+  vConfirm,
+  vEmail,
+  vLineId,
+  vNewPassword,
+  vPersonName,
+  vPhone,
+  vUsername,
+} from '../../lib/validate.js';
 
 const ROLE_TH = { admin: 'ผู้ดูแลระบบ', user: 'สมาชิก' };
 
@@ -15,8 +27,9 @@ function formatDate(iso) {
   });
 }
 
-function PasswordField({ label, hint, value, onChange, autoComplete }) {
+function PasswordField({ label, hint, value, onChange, autoComplete, v, k }) {
   const [show, setShow] = useState(false);
+  const hintId = hint ? `pf-${k}-hint` : undefined;
   return (
     <label className="pf-field">
       <span>{label}</span>
@@ -28,6 +41,7 @@ function PasswordField({ label, hint, value, onChange, autoComplete }) {
           onChange={onChange}
           autoComplete={autoComplete}
           maxLength={128}
+          {...v.bind(k, { hintId })}
         />
         <button
           type="button"
@@ -38,7 +52,12 @@ function PasswordField({ label, hint, value, onChange, autoComplete }) {
           {show ? 'ซ่อน' : 'แสดง'}
         </button>
       </div>
-      {hint && <small className="pf-hint">{hint}</small>}
+      {hint && (
+        <small id={hintId} className="pf-hint">
+          {hint}
+        </small>
+      )}
+      <FieldError variant="admin" id={v.errId(k)} msg={v.errors[k]} />
     </label>
   );
 }
@@ -62,6 +81,22 @@ export default function Profile() {
   const [pw, setPw] = useState({ oldPassword: '', newPassword: '', confirm: '' });
   const [pwBusy, setPwBusy] = useState(false);
   const [pwError, setPwError] = useState('');
+
+  const fv = useFieldErrors(form, (f) => ({
+    displayName: vPersonName(f.displayName),
+    username: vUsername(f.username),
+    email: vEmail(f.email),
+    phone: vPhone(f.phone),
+    lineId: vLineId(f.lineId),
+  }));
+  const pv = useFieldErrors(pw, (f) => ({
+    oldPassword: f.oldPassword ? '' : 'กรอกรหัสผ่านปัจจุบัน',
+    newPassword:
+      vNewPassword(f.newPassword) ||
+      (f.oldPassword && f.newPassword === f.oldPassword ? 'รหัสผ่านใหม่ต้องไม่ซ้ำรหัสเดิม' : ''),
+    confirm: vConfirm(f.newPassword, f.confirm),
+  }));
+  const setF = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
   useEffect(() => {
     (async () => {
@@ -89,15 +124,29 @@ export default function Profile() {
 
   async function saveProfile(e) {
     e.preventDefault();
-    setSaving(true);
     setError('');
     setNotice('');
+    if (!fv.submit()) return;
+    setSaving(true);
     try {
-      const updated = await api('/auth/me', { method: 'PUT', body: form });
+      const body = {
+        displayName: form.displayName.trim(),
+        username: form.username.trim(),
+        email: form.email.trim(),
+        phone: normalizePhone(form.phone),
+        lineId: form.lineId.trim(),
+      };
+      const updated = await api('/auth/me', { method: 'PUT', body });
       setMe(updated);
       localStorage.setItem('user', JSON.stringify(updated));
       setNotice('บันทึกข้อมูลแล้ว');
     } catch (err) {
+      if (err.status === 400 && fv.server(err)) return;
+      if (
+        err.status === 409 &&
+        (fv.server(err) || fv.setErrors({ username: DUP_ACCOUNT_MSG, email: DUP_ACCOUNT_MSG }))
+      )
+        return;
       setError(err.message || 'บันทึกไม่สำเร็จ');
     } finally {
       setSaving(false);
@@ -107,14 +156,7 @@ export default function Profile() {
   async function changePassword(e) {
     e.preventDefault();
     setPwError('');
-    if (pw.newPassword.length < 6) {
-      setPwError('รหัสผ่านใหม่ต้องมีอย่างน้อย 6 ตัวอักษร');
-      return;
-    }
-    if (pw.newPassword !== pw.confirm) {
-      setPwError('รหัสผ่านใหม่ทั้งสองช่องไม่ตรงกัน');
-      return;
-    }
+    if (!pv.submit()) return;
     setPwBusy(true);
     try {
       const res = await api('/auth/password', {
@@ -124,13 +166,14 @@ export default function Profile() {
       // token เดิมถูกยกเลิกหลังเปลี่ยนรหัส → ใช้ token ใหม่ต่อ (ไม่ถูกเด้งออก)
       if (res?.token) setSession({ token: res.token });
       setPw({ oldPassword: '', newPassword: '', confirm: '' });
+      pv.reset();
       setNotice('เปลี่ยนรหัสผ่านแล้ว');
     } catch (err) {
-      setPwError(
-        /old password incorrect/.test(err.message)
-          ? 'รหัสผ่านเดิมไม่ถูกต้อง'
-          : err.message || 'เปลี่ยนรหัสผ่านไม่สำเร็จ',
-      );
+      if (/old password incorrect/.test(err.message)) {
+        pv.setErrors({ oldPassword: 'รหัสผ่านเดิมไม่ถูกต้อง' });
+      } else if (!(err.status === 400 && pv.server(err))) {
+        setPwError(err.message || 'เปลี่ยนรหัสผ่านไม่สำเร็จ');
+      }
     } finally {
       setPwBusy(false);
     }
@@ -162,13 +205,21 @@ export default function Profile() {
               </p>
             </div>
           </div>
-          <form onSubmit={saveProfile} className="pf-form">
+          <form onSubmit={saveProfile} className="pf-form" noValidate>
             <label className="pf-field">
               <span>ชื่อที่แสดง</span>
               <input
                 className="input"
                 value={form.displayName}
-                onChange={(e) => setForm((f) => ({ ...f, displayName: e.target.value }))}
+                onChange={setF('displayName')}
+                autoComplete="nickname"
+                maxLength={80}
+                {...fv.bind('displayName')}
+              />
+              <FieldError
+                variant="admin"
+                id={fv.errId('displayName')}
+                msg={fv.errors.displayName}
               />
             </label>
             <label className="pf-field">
@@ -176,36 +227,58 @@ export default function Profile() {
               <input
                 className="input"
                 value={form.username}
-                onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
+                onChange={setF('username')}
                 required
-                minLength={3}
+                maxLength={32}
+                autoComplete="username"
+                autoCapitalize="none"
+                spellCheck={false}
+                {...fv.bind('username')}
               />
+              <FieldError variant="admin" id={fv.errId('username')} msg={fv.errors.username} />
             </label>
             <label className="pf-field">
               <span>อีเมล</span>
               <input
                 className="input"
                 type="email"
+                inputMode="email"
+                autoComplete="email"
+                maxLength={254}
                 value={form.email}
-                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                onChange={setF('email')}
                 required
+                {...fv.bind('email')}
               />
+              <FieldError variant="admin" id={fv.errId('email')} msg={fv.errors.email} />
             </label>
             <label className="pf-field">
               <span>เบอร์โทร</span>
               <input
                 className="input"
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                maxLength={15}
+                placeholder="0812345678"
                 value={form.phone}
-                onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                onChange={setF('phone')}
+                {...fv.bind('phone')}
               />
+              <FieldError variant="admin" id={fv.errId('phone')} msg={fv.errors.phone} />
             </label>
             <label className="pf-field">
               <span>LINE ID</span>
               <input
                 className="input"
+                autoCapitalize="none"
+                spellCheck={false}
+                maxLength={21}
                 value={form.lineId}
-                onChange={(e) => setForm((f) => ({ ...f, lineId: e.target.value }))}
+                onChange={setF('lineId')}
+                {...fv.bind('lineId')}
               />
+              <FieldError variant="admin" id={fv.errId('lineId')} msg={fv.errors.lineId} />
             </label>
             <button type="submit" className="btn primary" disabled={saving}>
               {saving ? 'กำลังบันทึก...' : 'บันทึก'}
@@ -215,21 +288,27 @@ export default function Profile() {
 
         <section className="pf-card">
           <h2>เปลี่ยนรหัสผ่าน</h2>
-          <form onSubmit={changePassword} className="pf-form">
+          <form onSubmit={changePassword} className="pf-form" noValidate>
             <PasswordField
+              v={pv}
+              k="oldPassword"
               label="รหัสผ่านปัจจุบัน"
               value={pw.oldPassword}
               onChange={(e) => setPw((p) => ({ ...p, oldPassword: e.target.value }))}
               autoComplete="current-password"
             />
             <PasswordField
+              v={pv}
+              k="newPassword"
               label="รหัสผ่านใหม่"
-              hint="อย่างน้อย 6 ตัวอักษร"
+              hint={PASSWORD_HINT}
               value={pw.newPassword}
               onChange={(e) => setPw((p) => ({ ...p, newPassword: e.target.value }))}
               autoComplete="new-password"
             />
             <PasswordField
+              v={pv}
+              k="confirm"
               label="ยืนยันรหัสผ่านใหม่"
               value={pw.confirm}
               onChange={(e) => setPw((p) => ({ ...p, confirm: e.target.value }))}

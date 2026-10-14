@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../../lib/api.js';
 import './WalkInModal.css';
+import FieldError from '../../FieldError.jsx';
+import { useFieldErrors } from '../../../lib/useFieldErrors.js';
+import { normalizePhone, vNumber, vPersonName, vPhone } from '../../../lib/validate.js';
 
 // ---------- ค่าเริ่มต้น (ใช้เมื่อ GET /api/settings ยังโหลดไม่เสร็จ/ไม่มีค่า) ----------
 const DEFAULTS = {
@@ -12,13 +15,19 @@ const DEFAULTS = {
 };
 const PHONE_RE = /^[0-9+\-\s()]+$/;
 
+// ช่องเดียวรับได้ทั้งชื่อหรือเบอร์: เป็นตัวเลข/สัญลักษณ์เบอร์ล้วน = เบอร์โทร
+const looksLikePhone = (text) => PHONE_RE.test(text.trim());
+
 // แปลงข้อความในช่องเดียว -> { name } หรือ { phone } ตามที่ API ต้องการ
 // TODO(ถามทีม): design ให้เว้นว่างได้ แต่ API ต้องมี customer หรือ user -> ตอนนี้ใส่ชื่อ default ให้
 function buildCustomer(text) {
   const v = text.trim();
   if (!v) return { name: 'ลูกค้าหน้าร้าน' };
-  return PHONE_RE.test(v) ? { phone: v } : { name: v };
+  return looksLikePhone(v) ? { phone: normalizePhone(v) } : { name: v };
 }
+
+// field ของ server → ช่องในฟอร์ม
+const SERVER_MAP = { customer: 'contact', players: 'pax', durationHours: 'hours' };
 
 // รายการชั่วโมงให้เลือก ทีละ 0.5 (กฎจาก API: 1–6 ชม.)
 function hourOptions(min, max) {
@@ -38,12 +47,23 @@ export default function WalkInModal({ onClose, onCreated }) {
   const [gameNote, setGameNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [fieldErrors, setFieldErrors] = useState({});
 
-  const fe = (k) => fieldErrors[k]?.[0];
   const table = tables.find((t) => t._id === form.table);
   const maxPax = table ? table.capacity + cfg.extraSeats : 1;
   const hours = form.pkg === 'flat3h' ? 3 : Number(form.hours);
+
+  const v = useFieldErrors(form, (f) => ({
+    table: f.table ? '' : 'เลือกโต๊ะ',
+    contact: looksLikePhone(f.contact) ? vPhone(f.contact) : vPersonName(f.contact),
+    pax: f.table
+      ? vNumber(f.pax, { min: 1, max: Math.min(30, maxPax), integer: true, label: 'จำนวนผู้เล่น' })
+      : '',
+    hours:
+      f.pkg === 'flat3h'
+        ? ''
+        : vNumber(f.hours, { min: cfg.minHours, max: cfg.maxHours, label: 'ระยะเวลา' }),
+  }));
+  const fe = (k) => <FieldError variant="admin" id={v.errId(k)} msg={v.errors[k]} />;
 
   // โหลดโต๊ะว่าง (จาก floor plan) + ราคา/กฎ (จาก settings) — ใช้ซ้ำตอนชน 409
   async function loadData() {
@@ -73,9 +93,8 @@ export default function WalkInModal({ onClose, onCreated }) {
     if (err.status === 401) {
       setError('เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่');
     } else if (err.status === 400) {
-      setError(err.message);
-      setFieldErrors(err.details ?? {});
       setStep('form'); // กลับไปหน้าฟอร์มเพื่อให้เห็นข้อความใต้ช่อง
+      if (!v.server(err, { map: SERVER_MAP })) setError(err.message);
     } else if (err.status === 409) {
       setError(`โต๊ะหรือเกมไม่ว่างแล้ว: ${err.message}`);
       setStep('form');
@@ -100,13 +119,10 @@ export default function WalkInModal({ onClose, onCreated }) {
     n === table.capacity ? ' (พอดีโต๊ะ)' : n > table.capacity ? ' (+เก้าอี้เสริม)' : '';
 
   function validate() {
-    if (!form.table) {
-      setFieldErrors({ table: ['เลือกโต๊ะ'] });
-      return false;
-    }
-    setFieldErrors({});
     setError('');
-    return true;
+    const ok = v.submit();
+    if (!ok) setStep('form'); // ถ้าผิดตอนอยู่หน้าเลือกเกม → กลับไปหน้าฟอร์มให้เห็น error
+    return ok;
   }
 
   // ขั้นที่ 2: โหลดรายการเกมที่ว่างตอนนี้ (availability ต้องมี startAt -> ใช้เวลาปัจจุบัน)
@@ -179,7 +195,12 @@ export default function WalkInModal({ onClose, onCreated }) {
           <>
             <label className="field">
               <span>โต๊ะ</span>
-              <select className="input" value={form.table} onChange={onTableChange}>
+              <select
+                className="input"
+                value={form.table}
+                onChange={onTableChange}
+                {...v.bind('table')}
+              >
                 {tables.length === 0 && <option value="">ตอนนี้ไม่มีโต๊ะว่าง</option>}
                 {tables.map((t) => (
                   <option key={t._id} value={t._id}>
@@ -187,18 +208,21 @@ export default function WalkInModal({ onClose, onCreated }) {
                   </option>
                 ))}
               </select>
-              {fe('table') && <small className="field-error">{fe('table')}</small>}
+              {fe('table')}
             </label>
 
             <label className="field">
               <span>ชื่อหรือเบอร์โทรลูกค้า</span>
               <input
                 className="input"
-                placeholder="เว้นว่างได้"
+                placeholder="เว้นว่างได้ เช่น คุณเอ หรือ 0812345678"
+                maxLength={80}
+                autoComplete="off"
                 value={form.contact}
                 onChange={(e) => setForm((f) => ({ ...f, contact: e.target.value }))}
+                {...v.bind('contact')}
               />
-              {fe('customer') && <small className="field-error">{fe('customer')}</small>}
+              {fe('contact')}
             </label>
 
             <div className="field">
@@ -233,7 +257,7 @@ export default function WalkInModal({ onClose, onCreated }) {
                   {table.code} นั่งได้ {table.capacity} คน เสริมเก้าอี้ได้ถึง {maxPax} คน
                 </small>
               )}
-              {fe('players') && <small className="field-error">{fe('players')}</small>}
+              {fe('pax')}
             </div>
 
             <div className="field">
@@ -264,7 +288,6 @@ export default function WalkInModal({ onClose, onCreated }) {
                   <small>คุ้มกว่าสำหรับเกมยาว</small>
                 </label>
               </div>
-              {fe('package') && <small className="field-error">{fe('package')}</small>}
             </div>
 
             {/* TODO(ถามทีม): design ไม่มีช่องเลือกเวลาของโหมดรายชั่วโมง แต่ API บังคับ durationHours */}
@@ -275,6 +298,7 @@ export default function WalkInModal({ onClose, onCreated }) {
                   className="input"
                   value={form.hours}
                   onChange={(e) => setForm((f) => ({ ...f, hours: e.target.value }))}
+                  {...v.bind('hours')}
                 >
                   {hourOptions(cfg.minHours, cfg.maxHours).map((h) => (
                     <option key={h} value={h}>
@@ -282,9 +306,7 @@ export default function WalkInModal({ onClose, onCreated }) {
                     </option>
                   ))}
                 </select>
-                {fe('durationHours') && (
-                  <small className="field-error">{fe('durationHours')}</small>
-                )}
+                {fe('hours')}
               </label>
             )}
 
@@ -296,17 +318,12 @@ export default function WalkInModal({ onClose, onCreated }) {
               <button
                 type="button"
                 className="btn-link"
-                disabled={busy || !form.table}
+                disabled={busy}
                 onClick={() => submit(null)}
               >
                 ⏱ เปิดโต๊ะเลย ไม่เลือกเกม
               </button>
-              <button
-                type="button"
-                className="btn-primary"
-                disabled={busy || !form.table}
-                onClick={goToGames}
-              >
+              <button type="button" className="btn-primary" disabled={busy} onClick={goToGames}>
                 ถัดไป: เลือกเกม →
               </button>
             </div>
@@ -319,6 +336,7 @@ export default function WalkInModal({ onClose, onCreated }) {
             <input
               className="input"
               placeholder="ค้นหาชื่อเกม"
+              maxLength={100}
               value={gameQuery}
               onChange={(e) => setGameQuery(e.target.value)}
             />

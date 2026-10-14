@@ -6,6 +6,17 @@ import { api } from '../lib/api.js';
 import { homeFor, setSession } from '../lib/session.js';
 import { BoardBorder, Logo, Photo } from '../components/brand/Brand.jsx';
 import { CardsIcon, ClockIcon, DiceIcon, TableIcon } from '../components/brand/BrandIcons.jsx';
+import FieldError, { FieldHint, PASSWORD_HINT } from '../components/FieldError.jsx';
+import { DUP_ACCOUNT_MSG, useFieldErrors } from '../lib/useFieldErrors.js';
+import {
+  normalizePhone,
+  vConfirm,
+  vEmail,
+  vNewPassword,
+  vPersonName,
+  vPhone,
+  vUsername,
+} from '../lib/validate.js';
 
 const PERKS = [
   {
@@ -25,14 +36,13 @@ const PERKS = [
   },
 ];
 
-const inputCls = (invalid) =>
-  `w-full h-12 rounded-xl border-2 bg-white px-4 text-base text-ink placeholder:text-slate-400 outline-none transition focus:border-forest focus:ring-4 focus:ring-forest-200 ${
-    invalid ? 'border-brick' : 'border-slate-200 hover:border-slate-300'
-  }`;
+// ช่องที่ผิด (aria-invalid) ได้ขอบแดงอิฐจาก index.css
+const inputCls = () =>
+  'w-full h-12 rounded-xl border-2 bg-white px-4 text-base text-ink placeholder:text-slate-400 outline-none transition focus:border-forest focus:ring-4 focus:ring-forest-200 border-slate-200 hover:border-slate-300';
 
-/** ช่องกรอกพร้อม label + ข้อความ error ใต้ช่อง (เชื่อมกันด้วย aria-describedby) */
-function Field({ id, label, optional, error, children, trailing }) {
-  const errId = `${id}-error`;
+/** ช่องกรอกพร้อม label + ข้อความ error ใต้ช่อง (เชื่อมกันด้วย aria-describedby จาก v.bind) */
+function Field({ id, label, optional, v, k, hint, children, trailing }) {
+  const hintId = hint ? `${id}-hint` : undefined;
   return (
     <div>
       <label htmlFor={id} className="block text-sm font-semibold text-ink mb-1.5">
@@ -40,21 +50,11 @@ function Field({ id, label, optional, error, children, trailing }) {
         {optional && <span className="ml-1 text-slate-500 font-normal text-xs">(ไม่บังคับ)</span>}
       </label>
       <div className="relative">
-        {children({
-          'aria-invalid': error ? true : undefined,
-          'aria-describedby': error ? errId : undefined,
-        })}
+        {children(v.bind(k, { hintId }))}
         {trailing}
       </div>
-      {error && (
-        <p
-          id={errId}
-          className="mt-1.5 text-xs font-semibold text-brick-dark flex items-start gap-1.5"
-        >
-          <i className="fa-solid fa-circle-exclamation mt-0.5" aria-hidden="true"></i>
-          {error}
-        </p>
-      )}
+      {hint && <FieldHint id={hintId}>{hint}</FieldHint>}
+      <FieldError id={v.errId(k)} msg={v.errors[k]} />
     </div>
   );
 }
@@ -83,7 +83,6 @@ export default function UserAuth() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const [fieldErrors, setFieldErrors] = useState({});
   const [showPw, setShowPw] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
@@ -99,21 +98,34 @@ export default function UserAuth() {
 
   const setL = (k) => (e) => setLogin((f) => ({ ...f, [k]: e.target.value }));
   const setR = (k) => (e) => setReg((f) => ({ ...f, [k]: e.target.value }));
-  const fe = (k) => fieldErrors[k]?.[0];
+
+  const lv = useFieldErrors(login, (f) => ({
+    email: vEmail(f.email),
+    password: f.password ? '' : 'กรอกรหัสผ่าน',
+  }));
+  const rv = useFieldErrors(reg, (f) => ({
+    displayName: vPersonName(f.displayName),
+    username: vUsername(f.username),
+    email: vEmail(f.email),
+    phone: vPhone(f.phone),
+    password: vNewPassword(f.password),
+    confirm: vConfirm(f.password, f.confirm),
+  }));
 
   function switchTab(t) {
     setTab(t);
     setError('');
     setNotice('');
-    setFieldErrors({});
+    lv.reset();
+    rv.reset();
   }
 
   async function onLogin(e) {
     e.preventDefault();
-    setBusy(true);
     setError('');
     setNotice('');
-    setFieldErrors({});
+    if (!lv.submit()) return;
+    setBusy(true);
     try {
       const { token, user } = await api('/auth/login', {
         method: 'POST',
@@ -125,8 +137,7 @@ export default function UserAuth() {
       if (err.status === 401) setError('อีเมลหรือรหัสผ่านไม่ถูกต้อง');
       else if (err.status === 403) setError('บัญชีนี้ถูกระงับหรือยังรออนุมัติ — ติดต่อพนักงาน');
       else if (err.status === 400) {
-        setError(err.message);
-        setFieldErrors(err.details ?? {});
+        if (!lv.server(err)) setError(err.message);
       } else setError(err.message ?? 'เกิดข้อผิดพลาด');
     } finally {
       setBusy(false);
@@ -136,13 +147,9 @@ export default function UserAuth() {
   async function onRegister(e) {
     e.preventDefault();
     setNotice('');
-    if (reg.password !== reg.confirm) {
-      setFieldErrors({ confirm: ['รหัสผ่านไม่ตรงกัน'] });
-      return;
-    }
-    setBusy(true);
     setError('');
-    setFieldErrors({});
+    if (!rv.submit()) return;
+    setBusy(true);
     try {
       const { token, user } = await api('/auth/register', {
         method: 'POST',
@@ -151,16 +158,16 @@ export default function UserAuth() {
           email: reg.email.trim(),
           password: reg.password,
           displayName: reg.displayName.trim() || undefined,
-          phone: reg.phone.trim() || undefined,
+          phone: normalizePhone(reg.phone) || undefined,
         },
       });
       setSession({ token, user });
       goNext(user);
     } catch (err) {
-      if (err.status === 409) setError('อีเมลหรือชื่อผู้ใช้นี้มีคนใช้แล้ว');
-      else if (err.status === 400) {
-        setError(err.message);
-        setFieldErrors(err.details ?? {});
+      if (err.status === 409) {
+        if (!rv.server(err)) rv.setErrors({ username: DUP_ACCOUNT_MSG, email: DUP_ACCOUNT_MSG });
+      } else if (err.status === 400) {
+        if (!rv.server(err)) setError(err.message);
       } else setError(err.message ?? 'เกิดข้อผิดพลาด');
     } finally {
       setBusy(false);
@@ -324,7 +331,7 @@ export default function UserAuth() {
 
               {isLogin ? (
                 <form onSubmit={onLogin} noValidate className="mt-5 space-y-4">
-                  <Field id="login-email" label="อีเมล" error={fe('email')}>
+                  <Field id="login-email" label="อีเมล" v={lv} k="email">
                     {(aria) => (
                       <input
                         id="login-email"
@@ -332,8 +339,9 @@ export default function UserAuth() {
                         type="email"
                         inputMode="email"
                         autoComplete="email"
+                        maxLength={254}
                         placeholder="you@example.com"
-                        className={inputCls(fe('email'))}
+                        className={inputCls()}
                         value={login.email}
                         onChange={setL('email')}
                         {...aria}
@@ -344,7 +352,8 @@ export default function UserAuth() {
                   <Field
                     id="login-password"
                     label="รหัสผ่าน"
-                    error={fe('password')}
+                    v={lv}
+                    k="password"
                     trailing={<EyeToggle shown={showPw} onToggle={() => setShowPw((s) => !s)} />}
                   >
                     {(aria) => (
@@ -353,7 +362,7 @@ export default function UserAuth() {
                         name="password"
                         type={showPw ? 'text' : 'password'}
                         autoComplete="current-password"
-                        className={`${inputCls(fe('password'))} pr-12`}
+                        className={`${inputCls()} pr-12`}
                         value={login.password}
                         onChange={setL('password')}
                         {...aria}
@@ -376,7 +385,7 @@ export default function UserAuth() {
 
                   <button
                     type="submit"
-                    disabled={busy || !login.email || !login.password}
+                    disabled={busy}
                     className="w-full h-12 rounded-full bg-forest text-cream font-bold text-base shadow-[0_4px_0_0_#111c11] hover:bg-forest-800 active:translate-y-0.5 active:shadow-none focus:outline-none focus-visible:ring-4 focus-visible:ring-forest-300 disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
                   >
                     {busy ? (
@@ -411,32 +420,34 @@ export default function UserAuth() {
               ) : (
                 <form onSubmit={onRegister} noValidate className="mt-5 space-y-4">
                   <div className="grid sm:grid-cols-2 gap-4">
-                    <Field id="reg-display" label="ชื่อที่แสดง" optional error={fe('displayName')}>
+                    <Field id="reg-display" label="ชื่อที่แสดง" optional v={rv} k="displayName">
                       {(aria) => (
                         <input
                           id="reg-display"
                           name="displayName"
                           type="text"
                           autoComplete="nickname"
+                          maxLength={80}
                           placeholder="เช่น กวินท์"
-                          className={inputCls(fe('displayName'))}
+                          className={inputCls()}
                           value={reg.displayName}
                           onChange={setR('displayName')}
                           {...aria}
                         />
                       )}
                     </Field>
-                    <Field id="reg-username" label="ชื่อผู้ใช้" error={fe('username')}>
+                    <Field id="reg-username" label="ชื่อผู้ใช้" v={rv} k="username">
                       {(aria) => (
                         <input
                           id="reg-username"
                           name="username"
                           type="text"
                           autoComplete="username"
+                          maxLength={32}
                           autoCapitalize="none"
                           spellCheck={false}
                           placeholder="gawin_dice"
-                          className={inputCls(fe('username'))}
+                          className={inputCls()}
                           value={reg.username}
                           onChange={setR('username')}
                           {...aria}
@@ -445,7 +456,7 @@ export default function UserAuth() {
                     </Field>
                   </div>
 
-                  <Field id="reg-email" label="อีเมล" error={fe('email')}>
+                  <Field id="reg-email" label="อีเมล" v={rv} k="email">
                     {(aria) => (
                       <input
                         id="reg-email"
@@ -453,8 +464,9 @@ export default function UserAuth() {
                         type="email"
                         inputMode="email"
                         autoComplete="email"
+                        maxLength={254}
                         placeholder="you@example.com"
-                        className={inputCls(fe('email'))}
+                        className={inputCls()}
                         value={reg.email}
                         onChange={setR('email')}
                         {...aria}
@@ -462,7 +474,7 @@ export default function UserAuth() {
                     )}
                   </Field>
 
-                  <Field id="reg-phone" label="เบอร์โทรศัพท์" optional error={fe('phone')}>
+                  <Field id="reg-phone" label="เบอร์โทรศัพท์" optional v={rv} k="phone">
                     {(aria) => (
                       <input
                         id="reg-phone"
@@ -470,8 +482,9 @@ export default function UserAuth() {
                         type="tel"
                         inputMode="tel"
                         autoComplete="tel"
-                        placeholder="081-234-5678"
-                        className={inputCls(fe('phone'))}
+                        maxLength={15}
+                        placeholder="0812345678"
+                        className={inputCls()}
                         value={reg.phone}
                         onChange={setR('phone')}
                         {...aria}
@@ -483,7 +496,9 @@ export default function UserAuth() {
                     <Field
                       id="reg-password"
                       label="รหัสผ่าน"
-                      error={fe('password')}
+                      v={rv}
+                      k="password"
+                      hint={PASSWORD_HINT}
                       trailing={<EyeToggle shown={showPw} onToggle={() => setShowPw((s) => !s)} />}
                     >
                       {(aria) => (
@@ -492,8 +507,9 @@ export default function UserAuth() {
                           name="password"
                           type={showPw ? 'text' : 'password'}
                           autoComplete="new-password"
-                          placeholder="ขั้นต่ำ 6 ตัวอักษร"
-                          className={`${inputCls(fe('password'))} pr-12`}
+                          maxLength={128}
+                          placeholder="อย่างน้อย 8 ตัว"
+                          className={`${inputCls()} pr-12`}
                           value={reg.password}
                           onChange={setR('password')}
                           {...aria}
@@ -503,7 +519,8 @@ export default function UserAuth() {
                     <Field
                       id="reg-confirm"
                       label="ยืนยันรหัสผ่าน"
-                      error={fe('confirm')}
+                      v={rv}
+                      k="confirm"
                       trailing={
                         <EyeToggle shown={showConfirm} onToggle={() => setShowConfirm((s) => !s)} />
                       }
@@ -515,7 +532,7 @@ export default function UserAuth() {
                           type={showConfirm ? 'text' : 'password'}
                           autoComplete="new-password"
                           placeholder="พิมพ์อีกครั้ง"
-                          className={`${inputCls(fe('confirm'))} pr-12`}
+                          className={`${inputCls()} pr-12`}
                           value={reg.confirm}
                           onChange={setR('confirm')}
                           {...aria}
@@ -526,7 +543,7 @@ export default function UserAuth() {
 
                   <button
                     type="submit"
-                    disabled={busy || !reg.username || !reg.email || !reg.password || !reg.confirm}
+                    disabled={busy}
                     className="w-full h-12 rounded-full bg-forest text-cream font-bold text-base shadow-[0_4px_0_0_#111c11] hover:bg-forest-800 active:translate-y-0.5 active:shadow-none focus:outline-none focus-visible:ring-4 focus-visible:ring-forest-300 disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
                   >
                     {busy ? (

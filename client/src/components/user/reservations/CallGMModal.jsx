@@ -4,6 +4,9 @@ import Modal from './Modal.jsx';
 import { ResSummary } from './ui.jsx';
 import { ASSIST_TOPICS, BTN, errText } from './utils.js';
 import { callGM } from '../../../services/api.js';
+import FieldError from '../../FieldError.jsx';
+import { useFieldErrors } from '../../../lib/useFieldErrors.js';
+import { vText } from '../../../lib/validate.js';
 
 export default function CallGMModal({ r, pendingTopics = [], onClose, onDone }) {
   const [topic, setTopic] = useState(
@@ -12,16 +15,20 @@ export default function CallGMModal({ r, pendingTopics = [], onClose, onDone }) 
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const v = useFieldErrors({ note }, (f) => ({
+    note: vText(f.note, { max: 500, label: 'รายละเอียด' }),
+  }));
 
   async function submit() {
     if (busy || !topic) return;
+    if (!v.submit()) return;
     setBusy(true);
     setError('');
     try {
       await callGM(r._id, topic, note.trim());
       onDone(ASSIST_TOPICS.find((t) => t.key === topic)?.label ?? '');
     } catch (err) {
-      setError(errText(err));
+      if (!(err.status === 400 && v.server(err))) setError(errText(err));
       setBusy(false);
     }
   }
@@ -95,8 +102,13 @@ export default function CallGMModal({ r, pendingTopics = [], onClose, onDone }) 
         maxLength={500}
         rows={2}
         placeholder="เช่น ช่วยสอนกติกาตาแรกหน่อย"
+        {...v.bind('note')}
         className="w-full rounded-xl border border-ink/15 bg-white px-3 py-2 text-sm placeholder:text-slate-400 focus:border-forest focus:outline-none focus:ring-2 focus:ring-forest/20"
       />
+      <div className="flex items-start justify-between gap-2">
+        <FieldError id={v.errId('note')} msg={v.errors.note} className="mt-0.5" />
+        <span className="ml-auto text-[10px] text-slate-500">{note.length}/500</span>
+      </div>
       {error && (
         <p role="alert" className="mt-3 text-xs font-semibold text-brick-dark">
           {error}

@@ -166,7 +166,10 @@ describeIf('admin escalation + password (integration)', () => {
     const id = u.oa_admin.id;
     const calls = [
       request(app).patch(`/api/admin/users/${id}/suspend`).set(auth('oa_manager')).send({}),
-      request(app).patch(`/api/admin/users/${id}`).set(auth('oa_manager')).send({ phone: '1' }),
+      request(app)
+        .patch(`/api/admin/users/${id}`)
+        .set(auth('oa_manager'))
+        .send({ phone: '0812345678' }),
       request(app)
         .put(`/api/admin/users/${id}/role`)
         .set(auth('oa_manager'))

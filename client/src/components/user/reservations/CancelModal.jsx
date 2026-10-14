@@ -4,6 +4,9 @@ import Modal from './Modal.jsx';
 import { ResSummary } from './ui.jsx';
 import { BTN, canSelfCancel, chip, cutoffText, dateLabel, errText, timeRange } from './utils.js';
 import { cancelReservation } from '../../../services/api.js';
+import FieldError from '../../FieldError.jsx';
+import { useFieldErrors } from '../../../lib/useFieldErrors.js';
+import { vText } from '../../../lib/validate.js';
 
 const QUICK_REASONS = ['ติดธุระ', 'เปลี่ยนวันเล่น', 'เพื่อนมาไม่ครบ'];
 
@@ -13,16 +16,20 @@ export default function CancelModal({ r, rules, onClose, onDone }) {
   const [error, setError] = useState('');
   // เช็คตอนเปิด modal (ถ้าเลยเวลาระหว่างเปิด server จะตอบ 409 และแสดงข้อความแทน)
   const [allowed] = useState(() => canSelfCancel(r, rules, Date.now()));
+  const v = useFieldErrors({ reason }, (f) => ({
+    reason: vText(f.reason, { max: 300, label: 'เหตุผล' }),
+  }));
 
   async function submit() {
     if (busy || !allowed) return;
+    if (!v.submit()) return;
     setBusy(true);
     setError('');
     try {
       await cancelReservation(r._id, reason.trim() || undefined);
       onDone();
     } catch (err) {
-      setError(errText(err));
+      if (!(err.status === 400 && v.server(err))) setError(errText(err));
       setBusy(false);
     }
   }
@@ -73,8 +80,13 @@ export default function CancelModal({ r, rules, onClose, onDone }) {
             maxLength={300}
             rows={2}
             placeholder="บอกเหตุผลให้ร้านทราบ"
+            {...v.bind('reason')}
             className="w-full rounded-xl border border-ink/15 bg-white px-3 py-2 text-sm placeholder:text-slate-400 focus:border-forest focus:outline-none focus:ring-2 focus:ring-forest/20"
           />
+          <div className="flex items-start justify-between gap-2">
+            <FieldError id={v.errId('reason')} msg={v.errors.reason} className="mt-0.5" />
+            <span className="ml-auto text-[10px] text-slate-500">{reason.length}/300</span>
+          </div>
         </div>
       ) : (
         <p className="mt-4 rounded-xl border border-mustard/50 bg-mustard-light/60 p-3 text-xs font-semibold text-slate-800">

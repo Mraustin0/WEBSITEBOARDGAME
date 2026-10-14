@@ -4,6 +4,9 @@ import { Box, CheckCircle, Gamepad, Tuning } from 'reicon-react';
 import { api } from '../../lib/api.js';
 import './inventory.css';
 import { copyLabel } from '../../lib/copies.js';
+import FieldError from '../../components/FieldError.jsx';
+import { useFieldErrors } from '../../lib/useFieldErrors.js';
+import { gameRules, splitList } from '../../lib/gameRules.js';
 
 const STATUS = {
   available: { label: 'ว่างบนชั้น', tone: 'ok' },
@@ -70,6 +73,9 @@ function AddGameModal({ onClose, onCreated }) {
   }, [bggQ]);
 
   const setField = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  // กลไกเกมมาจาก BGG เท่านั้น (ไม่มีช่องให้แก้) → ไม่ตรวจ แต่ตัดให้อยู่ในขอบเขตตอนส่ง
+  const v = useFieldErrors(form, (f) => gameRules({ ...f, mechanics: undefined }));
+  const fe = (k) => <FieldError variant="admin" id={v.errId(k)} msg={v.errors[k]} />;
 
   async function pickBgg(hit) {
     setBusy(true);
@@ -105,9 +111,9 @@ function AddGameModal({ onClose, onCreated }) {
 
   async function submit(e) {
     e.preventDefault();
-    if (!form.name.trim()) return setError('กรอกชื่อเกม');
-    setBusy(true);
     setError('');
+    if (!v.submit()) return;
+    setBusy(true);
     try {
       const body = {
         name: form.name.trim(),
@@ -118,26 +124,22 @@ function AddGameModal({ onClose, onCreated }) {
         copies: Math.max(1, Number(form.copies) || 1),
       };
       if (form.yearPublished) body.yearPublished = Number(form.yearPublished);
-      if (form.thumbnail) body.thumbnail = form.thumbnail;
-      if (form.image) body.image = form.image;
+      if (form.thumbnail.trim()) body.thumbnail = form.thumbnail.trim();
+      if (form.image.trim()) body.image = form.image.trim();
       if (form.description) body.description = form.description;
       if (form.bggId) body.bggId = Number(form.bggId);
       if (form.bggAverage !== '') body.bggAverage = Number(form.bggAverage);
       if (form.bggWeight !== '') body.bggWeight = Number(form.bggWeight);
-      const cats = form.categories
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean);
-      const mechs = form.mechanics
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean);
+      const cats = splitList(form.categories);
+      const mechs = splitList(form.mechanics)
+        .filter((m) => m.length <= 80)
+        .slice(0, 30);
       if (cats.length) body.categories = cats;
       if (mechs.length) body.mechanics = mechs;
       await api('/games', { method: 'POST', body });
       onCreated();
     } catch (err) {
-      setError(err.message || 'บันทึกไม่สำเร็จ');
+      if (!(err.status === 400 && v.server(err))) setError(err.message || 'บันทึกไม่สำเร็จ');
     } finally {
       setBusy(false);
     }
@@ -145,7 +147,7 @@ function AddGameModal({ onClose, onCreated }) {
 
   return (
     <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <form className="modal inv-modal" onSubmit={submit}>
+      <form className="modal inv-modal" onSubmit={submit} noValidate>
         <div className="inv-modal-head">
           <div>
             <h2>เพิ่มเกมเข้าคลัง</h2>
@@ -165,6 +167,7 @@ function AddGameModal({ onClose, onCreated }) {
             value={bggQ}
             onChange={(e) => setBggQ(e.target.value)}
             autoComplete="off"
+            maxLength={100}
           />
         </label>
 
@@ -233,7 +236,10 @@ function AddGameModal({ onClose, onCreated }) {
             value={form.name}
             onChange={(e) => setField('name', e.target.value)}
             required
+            maxLength={200}
+            {...v.bind('name')}
           />
+          {fe('name')}
         </label>
 
         <div className="inv-form-row">
@@ -243,9 +249,13 @@ function AddGameModal({ onClose, onCreated }) {
               className="input"
               type="number"
               min={1}
+              max={99}
+              inputMode="numeric"
               value={form.minPlayers}
               onChange={(e) => setField('minPlayers', e.target.value)}
+              {...v.bind('minPlayers')}
             />
+            {fe('minPlayers')}
           </label>
           <label className="field">
             <span>ผู้เล่นสูงสุด</span>
@@ -253,9 +263,13 @@ function AddGameModal({ onClose, onCreated }) {
               className="input"
               type="number"
               min={1}
+              max={99}
+              inputMode="numeric"
               value={form.maxPlayers}
               onChange={(e) => setField('maxPlayers', e.target.value)}
+              {...v.bind('maxPlayers')}
             />
+            {fe('maxPlayers')}
           </label>
           <label className="field">
             <span>เวลาเล่น (นาที)</span>
@@ -263,9 +277,13 @@ function AddGameModal({ onClose, onCreated }) {
               className="input"
               type="number"
               min={1}
+              max={1440}
+              inputMode="numeric"
               value={form.playtimeMin}
               onChange={(e) => setField('playtimeMin', e.target.value)}
+              {...v.bind('playtimeMin')}
             />
+            {fe('playtimeMin')}
           </label>
           <label className="field">
             <span>จำนวนกล่อง</span>
@@ -273,10 +291,13 @@ function AddGameModal({ onClose, onCreated }) {
               className="input"
               type="number"
               min={1}
-              max={50}
+              max={999}
+              inputMode="numeric"
               value={form.copies}
               onChange={(e) => setField('copies', e.target.value)}
+              {...v.bind('copies')}
             />
+            {fe('copies')}
           </label>
         </div>
 
@@ -286,9 +307,13 @@ function AddGameModal({ onClose, onCreated }) {
             <input
               className="input"
               type="number"
+              min={1800}
+              inputMode="numeric"
               value={form.yearPublished}
               onChange={(e) => setField('yearPublished', e.target.value)}
+              {...v.bind('yearPublished')}
             />
+            {fe('yearPublished')}
           </label>
           <label className="field">
             <span>สถานะ</span>
@@ -311,27 +336,37 @@ function AddGameModal({ onClose, onCreated }) {
             placeholder="เช่น Strategy, Family"
             value={form.categories}
             onChange={(e) => setField('categories', e.target.value)}
+            {...v.bind('categories')}
           />
+          {fe('categories')}
         </label>
         <label className="field">
           <span>ลิงก์รูปย่อ</span>
           <input
             className="input"
             type="url"
+            inputMode="url"
             placeholder="https://..."
+            maxLength={2000}
             value={form.thumbnail}
             onChange={(e) => setField('thumbnail', e.target.value)}
+            {...v.bind('thumbnail')}
           />
+          {fe('thumbnail')}
         </label>
         <label className="field">
           <span>ลิงก์รูปเต็ม</span>
           <input
             className="input"
             type="url"
+            inputMode="url"
             placeholder="https://..."
+            maxLength={2000}
             value={form.image}
             onChange={(e) => setField('image', e.target.value)}
+            {...v.bind('image')}
           />
+          {fe('image')}
         </label>
         {(form.thumbnail || form.image) && (
           <div className="inv-preview">
@@ -345,7 +380,10 @@ function AddGameModal({ onClose, onCreated }) {
             className="input inv-textarea"
             value={form.description}
             onChange={(e) => setField('description', e.target.value)}
+            maxLength={10000}
+            {...v.bind('description')}
           />
+          {fe('description')}
         </label>
 
         <div className="modal-actions">

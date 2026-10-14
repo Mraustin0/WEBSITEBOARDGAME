@@ -295,3 +295,37 @@ textarea {
 .admin-content {
   padding: var(--space-xl);
 }
+
+/* ---------- ตรวจฟอร์ม (useFieldErrors + <FieldError />) ---------- */
+/* ช่องที่กรอกผิด: ขอบแดงอิฐทุกหน้า (ชนะคลาส border ของ Tailwind / CSS ของแต่ละหน้า) */
+input[aria-invalid='true'],
+select[aria-invalid='true'],
+textarea[aria-invalid='true'] {
+  border-color: var(--color-error) !important;
+}
+input[aria-invalid='true']:focus,
+select[aria-invalid='true']:focus,
+textarea[aria-invalid='true']:focus {
+  box-shadow: 0 0 0 3px rgba(205, 92, 92, 0.25) !important;
+}
+/* ข้อความ error / คำแนะนำใต้ช่อง (หน้าหลังร้าน) — คลาสซ้ำ 2 ครั้งเพื่อชนะ selector อย่าง .us-form p */
+.vf-error.vf-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 4px 0 0;
+  color: var(--color-error);
+  font-size: var(--fs-detail);
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: left;
+}
+.vf-error.vf-error i {
+  margin-top: 2px;
+}
+.vf-hint.vf-hint {
+  margin: 4px 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--fs-detail);
+  line-height: 1.4;
+}
