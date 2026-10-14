@@ -72,11 +72,7 @@ export default function UpcomingCard({ r, now, rules, onEdit, onChangeGame, onCa
           ราคา{' '}
           <strong className="font-heading text-base text-forest">{baht(r.price?.total)}</strong>
         </span>
-        {r.price?.deposit ? (
-          <span className="text-slate-600">
-            มัดจำ {baht(r.price.deposit)} • จ่ายที่ร้านอีก {baht(r.price.dueAtCounter)}
-          </span>
-        ) : null}
+        <span className="text-slate-600">จ่ายที่ร้านหลังเล่น</span>
       </div>
       {r.note && <p className="-mt-2 truncate text-[11px] text-slate-500">หมายเหตุ: {r.note}</p>}
 

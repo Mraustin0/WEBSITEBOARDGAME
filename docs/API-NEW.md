@@ -83,7 +83,7 @@ Schema ขยายรองรับ:
 
 - pricing.peakEnabled / peakPerPersonHour / peakStart / peakEnd
 - pricing.studentDiscountEnabled / studentDiscountPercent
-- noShow.depositPerTable / autoRefundDeposit / notifyEnabled
+- noShow.graceMin / suspendAfter / notifyEnabled (ไม่มีมัดจำ — ตัดช่องมัดจำออกแล้ว)
 - notifications.bookingReminderHours / smsEnabled / lineNotifyEnabled
 - operatingHours.days[].label
 
@@ -152,7 +152,7 @@ Schema ขยายรองรับ:
 ### ราคา Peak (หน้า 6)
 
 ตั้ง `pricing.peakEnabled / peakPerPersonHour / peakStart / peakEnd` แล้วราคาคิดจริง: ชั่วโมงที่ทับช่วง peak ใช้ราคา peak (แพ็กเกจเหมาไม่คิด) — `price.peakHours`, `price.peakPerPersonHour` อยู่ในการจอง
-(ส่วนลดนักศึกษา, มัดจำ, SMS/LINE ยังเป็นค่าตั้งเก็บไว้แสดง ไม่ได้คำนวณ)
+(ส่วนลดนักศึกษาคิดจริง; SMS/LINE ยังเป็นค่าตั้งเก็บไว้แสดง; ระบบไม่มีมัดจำ)
 
 ### Audit Trail (หน้า 9)
 
@@ -210,7 +210,7 @@ Schema ขยายรองรับ:
 | JSON เสีย / body > 1MB                                      | 500                                                                    | 400 / 413                                                                                                                            |
 | `GET /api/games`, `/api/games/:id`                          | ส่ง `createdBy` (id admin)                                             | ไม่ส่งแล้ว                                                                                                                           |
 | ชื่อ role ภาษาไทยล้วน                                       | สร้างไม่ได้ (slug ว่าง)                                                | ได้ slug อัตโนมัติ `role-xxxx`                                                                                                       |
-| ราคา                                                        | ส่วนลดนักศึกษา/มัดจำในหน้าตั้งค่าไม่มีผล                               | คิดจริง — ดู docs/API-B.md ตาราง "กฎการจอง"                                                                                          |
+| ราคา                                                        | ส่วนลดนักศึกษาในหน้าตั้งค่าไม่มีผล                                     | คิดจริง — ดู docs/API-B.md ตาราง "กฎการจอง"                                                                                          |
 | ลบเกม / ลบผู้ใช้                                            | รีวิวค้าง                                                              | ลบรีวิวที่เกี่ยวข้องด้วย                                                                                                             |
 | audit hash chain                                            | รัน seed ระหว่าง server เปิด → verify พัง                              | อ่าน head จาก DB ทุกครั้ง + `seq` unique                                                                                             |
 

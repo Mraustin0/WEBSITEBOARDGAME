@@ -125,9 +125,6 @@ export default function EditModal({ r, rules, onClose, onDone }) {
           <Row label="ผู้เล่น" value={`${result.players} คน`} />
           <Row label="ราคาเดิม" value={baht(r.price?.total)} tone="text-slate-400 line-through" />
           <Row label="ราคาใหม่" value={baht(result.price?.total)} strong />
-          {result.price?.dueAtCounter != null && (
-            <Row label="จ่ายที่ร้าน" value={baht(result.price.dueAtCounter)} />
-          )}
         </div>
       ) : (
         <div className="mt-4 space-y-4">

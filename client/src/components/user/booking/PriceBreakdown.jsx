@@ -70,22 +70,9 @@ export default function PriceBreakdown({ price, rules }) {
         <span className="text-xs font-bold uppercase tracking-wider text-slate-600">ยอดรวม</span>
         <span className="text-2xl font-heading text-forest">{baht(price.total)}</span>
       </div>
-      {price.deposit > 0 && (
-        <div className="rounded-xl bg-mustard-light/60 border border-mustard/50 px-3 py-2 flex flex-col gap-1.5">
-          <Row
-            label={
-              <>
-                <span className="font-semibold text-ink">มัดจำ</span>{' '}
-                <span className="block text-[10px] leading-snug text-slate-600">
-                  (หักตอนเช็คบิล · ไม่มาตามนัดจะไม่ได้คืน)
-                </span>
-              </>
-            }
-            value={baht(price.deposit)}
-          />
-          <Row label="จ่ายที่ร้าน" value={baht(price.dueAtCounter)} />
-        </div>
-      )}
+      <p className="text-[11px] text-slate-600 text-right">
+        ไม่ต้องจ่ายมัดจำ · ชำระที่ร้านหลังเล่นเสร็จ
+      </p>
     </div>
   );
 }

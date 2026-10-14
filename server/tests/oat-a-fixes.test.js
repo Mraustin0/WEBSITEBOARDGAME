@@ -2,7 +2,7 @@
 //  - พนักงานที่มีสิทธิ์ users สร้าง/ตั้ง/แก้/ระงับ/ลบบัญชี admin ไม่ได้ (กันยกระดับสิทธิ์)
 //  - รหัสผ่านเดิมผิด → 400 (ไม่ใช่ 401 ที่ทำให้หน้าเว็บเตะออก) · เปลี่ยนรหัสแล้ว token เก่าใช้ไม่ได้
 //  - JSON เสีย → 400, body ใหญ่เกิน → 413 (เดิม 500)
-//  - role ชื่อภาษาไทยสร้างได้ · ส่วนลดนักศึกษา + มัดจำคิดเข้าราคา
+//  - role ชื่อภาษาไทยสร้างได้ · ส่วนลดนักศึกษาคิดเข้าราคา (ไม่มีมัดจำ)
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import mongoose from 'mongoose';
@@ -38,19 +38,16 @@ describe('error handler (no DB)', () => {
   });
 });
 
-describe('pricing: student discount + deposit (pure)', () => {
-  const rules = {
-    ...RULES,
-    STUDENT: { enabled: true, percent: 10 },
-    DEPOSIT: { perPerson: 20, perTable: 50 },
-  };
+describe('pricing: student discount, no deposit (pure)', () => {
+  const rules = { ...RULES, STUDENT: { enabled: true, percent: 10 } };
   const startAt = new Date('2026-10-14T06:00:00Z'); // 13:00 ไทย (ไม่ทับ peak)
 
-  it('no student flag → no discount, deposit still applied', () => {
+  it('no student flag → full price, no deposit fields', () => {
     const p = calcPrice({ players: 4, durationHours: 2, rules, startAt });
     expect(p.total).toBe(400); // 4 × 50 × 2
     expect(p.discount).toBeUndefined();
-    expect(p).toMatchObject({ deposit: 130, dueAtCounter: 270 }); // 4 × 20 + 50
+    expect(p).not.toHaveProperty('deposit');
+    expect(p).not.toHaveProperty('dueAtCounter');
   });
 
   it('student → discount from subtotal', () => {
@@ -60,8 +57,6 @@ describe('pricing: student discount + deposit (pure)', () => {
       studentDiscountPercent: 10,
       discount: 40,
       total: 360,
-      deposit: 130,
-      dueAtCounter: 230,
     });
   });
 
@@ -72,22 +67,16 @@ describe('pricing: student discount + deposit (pure)', () => {
     ).toBe(100);
   });
 
-  it('defaults (no deposit, no discount) keep the old price shape', () => {
-    const p = calcPrice({ players: 2, durationHours: 1, startAt });
-    expect(p.deposit).toBeUndefined();
-    expect(p.total).toBe(100);
-  });
-
-  it('checkout subtracts the deposit from what is due', () => {
+  it('checkout charges the whole total at the counter', () => {
     const bill = calcCheckout({
       startedAt: new Date('2026-10-14T06:00:00Z'),
       now: new Date('2026-10-14T08:00:00Z'),
       durationHours: 2,
       players: 4,
       bookedTotal: 400,
-      deposit: 130,
     });
-    expect(bill).toMatchObject({ total: 400, deposit: 130, balanceDue: 270 });
+    expect(bill.total).toBe(400);
+    expect(bill).not.toHaveProperty('balanceDue');
   });
 });
 

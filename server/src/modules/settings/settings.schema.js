@@ -57,10 +57,7 @@ export const settingsBody = z
     noShow: z
       .object({
         graceMin: z.coerce.number().int().min(0).max(240),
-        depositPerPerson: money,
-        depositPerTable: money,
         suspendAfter: z.coerce.number().int().min(0).max(100),
-        autoRefundDeposit: z.boolean(),
         notifyEnabled: z.boolean(),
       })
       .partial(),

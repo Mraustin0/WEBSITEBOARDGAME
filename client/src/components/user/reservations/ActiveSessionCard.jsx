@@ -189,9 +189,6 @@ export default function ActiveSessionCard({
                   รวมค่าเกินเวลา ~{baht(overCharge)}
                 </p>
               )}
-              {r.price?.deposit ? (
-                <p className="text-[11px] text-slate-600">มัดจำแล้ว {baht(r.price.deposit)}</p>
-              ) : null}
             </div>
           </div>
         </div>

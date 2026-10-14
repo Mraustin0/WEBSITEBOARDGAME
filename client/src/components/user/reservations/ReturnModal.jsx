@@ -134,19 +134,7 @@ export default function ReturnModal({ r, onClose, onDone }) {
             )}
             <div className="my-1 border-t border-dashed border-ink/20" />
             <Row label="ยอดรวม" value={baht(bill.total)} strong />
-            {bill.deposit ? (
-              <>
-                <Row label="หักมัดจำที่จ่ายแล้ว" value={`−${baht(bill.deposit)}`} />
-                <Row
-                  label="จ่ายที่เคาน์เตอร์"
-                  value={baht(bill.balanceDue)}
-                  strong
-                  tone="text-forest"
-                />
-              </>
-            ) : (
-              <p className="mt-1 text-[11px] text-slate-600">จ่ายที่เคาน์เตอร์หลังคืนเกม</p>
-            )}
+            <p className="mt-1 text-[11px] text-slate-600">จ่ายที่เคาน์เตอร์หลังคืนเกม</p>
           </>
         ) : null}
       </div>

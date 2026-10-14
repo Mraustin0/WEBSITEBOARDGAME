@@ -327,7 +327,6 @@ async function billFor(r, now = new Date()) {
     tableExtraPerHour: r.price?.tableExtraPerHour ?? 0,
     perPersonHour: r.price?.perPersonHour,
     bookedTotal: r.price.total,
-    deposit: r.price?.deposit ?? 0,
     rules: await getRules(),
   });
 }
@@ -367,7 +366,6 @@ export async function returnGame(
       overtimeHours: bill.overtimeHours,
       overtimeCharge: bill.overtimeCharge,
       total: bill.total,
-      ...(bill.deposit ? { deposit: bill.deposit, balanceDue: bill.balanceDue } : {}),
       condition,
       damageNote,
       inspectedBy: (await isStaff(user)) ? user._id : undefined,
@@ -377,7 +375,7 @@ export async function returnGame(
     r.payment = {
       status: 'paid',
       method: paymentMethod,
-      amount: bill.balanceDue ?? bill.total, // หักมัดจำแล้ว
+      amount: bill.total,
       paidAt: now,
       receivedBy: user._id,
     };
@@ -477,7 +475,6 @@ export async function extend(id, user, hours) {
   r.durationHours = newDuration;
   r.price.total += charge;
   r.price.hours = newDuration;
-  if (r.price.deposit) r.price.dueAtCounter = r.price.total - r.price.deposit;
   r.extensions.push({ hours, charge, at: now, by: user._id });
   await r.save();
   await resolveTimeAlerts(r._id); // ต่อเวลาแล้ว (ถ้าใกล้หมดอีกจะแจ้งใหม่ตามเวลาใหม่)
@@ -493,7 +490,7 @@ export async function pay(id, admin, method) {
   r.payment = {
     status: 'paid',
     method,
-    amount: r.checkout?.balanceDue ?? r.checkout?.total ?? r.price.total,
+    amount: r.checkout?.total ?? r.price.total,
     paidAt: new Date(),
     receivedBy: admin._id,
   };

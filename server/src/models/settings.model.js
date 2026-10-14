@@ -52,10 +52,7 @@ const SettingsSchema = new Schema(
     },
     noShow: {
       graceMin: { type: Number, default: 30, min: 0 },
-      depositPerPerson: { type: Number, default: 0, min: 0 },
-      depositPerTable: { type: Number, default: 0, min: 0 },
       suspendAfter: { type: Number, default: 3, min: 0 },
-      autoRefundDeposit: { type: Boolean, default: false },
       notifyEnabled: { type: Boolean, default: true },
     },
     notifications: {

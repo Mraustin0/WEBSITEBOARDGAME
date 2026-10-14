@@ -229,15 +229,9 @@ export default function CheckoutModal({ isOpen, reservation, onClose, onSuccess 
                     <b>+ ฿{money(bill.overtimeCharge)}</b>
                   </div>
                 )}
-                {bill.deposit > 0 && (
-                  <div className="co-row">
-                    <span>หักมัดจำที่จ่ายตอนจอง</span>
-                    <b>− ฿{money(bill.deposit)}</b>
-                  </div>
-                )}
                 <div className="co-total">
                   <div className="co-total-top">
-                    <span>{bill.deposit > 0 ? 'ยอดที่ต้องเก็บเพิ่ม' : 'ยอดสุทธิ'}</span>
+                    <span>ยอดสุทธิ</span>
                     <div className="co-pay">
                       {PAY.map((p) => (
                         <button
@@ -251,7 +245,7 @@ export default function CheckoutModal({ isOpen, reservation, onClose, onSuccess 
                       ))}
                     </div>
                   </div>
-                  <strong>฿{money(bill.balanceDue ?? bill.total)}</strong>
+                  <strong>฿{money(bill.total)}</strong>
                 </div>
                 <p className="muted">ลูกค้า: {customerName(reservation)}</p>
               </>

@@ -22,10 +22,6 @@ export function estimatePrice({
   const pct = student && rules.STUDENT?.enabled ? (rules.STUDENT.percent ?? 0) : 0;
   const discount = Math.round((subtotal * pct) / 100);
   const total = subtotal - discount;
-  const deposit = Math.min(
-    total,
-    Math.round(players * (rules.DEPOSIT?.perPerson ?? 0) + (rules.DEPOSIT?.perTable ?? 0)),
-  );
   return {
     total,
     package: pkg,
@@ -34,6 +30,5 @@ export function estimatePrice({
     players,
     hours,
     ...(discount ? { subtotal, studentDiscountPercent: pct, discount } : {}),
-    ...(deposit ? { deposit, dueAtCounter: total - deposit } : {}),
   };
 }

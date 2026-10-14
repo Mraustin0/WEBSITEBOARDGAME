@@ -44,8 +44,6 @@ const ReservationSchema = new Schema(
       subtotal: Number, // ก่อนส่วนลด (มีเมื่อมีส่วนลด)
       studentDiscountPercent: Number,
       discount: Number,
-      deposit: Number, // มัดจำ (หักตอนเช็คบิล / ไม่มา = ริบ)
-      dueAtCounter: Number, // ยอดที่เหลือจ่ายหน้าร้าน = total − deposit
     },
     status: { type: String, enum: RESERVATION_STATUSES, default: 'booked' },
     note: { type: String, default: '' },
@@ -67,8 +65,6 @@ const ReservationSchema = new Schema(
       overtimeHours: Number,
       overtimeCharge: Number,
       total: Number,
-      deposit: Number, // มัดจำที่จ่ายตอนจอง
-      balanceDue: Number, // ยอดที่เก็บหน้าร้าน = total − deposit
       condition: { type: String, enum: ['good', 'damaged'] },
       damageNote: String,
       inspectedBy: { type: Types.ObjectId, ref: 'User' },

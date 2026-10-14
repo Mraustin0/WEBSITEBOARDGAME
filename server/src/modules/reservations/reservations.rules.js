@@ -24,7 +24,6 @@ export const RULES = {
   OPERATING: { enforce: false, days: DEFAULT_DAYS },
   PEAK: { enabled: false, perPersonHour: 80, start: '17:00', end: '23:00' },
   STUDENT: { enabled: false, percent: 15 }, // ส่วนลดนักศึกษา (พนักงานตรวจบัตรหน้าร้าน)
-  DEPOSIT: { perPerson: 0, perTable: 0 }, // มัดจำต่อการจอง (0 = ไม่เก็บ) — ไม่มา = ริบ
 };
 
 export const PACKAGES = ['hourly', 'flat3h'];
@@ -91,11 +90,6 @@ export function calcPrice({
   const studentPct = student && rules.STUDENT?.enabled ? (rules.STUDENT.percent ?? 0) : 0;
   const discount = Math.round((subtotal * studentPct) / 100);
   const finalTotal = subtotal - discount;
-  // มัดจำ = ต่อคน × ผู้เล่น + ต่อโต๊ะ (ไม่เกินยอดรวม) → หักออกตอนเช็คบิล, ไม่มา = ริบ
-  const deposit = Math.min(
-    finalTotal,
-    Math.round(players * (rules.DEPOSIT?.perPerson ?? 0) + (rules.DEPOSIT?.perTable ?? 0)),
-  );
   return {
     total: finalTotal,
     package: pkg,
@@ -105,7 +99,6 @@ export function calcPrice({
     hours: durationHours,
     ...(peakHours ? { peakHours, peakPerPersonHour: peakPerPerson } : {}),
     ...(discount ? { subtotal, studentDiscountPercent: studentPct, discount } : {}),
-    ...(deposit ? { deposit, dueAtCounter: finalTotal - deposit } : {}),
   };
 }
 
@@ -122,7 +115,6 @@ export function calcCheckout({
   tableExtraPerHour = 0,
   perPersonHour,
   bookedTotal,
-  deposit = 0,
   rules = RULES,
 }) {
   const actualMinutes = Math.max(0, Math.round((now - startedAt) / MINUTE_MS));
@@ -140,10 +132,6 @@ export function calcCheckout({
     bookedTotal,
     overtimeCharge,
     total: bookedTotal + overtimeCharge,
-    // มัดจำที่จ่ายตอนจองหักออกจากยอดที่ต้องจ่ายหน้าร้าน
-    ...(deposit
-      ? { deposit, balanceDue: Math.max(0, bookedTotal + overtimeCharge - deposit) }
-      : {}),
   };
 }
 

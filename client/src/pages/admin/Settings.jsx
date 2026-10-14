@@ -10,7 +10,7 @@ const NAV = [
   { id: 'pricing', label: 'ค่าบริการ', en: 'ราคารายชั่วโมงและแพ็กเกจ' },
   { id: 'booking', label: 'กติกาการจอง', en: 'เวลาเล่นและการยกเลิก' },
   { id: 'operatingHours', label: 'เวลาทำการ', en: 'เวลาเปิด–ปิดแต่ละวัน' },
-  { id: 'noShow', label: 'ไม่มาตามนัดและมัดจำ', en: 'มัดจำและการระงับบัญชี' },
+  { id: 'noShow', label: 'ไม่มาตามนัด', en: 'มาสายและการระงับบัญชี' },
 ];
 
 const DAY_NAMES = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
@@ -66,7 +66,6 @@ const RULES = {
   },
   noShow: {
     graceMin: int(0, 240, 'เวลาผ่อนผันมาสาย'),
-    depositPerPerson: money('มัดจำต่อคน'),
     suspendAfter: int(0, 100, 'จำนวนครั้ง'),
   },
 };
@@ -533,7 +532,7 @@ export default function Settings() {
             )}
 
             {section === 'noShow' && (
-              <div className="st-grid-3">
+              <div className="st-grid-2">
                 <Field
                   v={v}
                   k="noShow.graceMin"
@@ -546,20 +545,6 @@ export default function Settings() {
                     max={240}
                     {...v.bind('noShow.graceMin')}
                     unit="นาที"
-                  />
-                </Field>
-                <Field
-                  v={v}
-                  k="noShow.depositPerPerson"
-                  label="มัดจำต่อคน"
-                  hint="ใช้แสดงยอดในระบบ ยังไม่มีการตัดเงินจริง"
-                >
-                  <NumInput
-                    value={ns.depositPerPerson}
-                    onChange={set('noShow', 'depositPerPerson')}
-                    max={100000}
-                    {...v.bind('noShow.depositPerPerson')}
-                    unit="฿ / คน"
                   />
                 </Field>
                 <Field

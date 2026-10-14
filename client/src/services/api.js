@@ -7,7 +7,7 @@ import { api } from '../lib/api.js';
 let rulesCache = null;
 let rulesAt = 0;
 
-/** GET /reservations/rules (cache 1 นาที) — ราคา, จองล่วงหน้ากี่วัน, เวลาทำการ, ส่วนลด/มัดจำ */
+/** GET /reservations/rules (cache 1 นาที) — ราคา, จองล่วงหน้ากี่วัน, เวลาทำการ, ส่วนลดนักศึกษา */
 export async function fetchRules({ fresh = false } = {}) {
   if (!fresh && rulesCache && Date.now() - rulesAt < 60_000) return rulesCache;
   rulesCache = await api('/reservations/rules');
