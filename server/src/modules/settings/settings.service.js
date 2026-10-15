@@ -42,6 +42,16 @@ export function rulesFromSettings(s) {
       days: s?.operatingHours?.days?.length ? s.operatingHours.days : DEFAULT_DAYS,
     },
     REVENUE_TARGET_PER_DAY: s?.pricing?.revenueTargetPerDay ?? 0,
+    PEAK: {
+      enabled: s?.pricing?.peakEnabled ?? false,
+      perPersonHour: s?.pricing?.peakPerPersonHour ?? RULES.PEAK.perPersonHour,
+      start: s?.pricing?.peakStart ?? RULES.PEAK.start,
+      end: s?.pricing?.peakEnd ?? RULES.PEAK.end,
+    },
+    STUDENT: {
+      enabled: s?.pricing?.studentDiscountEnabled ?? false,
+      percent: s?.pricing?.studentDiscountPercent ?? RULES.STUDENT.percent,
+    },
     NO_SHOW_GRACE_MIN: s?.noShow?.graceMin ?? 30,
     NO_SHOW_SUSPEND_AFTER: s?.noShow?.suspendAfter ?? 3,
   };

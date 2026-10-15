@@ -16,6 +16,12 @@ import {
   syncLifecycle,
   usableCopies,
 } from '../reservations/reservations.lifecycle.js';
+import {
+  notifyBookingsAffected,
+  notifyMaintenanceDone,
+  notifyMaintenanceNew,
+  resolveNotifications,
+} from '../notifications/notifications.service.js';
 
 const POPULATE = [
   { path: 'game', select: 'name thumbnail status copies' },
@@ -167,7 +173,10 @@ export async function create(body, userId) {
     reportedBy: userId,
   });
   await lockItem(t);
-  return withAffected(t);
+  const doc = await withAffected(t);
+  await notifyMaintenanceNew(doc);
+  await notifyBookingsAffected(doc, doc.affectedReservations);
+  return doc;
 }
 
 /** เรียกจาก reservations: คืนเกมแล้วเลือกสภาพ "ชำรุด" */
@@ -183,6 +192,9 @@ export async function openDamageTicket({ reservation, note, reportedBy }) {
     reportedBy,
   });
   await lockItem(t);
+  const doc = await withAffected(t);
+  await notifyMaintenanceNew(doc);
+  await notifyBookingsAffected(doc, doc.affectedReservations);
   return t;
 }
 
@@ -223,13 +235,19 @@ export async function update(id, patch, userId) {
     if (t.copies > prevCopies) await lockItem(t);
     else await releaseItem(t); // ลดจำนวนกล่องที่เสีย
   }
-  return withAffected(t);
+  const doc = await withAffected(t);
+  if (prev !== 'resolved' && !nowOpen) await notifyMaintenanceDone(doc);
+  else if (nowOpen && (t.copies > prevCopies || prev === 'resolved')) {
+    await notifyBookingsAffected(doc, doc.affectedReservations);
+  }
+  return doc;
 }
 
 export async function remove(id) {
   const t = await MaintenanceTicket.findByIdAndDelete(id).select('+lockedGame');
   if (!t) throw notFound('ticket not found');
   if (t.status !== 'resolved') await releaseItem(t, { deleted: true });
+  await resolveNotifications({ 'refs.ticket': t._id });
   t.lockedGame = undefined;
   return t;
 }

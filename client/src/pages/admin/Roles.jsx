@@ -1,0 +1,368 @@
+import { useCallback, useEffect, useState } from 'react';
+import FieldError from '../../components/FieldError.jsx';
+import { useFieldErrors } from '../../lib/useFieldErrors.js';
+import { vText } from '../../lib/validate.js';
+import { api } from '../../lib/api.js';
+import './roles.css';
+
+const EMPTY_PERM = (key) => ({ key, view: false, edit: false, del: false, approve: false });
+
+export default function Roles() {
+  const [roles, setRoles] = useState([]);
+  const [catalog, setCatalog] = useState([]);
+  const [selected, setSelected] = useState(null);
+  const [detail, setDetail] = useState(null);
+  const [perms, setPerms] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [msg, setMsg] = useState('');
+  const [showCreate, setShowCreate] = useState(false);
+  const [form, setForm] = useState({ name: '', slug: '', description: '' });
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState('');
+  // กฎตาม roles.schema.js (createBody)
+  const cv = useFieldErrors(form, (f) => {
+    const slug = f.slug.trim();
+    return {
+      name: vText(f.name, { required: true, min: 2, max: 60, label: 'ชื่อบทบาท' }),
+      slug: !slug
+        ? ''
+        : slug.length < 2 || slug.length > 40
+          ? 'รหัสบทบาท 2–40 ตัวอักษร'
+          : !/^[a-z0-9_-]+$/.test(slug)
+            ? 'ใช้ได้เฉพาะ a-z ตัวพิมพ์เล็ก ตัวเลข _ และ - (เช่น cashier)'
+            : slug === 'admin' || slug === 'user'
+              ? 'รหัสนี้สงวนไว้สำหรับระบบ'
+              : '',
+      description: vText(f.description, { max: 300, label: 'คำอธิบาย' }),
+    };
+  });
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const data = await api('/roles');
+      setRoles(data?.items ?? []);
+      setCatalog(data?.catalog ?? []);
+      if (!selected && data?.items?.[0]) setSelected(data.items[0]._id);
+    } catch (err) {
+      setError(err.message || 'โหลดบทบาทไม่สำเร็จ');
+    } finally {
+      setLoading(false);
+    }
+  }, [selected]);
+
+  const loadDetail = useCallback(
+    async (id) => {
+      if (!id) return;
+      try {
+        const d = await api(`/roles/${id}`);
+        setDetail(d);
+        const map = Object.fromEntries((d.permissions || []).map((p) => [p.key, p]));
+        const keys = catalog.length ? catalog.map((c) => c.key) : Object.keys(map);
+        setPerms(
+          (catalog.length ? catalog : keys.map((k) => ({ key: k, label: k }))).map((c) => ({
+            key: c.key,
+            label: c.label || c.key,
+            view: !!map[c.key]?.view,
+            edit: !!map[c.key]?.edit,
+            del: !!map[c.key]?.del,
+            approve: !!map[c.key]?.approve,
+          })),
+        );
+      } catch (err) {
+        setError(err.message);
+      }
+    },
+    [catalog],
+  );
+
+  useEffect(() => {
+    load();
+  }, [load]);
+  useEffect(() => {
+    if (selected) loadDetail(selected);
+  }, [selected, catalog, loadDetail]);
+
+  function toggle(key, field) {
+    setPerms((prev) => prev.map((p) => (p.key === key ? { ...p, [field]: !p[field] } : p)));
+  }
+
+  async function savePermissions() {
+    if (!selected) return;
+    setSaving(true);
+    setMsg('');
+    setError('');
+    try {
+      await api(`/roles/${selected}/permissions`, {
+        method: 'PUT',
+        body: {
+          permissions: perms.map(({ key, view, edit, del, approve }) => ({
+            key,
+            view,
+            edit,
+            del,
+            approve,
+          })),
+        },
+      });
+      setMsg('บันทึกสิทธิ์แล้ว');
+      load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function closeCreate() {
+    setShowCreate(false);
+    setCreateError('');
+    cv.reset();
+  }
+
+  async function createRole(e) {
+    e.preventDefault();
+    setError('');
+    setCreateError('');
+    if (!cv.submit()) return;
+    setCreating(true);
+    try {
+      const role = await api('/roles', {
+        method: 'POST',
+        body: {
+          name: form.name.trim(),
+          slug: form.slug.trim() || undefined,
+          description: form.description.trim(),
+          permissions: catalog.map((c) => EMPTY_PERM(c.key)),
+        },
+      });
+      setShowCreate(false);
+      setForm({ name: '', slug: '', description: '' });
+      await load();
+      setSelected(role._id);
+      cv.reset();
+    } catch (err) {
+      if (err.status === 400 && cv.server(err)) return;
+      if (err.status === 409) {
+        const dup = /reserved/.test(err.message)
+          ? { slug: 'รหัสนี้สงวนไว้สำหรับระบบ' }
+          : {
+              name: 'ชื่อหรือรหัสบทบาทนี้ถูกใช้แล้ว',
+              ...(form.slug.trim() && { slug: 'ชื่อหรือรหัสบทบาทนี้ถูกใช้แล้ว' }),
+            };
+        if (cv.setErrors(dup)) return;
+      }
+      setCreateError(err.message);
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function removeRole() {
+    if (!selected || !detail) return;
+    if (detail.isSystem) {
+      setError('บทบาทของระบบลบไม่ได้');
+      return;
+    }
+    if (!confirm(`ลบบทบาท "${detail.name}"?`)) return;
+    try {
+      await api(`/roles/${selected}`, { method: 'DELETE' });
+      setSelected(null);
+      setDetail(null);
+      load();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function removeMember(userId) {
+    try {
+      await api(`/roles/${selected}/members/${userId}`, { method: 'DELETE' });
+      loadDetail(selected);
+      load();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  return (
+    <div className="roles">
+      <div className="page-head">
+        <div>
+          <p className="muted">กำหนดว่าแต่ละบทบาทใช้เมนูไหนได้บ้าง</p>
+          <h1>บทบาทและสิทธิ์</h1>
+        </div>
+        <button type="button" className="btn primary" onClick={() => setShowCreate(true)}>
+          + เพิ่มบทบาท
+        </button>
+      </div>
+
+      {error && <div className="error-box">{error}</div>}
+      {msg && <div className="ok-box">{msg}</div>}
+
+      {loading ? (
+        <p className="muted">กำลังโหลด...</p>
+      ) : (
+        <div className="roles-grid">
+          <aside className="roles-list">
+            <h3>บทบาททั้งหมด ({roles.length})</h3>
+            {roles.map((r) => (
+              <button
+                type="button"
+                key={r._id}
+                className={'role-card' + (selected === r._id ? ' active' : '')}
+                onClick={() => setSelected(r._id)}
+              >
+                <strong>{r.name}</strong>
+                <span className="muted">{r.slug}</span>
+                {r.isSystem && <span className="sys-badge">ระบบ</span>}
+                <span className="member-count">{r.memberCount ?? 0} คน</span>
+              </button>
+            ))}
+          </aside>
+
+          <section className="roles-detail">
+            {!detail ? (
+              <p className="muted">เลือกบทบาทจากรายการด้านซ้าย</p>
+            ) : (
+              <>
+                <div className="detail-head">
+                  <div>
+                    <h2>{detail.name}</h2>
+                    <p className="muted">{detail.description || detail.slug}</p>
+                  </div>
+                  {!detail.isSystem && (
+                    <button type="button" className="btn danger" onClick={removeRole}>
+                      ลบบทบาท
+                    </button>
+                  )}
+                </div>
+
+                <h3>สิทธิ์แต่ละเมนู</h3>
+                <div className="perm-table-wrap">
+                  <table className="perm-table">
+                    <thead>
+                      <tr>
+                        <th>เมนู</th>
+                        <th>ดู</th>
+                        <th>แก้ไข</th>
+                        <th>ลบ</th>
+                        <th>อนุมัติ</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {perms.map((p) => (
+                        <tr key={p.key}>
+                          <td>{p.label || p.key}</td>
+                          {['view', 'edit', 'del', 'approve'].map((f) => (
+                            <td key={f}>
+                              <input
+                                type="checkbox"
+                                checked={!!p[f]}
+                                onChange={() => toggle(p.key, f)}
+                                disabled={detail.isSystem && detail.slug === 'admin'}
+                              />
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {!(detail.isSystem && detail.slug === 'admin') && (
+                  <button
+                    type="button"
+                    className="btn primary"
+                    disabled={saving}
+                    onClick={savePermissions}
+                  >
+                    {saving ? 'กำลังบันทึก...' : 'บันทึกสิทธิ์'}
+                  </button>
+                )}
+
+                <h3 style={{ marginTop: 28 }}>ผู้ใช้ในบทบาทนี้</h3>
+                <div className="members">
+                  {(detail.members || []).length === 0 && (
+                    <p className="muted">
+                      ยังไม่มีผู้ใช้ในบทบาทนี้ (เปลี่ยนบทบาทได้ที่หน้าผู้ใช้งาน)
+                    </p>
+                  )}
+                  {(detail.members || []).map((u) => (
+                    <div key={u._id} className="member-row">
+                      <span>{u.displayName || u.username}</span>
+                      <span className="muted">{u.email}</span>
+                      <button type="button" className="btn sm" onClick={() => removeMember(u._id)}>
+                        นำออก
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </section>
+        </div>
+      )}
+
+      {showCreate && (
+        <div
+          className="modal-overlay"
+          onMouseDown={(e) => e.target === e.currentTarget && closeCreate()}
+        >
+          <form className="modal" onSubmit={createRole} noValidate>
+            <h2>เพิ่มบทบาท</h2>
+            {createError && <div className="error-box">{createError}</div>}
+            <label>
+              ชื่อบทบาท
+              <input
+                required
+                maxLength={60}
+                value={form.name}
+                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                {...cv.bind('name')}
+              />
+              <FieldError variant="admin" id={cv.errId('name')} msg={cv.errors.name} />
+            </label>
+            <label>
+              รหัสบทบาท (ภาษาอังกฤษ เว้นว่างได้)
+              <input
+                placeholder="เช่น cashier"
+                maxLength={40}
+                autoCapitalize="none"
+                spellCheck={false}
+                value={form.slug}
+                onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))}
+                {...cv.bind('slug')}
+              />
+              <FieldError variant="admin" id={cv.errId('slug')} msg={cv.errors.slug} />
+            </label>
+            <label>
+              คำอธิบาย
+              <input
+                maxLength={300}
+                value={form.description}
+                onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                {...cv.bind('description')}
+              />
+              <FieldError
+                variant="admin"
+                id={cv.errId('description')}
+                msg={cv.errors.description}
+              />
+            </label>
+            <div className="modal-actions">
+              <button type="button" className="btn" onClick={closeCreate} disabled={creating}>
+                ยกเลิก
+              </button>
+              <button type="submit" className="btn primary" disabled={creating}>
+                {creating ? 'กำลังเพิ่ม...' : 'เพิ่มบทบาท'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+    </div>
+  );
+}

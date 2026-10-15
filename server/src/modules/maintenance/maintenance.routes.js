@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import { validate } from '../../middleware/validate.js';
-import { requireAuth, requireRole } from '../../middleware/auth.js';
+import { requireAuth, requirePermission } from '../../middleware/auth.js';
 import { asyncHandler } from '../../lib/errors.js';
 import { createBody, idParam, listQuery, updateBody } from './maintenance.schema.js';
 import * as controller from './maintenance.controller.js';
 
 const router = Router();
-router.use(requireAuth, requireRole('admin'));
+router.use(requireAuth, requirePermission('maintenance'));
 
 router.get('/', validate({ query: listQuery }), asyncHandler(controller.list));
 router.get('/summary', asyncHandler(controller.summary));

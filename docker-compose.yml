@@ -20,7 +20,7 @@ services:
       NODE_ENV: production
       PORT: 4000
       MONGODB_URI: mongodb://mongo:27017/boardgame-everyday
-      JWT_SECRET: ${JWT_SECRET:-change-me-please}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET (random, 32+ chars) in .env}
       CLIENT_ORIGIN: ${CLIENT_ORIGIN:-http://localhost:5173}
     profiles: ['app']
 

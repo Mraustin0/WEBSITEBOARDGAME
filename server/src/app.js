@@ -4,7 +4,7 @@ import helmet from 'helmet';
 import pinoHttp from 'pino-http';
 import swaggerUi from 'swagger-ui-express';
 
-import { env } from './config/env.js';
+import { clientOrigins, env } from './config/env.js';
 import { logger } from './lib/logger.js';
 import { openapiSpec } from './lib/openapi.js';
 import { errorHandler, notFoundHandler } from './middleware/error.js';
@@ -20,14 +20,18 @@ import statsRoutes from './modules/stats/stats.routes.js';
 import settingsRoutes from './modules/settings/settings.routes.js';
 import maintenanceRoutes from './modules/maintenance/maintenance.routes.js';
 import assistRoutes from './modules/assist/assist.routes.js';
+import notificationRoutes from './modules/notifications/notifications.routes.js';
 import adminRoutes from './modules/admin/admin.routes.js';
+import auditRoutes from './modules/audit/audit.routes.js';
+import rolesRoutes from './modules/roles/roles.routes.js';
+import shiftRoutes from './modules/shifts/shifts.routes.js';
 
 export function createApp() {
   const app = express();
 
-  app.set('trust proxy', 1);
+  app.set('trust proxy', env.TRUST_PROXY);
   app.use(helmet());
-  app.use(cors({ origin: env.CLIENT_ORIGIN, credentials: true }));
+  app.use(cors({ origin: clientOrigins, credentials: true }));
   app.use(express.json({ limit: '1mb' }));
   app.use(pinoHttp({ logger, autoLogging: { ignore: (req) => req.url === '/api/health' } }));
 
@@ -40,7 +44,9 @@ export function createApp() {
     swaggerUi.setup(openapiSpec, { customSiteTitle: 'Boardgame Everyday API' }),
   );
 
-  app.use('/api/auth', authLimiter, authRoutes);
+  // จำกัดเฉพาะ login / register (กันเดารหัส) — /me, /password ไม่ต้องแชร์โควตานี้
+  app.use(['/api/auth/login', '/api/auth/register'], authLimiter);
+  app.use('/api/auth', authRoutes);
   app.use('/api/games', gamesRoutes);
   app.use('/api/reviews', reviewsRoutes);
   app.use('/api/bgg', bggLimiter, bggRoutes);
@@ -50,7 +56,11 @@ export function createApp() {
   app.use('/api/settings', settingsRoutes);
   app.use('/api/maintenance', maintenanceRoutes);
   app.use('/api/assist', assistRoutes);
+  app.use('/api/notifications', notificationRoutes);
   app.use('/api/admin', adminRoutes);
+  app.use('/api/audit', auditRoutes);
+  app.use('/api/roles', rolesRoutes);
+  app.use('/api/shifts', shiftRoutes);
 
   app.use('/api', notFoundHandler);
   app.use(errorHandler);

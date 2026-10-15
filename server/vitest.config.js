@@ -5,6 +5,7 @@ export default defineConfig({
     environment: 'node',
     globals: true,
     include: ['tests/**/*.test.js'],
+    setupFiles: ['tests/setup-db.js'],
     // integration tests ใช้ DB เดียวกัน → รันทีละไฟล์กันข้อมูลชนกัน
     fileParallelism: false,
     hookTimeout: 30000,

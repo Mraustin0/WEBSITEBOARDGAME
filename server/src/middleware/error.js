@@ -13,6 +13,18 @@ export function errorHandler(err, req, res, _next) {
     return res.status(err.status).json({ error: err.message, details: err.details });
   }
 
+  // body-parser: JSON เสีย / body ใหญ่เกิน → 400 / 413 (ไม่ใช่ 500)
+  if (err?.type === 'entity.parse.failed') {
+    return res.status(400).json({ error: 'invalid JSON body' });
+  }
+  if (err?.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'request body too large' });
+  }
+  const status = err?.status ?? err?.statusCode;
+  if (status >= 400 && status < 500) {
+    return res.status(status).json({ error: err.expose ? err.message : 'bad request' });
+  }
+
   // mongoose duplicate key
   if (err && err.code === 11000) {
     return res.status(409).json({ error: 'duplicate', details: err.keyValue });

@@ -1,0 +1,298 @@
+/* Roles page — ใช้ Kanit + Typography scale จาก index.css เท่านั้น */
+
+.roles {
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+}
+
+.roles .page-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: var(--space-lg);
+  gap: var(--space-md);
+}
+
+.roles .page-head .muted {
+  margin: 0 0 var(--space-xs);
+  font-size: var(--fs-detail);
+  color: var(--color-text-muted);
+}
+
+.roles .page-head h1 {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: var(--fs-main); /* 38–42px */
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.roles .title-en {
+  font-size: var(--fs-sub); /* 18–20px */
+  color: var(--color-text-muted);
+  font-weight: 500;
+  margin-left: 8px;
+}
+
+.roles-grid {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: var(--space-lg);
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .roles-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.roles-list {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.roles-list h3 {
+  margin: 0 0 var(--space-sm);
+  font-family: var(--font-heading);
+  font-size: var(--fs-sub); /* 18–20px */
+  font-weight: 600;
+}
+
+.role-card {
+  text-align: left;
+  border: 1px solid var(--color-border);
+  background: #f9fafb;
+  border-radius: 10px;
+  padding: 12px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+}
+
+.role-card strong {
+  font-family: var(--font-heading);
+  font-size: var(--fs-body);
+  font-weight: 600;
+}
+
+.role-card .muted {
+  font-size: var(--fs-detail);
+  color: var(--color-text-muted);
+}
+
+.role-card.active {
+  border-color: #0f766e;
+  background: #f0fdfa;
+}
+
+.role-card .sys-badge {
+  font-size: var(--fs-tiny); /* 10px */
+  background: #e0e7ff;
+  color: #3730a3;
+  width: fit-content;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.role-card .member-count {
+  font-size: var(--fs-detail); /* 12px */
+  color: var(--color-text-muted);
+}
+
+.roles-detail {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-lg);
+}
+
+.detail-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: var(--space-md);
+}
+
+.detail-head h2 {
+  font-family: var(--font-heading);
+  font-size: var(--fs-title); /* 24–28px */
+  font-weight: 600;
+  margin: 0;
+}
+
+.detail-head .muted {
+  font-size: var(--fs-detail);
+  color: var(--color-text-muted);
+  margin: 4px 0 0;
+}
+
+.roles-detail > h3 {
+  font-family: var(--font-heading);
+  font-size: var(--fs-sub); /* 18–20px */
+  font-weight: 600;
+  margin: 0 0 var(--space-sm);
+}
+
+.perm-table-wrap {
+  overflow-x: auto;
+  margin-bottom: 12px;
+}
+
+.perm-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-body);
+  font-size: var(--fs-body); /* 16px */
+}
+
+.perm-table th,
+.perm-table td {
+  border-bottom: 1px solid var(--color-border);
+  padding: 10px 8px;
+  text-align: center;
+  font-family: var(--font-body);
+}
+
+.perm-table th {
+  font-size: var(--fs-detail); /* 12px */
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.perm-table td {
+  font-size: var(--fs-body);
+}
+
+.perm-table th:first-child,
+.perm-table td:first-child {
+  text-align: left;
+}
+
+.members {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.member-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  background: #f9fafb;
+  border-radius: 8px;
+  font-size: var(--fs-body);
+}
+
+.member-row .muted {
+  font-size: var(--fs-detail);
+  color: var(--color-text-muted);
+}
+
+.member-row .btn.sm {
+  margin-left: auto;
+  font-size: var(--fs-detail);
+  padding: 4px 10px;
+}
+
+.roles .btn {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: #fff;
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+}
+
+.roles .btn.primary {
+  background: #0f766e;
+  color: #fff;
+  border-color: #0f766e;
+  font-weight: 600;
+}
+
+.roles .btn.danger {
+  background: #fef2f2;
+  color: #991b1b;
+  border-color: #fecaca;
+}
+
+.roles .error-box {
+  background: #fef2f2;
+  color: #991b1b;
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  font-size: var(--fs-body);
+}
+
+.roles .ok-box {
+  background: #eef4ec;
+  color: #2f4f2f;
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  font-size: var(--fs-body);
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+.modal {
+  background: #fff;
+  border-radius: 14px;
+  padding: 24px;
+  width: min(420px, 92vw);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-family: var(--font-body);
+}
+
+.modal h2 {
+  font-family: var(--font-heading);
+  font-size: var(--fs-title);
+  font-weight: 600;
+  margin: 0;
+}
+
+.modal label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--fs-detail);
+  font-weight: 500;
+}
+
+.modal input {
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}

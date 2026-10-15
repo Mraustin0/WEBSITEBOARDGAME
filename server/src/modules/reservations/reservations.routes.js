@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { validate } from '../../middleware/validate.js';
-import { requireAuth, requireRole } from '../../middleware/auth.js';
+import { requireAuth, requirePermission } from '../../middleware/auth.js';
 import { asyncHandler } from '../../lib/errors.js';
 import {
   adminBookingBody,
@@ -19,7 +19,7 @@ import {
 import * as controller from './reservations.controller.js';
 
 const router = Router();
-const admin = [requireAuth, requireRole('admin')];
+const admin = [requireAuth, requirePermission('floor')];
 
 // public
 router.get('/rules', asyncHandler(controller.rules));
@@ -44,9 +44,16 @@ router.post(
 );
 router.patch(
   '/admin/:id/pay',
-  ...admin,
+  requireAuth,
+  requirePermission('checkout', 'edit'),
   validate({ params: idParam, body: payBody }),
   asyncHandler(controller.pay),
+);
+router.patch(
+  '/admin/:id/confirm',
+  ...admin,
+  validate({ params: idParam }),
+  asyncHandler(controller.confirm),
 );
 router.patch(
   '/admin/:id/no-show',

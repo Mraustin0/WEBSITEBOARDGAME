@@ -65,12 +65,12 @@ describeIf('auth flow (integration)', () => {
     expect(res.status).toBe(204);
   });
 
-  it('change password: wrong old password → 401', async () => {
+  it('change password: wrong old password → 400 (not 401, so the client keeps the session)', async () => {
     const res = await request(app)
       .put('/api/auth/password')
       .set('Authorization', `Bearer ${token}`)
       .send({ oldPassword: 'wrongwrong', newPassword: 'newSecret1' });
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(400);
   });
 
   it('change password: same as old → 400', async () => {

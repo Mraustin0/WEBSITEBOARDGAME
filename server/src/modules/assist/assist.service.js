@@ -2,6 +2,8 @@ import { AssistRequest, ACTIVE_ASSIST_STATUSES } from '../../models/assist.model
 import { Reservation } from '../../models/reservation.model.js';
 import { conflict, notFound } from '../../lib/errors.js';
 import { syncLifecycle } from '../reservations/reservations.lifecycle.js';
+import { can } from '../../lib/permissions.js';
+import { notifyAssist, resolveNotifications } from '../notifications/notifications.service.js';
 
 const POPULATE = [
   { path: 'table', select: 'code name zone' },
@@ -15,14 +17,14 @@ const POPULATE = [
   { path: 'resolvedBy', select: 'username' },
 ];
 
-const isAdmin = (user) => user.role === 'admin';
+const isStaff = (user) => can(user, 'floor', 'view');
 const sameId = (a, b) => String(a?._id ?? a) === String(b?._id ?? b);
 
 /** สมาชิกกด "เรียก GM" — ต้องเป็นเจ้าของการจองที่กำลังเล่นอยู่ */
 export async function create(user, { reservation, topic, note }) {
   await syncLifecycle();
   const r = await Reservation.findById(reservation);
-  if (!r || (!isAdmin(user) && !sameId(r.user, user._id))) {
+  if (!r || (!sameId(r.user, user._id) && !(await isStaff(user)))) {
     throw notFound('reservation not found');
   }
   if (r.status !== 'playing') throw conflict('can call staff only while playing');
@@ -41,7 +43,9 @@ export async function create(user, { reservation, topic, note }) {
     topic,
     note,
   });
-  return doc.populate(POPULATE);
+  await doc.populate(POPULATE);
+  await notifyAssist(doc); // แจ้งพนักงาน (สำคัญ)
+  return doc;
 }
 
 /** คำขอของฉัน (แสดงสถานะ "พนักงานรับเรื่องแล้ว" บนการ์ด) */
@@ -54,7 +58,7 @@ export async function listMine(userId, { reservation }) {
 /** สมาชิกยกเลิกคำขอที่ยังไม่เสร็จ */
 export async function cancel(id, user) {
   const doc = await AssistRequest.findById(id);
-  if (!doc || (!isAdmin(user) && !sameId(doc.user, user._id))) {
+  if (!doc || (!sameId(doc.user, user._id) && !(await isStaff(user)))) {
     throw notFound('request not found');
   }
   if (!ACTIVE_ASSIST_STATUSES.includes(doc.status)) {
@@ -62,6 +66,7 @@ export async function cancel(id, user) {
   }
   doc.status = 'cancelled';
   await doc.save();
+  await resolveNotifications({ 'refs.assist': doc._id });
   return doc.populate(POPULATE);
 }
 
@@ -102,5 +107,6 @@ export async function update(id, admin, { status, resolution }) {
   }
   if (resolution !== undefined) doc.resolution = resolution;
   await doc.save();
+  await resolveNotifications({ 'refs.assist': doc._id }); // รับเรื่องแล้ว → ซ่อนปุ่มในแจ้งเตือน
   return doc.populate(POPULATE);
 }

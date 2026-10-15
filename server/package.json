@@ -12,7 +12,8 @@
     "seed": "node scripts/seed.js",
     "promote": "node scripts/promote-admin.js",
     "seed:tables": "node scripts/seed-tables.js",
-    "seed:demo": "node scripts/seed-demo.js"
+    "seed:demo": "node scripts/seed-demo.js",
+    "bgg:refresh": "node scripts/bgg-refresh.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

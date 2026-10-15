@@ -13,6 +13,7 @@ import {
   operatingHoursError,
   overbooked,
   overlaps,
+  peakHoursOf,
   peakUsage,
 } from '../src/modules/reservations/reservations.rules.js';
 import { eachLocalDate, localDayRange, toLocalDateString } from '../src/lib/time.js';
@@ -32,12 +33,24 @@ describe('reservation rules (unit)', () => {
     expect(p.hours).toBe(2);
   });
 
-  it('rejects bookings in the past or more than 3 days ahead', () => {
-    const now = new Date('2026-10-01T10:00:00Z');
+  it('rejects bookings in the past or more than 3 calendar days ahead (Bangkok)', () => {
+    const now = new Date('2026-10-01T10:00:00Z'); // 1 ต.ค. 17:00 เวลาไทย
     expect(bookingWindowError(new Date(now.getTime() - 60 * 60 * 1000), now)).toMatch(/past/);
     expect(bookingWindowError(new Date(now.getTime() - 5 * 60 * 1000), now)).toBeNull();
     expect(bookingWindowError(new Date(now.getTime() + 3 * 24 * H), now)).toBeNull();
-    expect(bookingWindowError(new Date(now.getTime() + 3 * 24 * H + 1), now)).toMatch(/3 days/);
+    // วันสุดท้าย (4 ต.ค.) จองได้ทั้งวัน แม้จะเลยเวลาปัจจุบันไปแล้ว
+    expect(bookingWindowError(new Date('2026-10-04T23:30:00+07:00'), now)).toBeNull();
+    expect(bookingWindowError(new Date('2026-10-05T00:00:00+07:00'), now)).toMatch(/3 days/);
+  });
+
+  it('last bookable day has slots even when checked before opening time', () => {
+    const now = new Date('2026-10-14T05:00:00+07:00'); // เช็กตอนตี 5 (ก่อนร้านเปิด)
+    const rules = { ...RULES, MAX_ADVANCE_DAYS: 10 };
+    expect(bookingWindowError(new Date('2026-10-24T10:00:00+07:00'), now, rules)).toBeNull();
+    expect(bookingWindowError(new Date('2026-10-24T22:00:00+07:00'), now, rules)).toBeNull();
+    expect(bookingWindowError(new Date('2026-10-25T10:00:00+07:00'), now, rules)).toMatch(
+      /10 days/,
+    );
   });
 
   it('detects overlapping intervals (touching edges are not overlap)', () => {
@@ -206,5 +219,33 @@ describe('settings-driven rules (unit)', () => {
     // กำลังเล่น (เกินเวลา ยังไม่คืน) ได้กล่องก่อนเสมอ
     const late = [row('p', 10, 11, 'playing'), row('x', 12, 13)];
     expect(overbooked(late, 1, now).map((r) => r._id)).toEqual(['x']);
+  });
+
+  it('counts hours inside the peak window (Bangkok time, across midnight)', () => {
+    const at = (iso) => new Date(iso);
+    const peak = { enabled: true, perPersonHour: 80, start: '17:00', end: '23:00' };
+    expect(peakHoursOf(at('2026-10-10T16:00:00+07:00'), 2, peak)).toBe(1);
+    expect(peakHoursOf(at('2026-10-10T12:00:00+07:00'), 2, peak)).toBe(0);
+    expect(peakHoursOf(at('2026-10-10T16:00:00+07:00'), 2, { ...peak, enabled: false })).toBe(0);
+    const late = { ...peak, start: '22:00', end: '02:00' };
+    expect(peakHoursOf(at('2026-10-11T00:30:00+07:00'), 2, late)).toBe(1.5);
+    const price = calcPrice({
+      players: 2,
+      durationHours: 2,
+      startAt: at('2026-10-10T16:00:00+07:00'),
+      rules: { ...RULES, PEAK: peak },
+    });
+    expect(price.total).toBe(2 * 50 + 2 * 80);
+    expect(price.peakHours).toBe(1);
+    // แพ็กเกจเหมาไม่คิด peak
+    expect(
+      calcPrice({
+        players: 2,
+        durationHours: 3,
+        pkg: 'flat3h',
+        startAt: at('2026-10-10T18:00:00+07:00'),
+        rules: { ...RULES, PEAK: peak },
+      }).total,
+    ).toBe(260);
   });
 });

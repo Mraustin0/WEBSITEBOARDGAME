@@ -3,7 +3,7 @@
 // ต้องรัน seed (เกม) กับ seed:tables ก่อน — รันซ้ำได้ (ลบเฉพาะข้อมูลที่ script นี้สร้าง)
 // usage: npm run --workspace server seed:demo
 import bcrypt from 'bcryptjs';
-import { env } from '../src/config/env.js';
+import { env, isProd } from '../src/config/env.js';
 import { connectDb, disconnectDb } from '../src/lib/db.js';
 import { logger } from '../src/lib/logger.js';
 import { User } from '../src/models/user.model.js';
@@ -12,6 +12,13 @@ import { Table } from '../src/models/table.model.js';
 import { Reservation } from '../src/models/reservation.model.js';
 import { Review } from '../src/models/review.model.js';
 import { calcPrice } from '../src/modules/reservations/reservations.rules.js';
+import { ensureSystemRoles } from '../src/modules/roles/roles.service.js';
+
+// สร้างบัญชี admin รหัสผ่านที่ทุกคนรู้ (demo1234) — ห้ามรันบนระบบจริง
+if (isProd) {
+  console.error('seed:demo is disabled in production (creates demo_admin / demo1234)');
+  process.exit(1);
+}
 
 const TAG = 'demo-seed';
 const H = 60 * 60 * 1000;
@@ -57,6 +64,17 @@ await User.findOneAndUpdate(
   },
   { upsert: true },
 );
+
+// พนักงานสำหรับ demo สิทธิ์ละเอียด (หน้า 16): staff = Game Master, manager = ผู้จัดการร้าน
+await ensureSystemRoles();
+for (const role of ['staff', 'manager']) {
+  const username = `demo_${role}`;
+  await User.findOneAndUpdate(
+    { email: `${username}@demo.local` },
+    { $setOnInsert: { username, email: `${username}@demo.local`, passwordHash }, $set: { role } },
+    { upsert: true },
+  );
+}
 
 await Reservation.deleteMany({ note: TAG });
 await Review.deleteMany({ user: { $in: users.map((u) => u._id) } });
@@ -175,6 +193,6 @@ for (const u of users) {
 await Review.insertMany(reviews);
 
 logger.info(
-  `demo data: ${users.length} members + demo_admin@demo.local (password demo1234), ${docs.length} reservations, ${reviews.length} reviews`,
+  `demo data: ${users.length} members + demo_admin / demo_staff / demo_manager @demo.local (password demo1234), ${docs.length} reservations, ${reviews.length} reviews`,
 );
 await disconnectDb();

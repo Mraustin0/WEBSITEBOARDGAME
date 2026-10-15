@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { validate } from '../../middleware/validate.js';
-import { requireAuth, requireRole } from '../../middleware/auth.js';
+import { requireAuth, requirePermission } from '../../middleware/auth.js';
 import { asyncHandler } from '../../lib/errors.js';
 import { adminListQuery, gameIdParam, idParam, upsertBody } from './reviews.schema.js';
 import * as controller from './reviews.controller.js';
@@ -12,7 +12,7 @@ router.get('/my', requireAuth, asyncHandler(controller.listMine));
 router.get(
   '/',
   requireAuth,
-  requireRole('admin'),
+  requirePermission('inventory', 'view'),
   validate({ query: adminListQuery }),
   asyncHandler(controller.adminList),
 );

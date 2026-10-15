@@ -1,0 +1,245 @@
+// รายละเอียดเกม: รูปใหญ่, ข้อมูล BGG, คำอธิบาย, สถานะกล่อง, ปุ่มจอง และรีวิวของสมาชิก
+// ปิดด้วย Esc / คลิกพื้นหลัง / ปุ่ม × — โฟกัสวนอยู่ใน dialog และคืนโฟกัสเดิมเมื่อปิด
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
+import GameReviews from './GameReviews.jsx';
+import { GameBoxIcon } from '../../brand/BrandIcons.jsx';
+import {
+  TONE,
+  bookingHref,
+  nowStatus,
+  playersLabel,
+  playtimeLabel,
+  plainText,
+  slotStatus,
+} from './catalogUtils.js';
+
+const DESC_LIMIT = 420;
+const FOCUSABLE =
+  'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])';
+
+function Chips({ title, items, tone = 'emerald' }) {
+  if (!items?.length) return null;
+  const cls =
+    tone === 'emerald'
+      ? 'bg-forest-50 border-forest-200 text-forest-800'
+      : 'bg-cream-light border-ink/15 text-slate-700';
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">{title}</span>
+      <div className="flex flex-wrap gap-1">
+        {items.map((c) => (
+          <span
+            key={c}
+            className={`text-[11px] border px-2 py-0.5 rounded-full font-medium ${cls}`}
+          >
+            {c}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Stat({ label, value }) {
+  return (
+    <div className="min-w-0">
+      <span className="text-[10px] text-slate-500 uppercase font-semibold block">{label}</span>
+      <span className="text-xs font-bold text-ink">{value}</span>
+    </div>
+  );
+}
+
+export default function GameDetailModal({ game, slotEntry, slot, onClose, notify }) {
+  const dialogRef = useRef(null);
+  const closeRef = useRef(null);
+  const [expanded, setExpanded] = useState(false);
+  const [imgFailed, setImgFailed] = useState(false);
+
+  const description = useMemo(() => plainText(game.description), [game.description]);
+  const longDesc = description.length > DESC_LIMIT;
+
+  // โฟกัสปุ่มปิดเมื่อเปิด, ล็อกการเลื่อนหน้าหลัง, คืนโฟกัสเดิมเมื่อปิด
+  useEffect(() => {
+    const prevFocus = document.activeElement;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    closeRef.current?.focus();
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      if (prevFocus && typeof prevFocus.focus === 'function') prevFocus.focus();
+    };
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  // วนโฟกัสด้วย Tab ภายใน dialog
+  function trapTab(e) {
+    if (e.key !== 'Tab' || !dialogRef.current) return;
+    const nodes = [...dialogRef.current.querySelectorAll(FOCUSABLE)];
+    if (!nodes.length) return;
+    const first = nodes[0];
+    const last = nodes[nodes.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  }
+
+  const now = nowStatus(game);
+  const atSlot = slot && slotEntry ? slotStatus(slotEntry) : null;
+  const status = atSlot ?? now;
+  const canBook = status.tone !== 'repair' && (!atSlot || atSlot.ok);
+  const src = game.image || game.thumbnail;
+  const copies = game.copies ?? 1;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-ink/55 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4"
+      onClick={onClose}
+    >
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="game-detail-title"
+        onKeyDown={trapTab}
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white w-full sm:max-w-2xl max-h-[92vh] overflow-y-auto overscroll-contain rounded-t-3xl sm:rounded-3xl border border-ink/15 shadow-2xl text-ink"
+      >
+        <div aria-hidden="true" className="board-border h-1.5 w-full" />
+        <div className="paper relative h-56 sm:h-72">
+          {src && !imgFailed ? (
+            <img
+              src={src}
+              alt={game.name}
+              onError={() => setImgFailed(true)}
+              className="w-full h-full object-contain"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <GameBoxIcon size={96} />
+            </div>
+          )}
+          <button
+            ref={closeRef}
+            type="button"
+            onClick={onClose}
+            aria-label="ปิด"
+            className="absolute top-3 right-3 w-9 h-9 bg-cream-light/95 border border-ink/15 hover:bg-white text-ink rounded-full flex items-center justify-center shadow-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-forest"
+          >
+            <i className="fa-solid fa-xmark"></i>
+          </button>
+          {game.rating && (
+            <span className="absolute bottom-3 right-3 bg-mustard text-ink border border-ink/20 text-xs px-2.5 py-1 rounded-full font-bold flex items-center gap-1 shadow-sm">
+              <span aria-hidden="true">★</span> คะแนน BGG {game.rating}
+            </span>
+          )}
+        </div>
+
+        <div className="bg-cream border-y border-ink/10 px-5 sm:px-6 py-4 flex flex-col gap-2">
+          <h2
+            id="game-detail-title"
+            className="font-heading text-2xl sm:text-3xl leading-tight text-forest break-words"
+          >
+            {game.name}
+            {game.yearPublished && (
+              <span className="ml-2 font-sans text-sm font-semibold text-slate-500">
+                ({game.yearPublished})
+              </span>
+            )}
+          </h2>
+          <span
+            className={`self-start max-w-full text-xs px-2.5 py-1 rounded-full font-semibold flex items-center gap-1.5 ${TONE[status.tone]}`}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-current opacity-80 shrink-0"></span>
+            <span className="min-w-0">{atSlot ? `ช่วงที่เลือก: ${atSlot.label}` : now.label}</span>
+          </span>
+        </div>
+
+        <div className="p-5 sm:p-6 flex flex-col gap-5">
+          <div className="bg-cream-light border border-ink/10 rounded-2xl p-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+            <Stat label="ผู้เล่น" value={playersLabel(game)} />
+            <Stat label="เวลาเล่น" value={playtimeLabel(game)} />
+            <Stat label="คะแนน BGG" value={game.rating ? `${game.rating} / 10` : '-'} />
+            <Stat label="ความยาก" value={game.weight ? `${game.weight} / 5` : '-'} />
+          </div>
+
+          <div className="text-xs text-slate-700 bg-white border border-ink/10 rounded-2xl px-3 py-2.5 flex flex-wrap gap-x-4 gap-y-1">
+            <span className="font-bold text-ink">มีทั้งหมด {copies} กล่อง</span>
+            <span>
+              <i className="fa-solid fa-box-open text-teal mr-1"></i>ว่าง {game.copiesInVault ?? 0}
+            </span>
+            <span>
+              <i className="fa-solid fa-dice text-brick-dark mr-1"></i>กำลังเล่น{' '}
+              {game.copiesInPlay ?? 0}
+            </span>
+            <span>
+              <i className="fa-solid fa-screwdriver-wrench text-slate-500 mr-1"></i>ส่งซ่อม{' '}
+              {game.copiesInRepair ?? 0}
+            </span>
+          </div>
+
+          {canBook ? (
+            <Link
+              to={bookingHref(game._id, atSlot ? slot : null)}
+              className="w-full bg-brick-dark hover:bg-[#963a3a] text-white font-bold py-3 px-4 rounded-full flex items-center justify-center gap-2 transition text-sm shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-forest focus-visible:ring-offset-2"
+            >
+              <i className="fa-solid fa-calendar-check"></i> จองโต๊ะเล่นเกมนี้
+            </Link>
+          ) : (
+            <button
+              type="button"
+              disabled
+              className="w-full bg-cream-light text-slate-500 border border-ink/10 font-semibold py-3 px-4 rounded-full text-sm cursor-not-allowed"
+            >
+              {status.tone === 'repair'
+                ? 'เกมนี้ส่งซ่อม — ยังจองไม่ได้'
+                : 'ช่วงเวลาที่เลือกไม่ว่าง'}
+            </button>
+          )}
+
+          {description && (
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                เกี่ยวกับเกม
+              </span>
+              <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line break-words">
+                {longDesc && !expanded
+                  ? `${description.slice(0, DESC_LIMIT).trimEnd()}…`
+                  : description}
+              </p>
+              {longDesc && (
+                <button
+                  type="button"
+                  onClick={() => setExpanded((v) => !v)}
+                  aria-expanded={expanded}
+                  className="self-start text-xs font-bold text-teal-dark hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-forest rounded"
+                >
+                  {expanded ? 'ย่อ' : 'อ่านต่อ'}
+                </button>
+              )}
+            </div>
+          )}
+
+          <Chips title="หมวดหมู่" items={game.categories} />
+          <Chips title="กลไกเกม" items={game.mechanics} tone="slate" />
+          <Chips title="ผู้ออกแบบ" items={game.designers} tone="slate" />
+
+          <hr className="border-ink/10" />
+
+          <GameReviews gameId={String(game._id)} gameName={game.name} notify={notify} />
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { PAYMENT_METHODS, RESERVATION_STATUSES, SOURCES } from '../../models/reservation.model.js';
 import { PACKAGES, RULES } from './reservations.rules.js';
+import { optionalPersonName, phone } from '../../lib/validators.js';
 
 const objectId = z.string().regex(/^[a-f0-9]{24}$/i, 'invalid id');
 const dateStr = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'use YYYY-MM-DD');
@@ -32,6 +33,7 @@ export const bookingBody = z
     startAt: z.coerce.date(),
     durationHours: hours,
     package: pkg.default('hourly'),
+    student: z.boolean().default(false), // ขอส่วนลดนักศึกษา (ตรวจบัตรหน้าร้าน)
     note: note.default(''),
   })
   .refine(flatNeeds3h, flatMsg);
@@ -44,6 +46,7 @@ export const updateBody = z
     startAt: z.coerce.date(),
     durationHours: hours,
     package: pkg,
+    student: z.boolean(),
     note,
   })
   .partial()
@@ -63,18 +66,19 @@ export const adminBookingBody = z
     startAt: z.coerce.date().optional(),
     durationHours: hours,
     package: pkg.default('hourly'),
+    student: z.boolean().default(false),
     user: objectId.optional(),
     customer: z
       .object({
-        name: z.string().trim().max(80).default(''),
-        phone: z.string().trim().max(30).default(''),
+        name: optionalPersonName.default(''),
+        phone: phone.default(''),
       })
       .default({}),
     note: note.default(''),
   })
   .refine(flatNeeds3h, flatMsg)
   .refine((o) => o.user || o.customer.name || o.customer.phone, {
-    message: 'need user or customer name/phone',
+    message: 'ระบุสมาชิก หรือชื่อ/เบอร์โทรลูกค้า',
     path: ['customer'],
   });
 
@@ -118,6 +122,7 @@ export const adminListQuery = z
     source: z.enum(SOURCES).optional(),
     payment: z.enum(['unpaid', 'paid']).optional(),
     q: z.string().trim().min(1).max(80).optional(), // ค้นชื่อ/เบอร์ลูกค้า walk-in
+    confirmed: z.enum(['true', 'false']).optional(), // false = การจองออนไลน์ที่ยังไม่ได้ยืนยัน
     ...pagination,
   })
   .refine((o) => !o.from || !o.to || o.from <= o.to, 'from must be <= to');

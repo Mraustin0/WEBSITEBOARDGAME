@@ -1,6 +1,7 @@
 import { z } from 'zod';
+import { optionalEmail, phone } from '../../lib/validators.js';
 
-const hhmm = z.string().regex(/^([01]\d|2[0-4]):[0-5]\d$/, 'use HH:MM');
+const hhmm = z.string().regex(/^(([01]\d|2[0-3]):[0-5]\d|24:00)$/, 'use HH:MM (00:00–24:00)');
 const money = z.coerce.number().min(0).max(100000);
 
 const day = z.object({
@@ -8,20 +9,31 @@ const day = z.object({
   open: hhmm,
   close: hhmm,
   closed: z.boolean().default(false),
+  label: z.string().max(40).optional(),
 });
 
 export const settingsBody = z
   .object({
     store: z
       .object({
-        name: z.string().trim().max(100),
-        phone: z.string().trim().max(30),
-        email: z.string().trim().max(100),
+        name: z.string().trim().min(1, 'กรอกชื่อร้าน').max(100, 'ชื่อร้านไม่เกิน 100 ตัวอักษร'),
+        phone,
+        email: optionalEmail,
         address: z.string().trim().max(300),
       })
       .partial(),
     pricing: z
-      .object({ perPersonHour: money, flat3hPerPerson: money, revenueTargetPerDay: money })
+      .object({
+        perPersonHour: money,
+        flat3hPerPerson: money,
+        revenueTargetPerDay: money,
+        peakEnabled: z.boolean(),
+        peakPerPersonHour: money,
+        peakStart: hhmm,
+        peakEnd: hhmm,
+        studentDiscountEnabled: z.boolean(),
+        studentDiscountPercent: z.coerce.number().min(0).max(100),
+      })
       .partial(),
     booking: z
       .object({
@@ -45,8 +57,15 @@ export const settingsBody = z
     noShow: z
       .object({
         graceMin: z.coerce.number().int().min(0).max(240),
-        depositPerPerson: money,
         suspendAfter: z.coerce.number().int().min(0).max(100),
+        notifyEnabled: z.boolean(),
+      })
+      .partial(),
+    notifications: z
+      .object({
+        bookingReminderHours: z.coerce.number().min(0).max(48),
+        smsEnabled: z.boolean(),
+        lineNotifyEnabled: z.boolean(),
       })
       .partial(),
   })

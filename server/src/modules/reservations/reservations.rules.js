@@ -1,6 +1,6 @@
 // Business rules ของการจอง — pure functions (ไม่แตะ DB) เพื่อ test ง่าย
 // ค่าจริงมาจากหน้า "ตั้งค่าร้าน" (settings) — RULES คือค่า default ถ้ายังไม่ได้ตั้ง
-import { HOUR_MS, MINUTE_MS } from '../../lib/time.js';
+import { HOUR_MS, MINUTE_MS, addDays, toLocalDateString } from '../../lib/time.js';
 
 export const DEFAULT_DAYS = [0, 1, 2, 3, 4, 5, 6].map((day) => ({
   day, // 0 = อาทิตย์ ... 6 = เสาร์
@@ -22,6 +22,8 @@ export const RULES = {
   OVERDUE_BLOCK_MIN: 30, // โต๊ะ/เกมที่เล่นเกินเวลายังไม่คืน กันไม่ให้จองช่วงใกล้ ๆ นี้
   CANCEL_CUTOFF_HOURS: 2, // สมาชิกยกเลิกเองได้ถึงก่อนเริ่ม 2 ชม. (0 = ยกเลิกได้ตลอดจนถึงเวลาเริ่ม)
   OPERATING: { enforce: false, days: DEFAULT_DAYS },
+  PEAK: { enabled: false, perPersonHour: 80, start: '17:00', end: '23:00' },
+  STUDENT: { enabled: false, percent: 15 }, // ส่วนลดนักศึกษา (พนักงานตรวจบัตรหน้าร้าน)
 };
 
 export const PACKAGES = ['hourly', 'flat3h'];
@@ -35,25 +37,68 @@ export function computeEnd(startAt, durationHours) {
  *  - hourly: ชั่วโมง × (ผู้เล่น × ราคา/คน/ชม. + ค่าโต๊ะ/ชม.)
  *  - flat3h: ผู้เล่น × ราคาเหมา + 3 × ค่าโต๊ะ/ชม. (durationHours ต้องเป็น 3)
  */
+const toMin = (hhmm) => {
+  const [h, m] = String(hhmm).split(':').map(Number);
+  return h * 60 + (m || 0);
+};
+
+/**
+ * จำนวนชั่วโมงที่ช่วงจอง [startAt, +durationHours) ทับช่วง peak ของแต่ละวัน (เวลาไทย)
+ * peak: { enabled, start: '17:00', end: '23:00' } — end ≤ start = ข้ามเที่ยงคืน
+ */
+export function peakHoursOf(startAt, durationHours, peak) {
+  if (!peak?.enabled || !startAt) return 0;
+  const s = new Date(startAt).getTime();
+  const e = s + durationHours * HOUR_MS;
+  const ps = toMin(peak.start);
+  let pe = toMin(peak.end);
+  if (pe <= ps) pe += 24 * 60;
+  const TZ_MS = 7 * HOUR_MS;
+  // เที่ยงคืนเวลาไทยของวันก่อนหน้าวันเริ่ม (กันกรณี peak ข้ามเที่ยงคืนจากเมื่อวาน)
+  const dayMs = 24 * HOUR_MS;
+  let day = Math.floor((s + TZ_MS) / dayMs) * dayMs - TZ_MS - dayMs;
+  let overlap = 0;
+  while (day < e) {
+    const a = Math.max(s, day + ps * MINUTE_MS);
+    const b = Math.min(e, day + pe * MINUTE_MS);
+    if (b > a) overlap += b - a;
+    day += dayMs;
+  }
+  return Math.round((overlap / HOUR_MS) * 100) / 100;
+}
+
 export function calcPrice({
   players,
   durationHours,
   tableExtraPerHour = 0,
   pkg = 'hourly',
   rules = RULES,
+  startAt,
+  student = false,
 }) {
-  const perHour = players * rules.PRICE_PER_PERSON_HOUR + tableExtraPerHour;
+  const perPerson = rules.PRICE_PER_PERSON_HOUR;
+  // ช่วง peak คิดราคาต่อคนสูงกว่า (เฉพาะรายชั่วโมง, แพ็กเกจเหมาไม่คิด peak)
+  const peakHours = pkg === 'flat3h' ? 0 : peakHoursOf(startAt, durationHours, rules.PEAK);
+  const peakPerPerson = peakHours ? rules.PEAK.perPersonHour : perPerson;
   const total =
     pkg === 'flat3h'
       ? players * rules.FLAT_3H_PER_PERSON + rules.FLAT_HOURS * tableExtraPerHour
-      : perHour * durationHours;
+      : players * (perPerson * (durationHours - peakHours) + peakPerPerson * peakHours) +
+        tableExtraPerHour * durationHours;
+  const subtotal = Math.round(total);
+  // ส่วนลดนักศึกษา (ถ้าร้านเปิดใช้และลูกค้าเลือก) — คิดจากยอดค่าเล่นทั้งหมด
+  const studentPct = student && rules.STUDENT?.enabled ? (rules.STUDENT.percent ?? 0) : 0;
+  const discount = Math.round((subtotal * studentPct) / 100);
+  const finalTotal = subtotal - discount;
   return {
-    total: Math.round(total),
+    total: finalTotal,
     package: pkg,
-    perPersonHour: rules.PRICE_PER_PERSON_HOUR,
+    perPersonHour: perPerson,
     tableExtraPerHour,
     players,
     hours: durationHours,
+    ...(peakHours ? { peakHours, peakPerPersonHour: peakPerPerson } : {}),
+    ...(discount ? { subtotal, studentDiscountPercent: studentPct, discount } : {}),
   };
 }
 
@@ -96,7 +141,10 @@ export function bookingWindowError(startAt, now = new Date(), rules = RULES) {
   if (startAt.getTime() < now.getTime() - rules.START_GRACE_MIN * MINUTE_MS) {
     return 'startAt is in the past';
   }
-  if (startAt.getTime() > now.getTime() + rules.MAX_ADVANCE_DAYS * 24 * HOUR_MS) {
+  // นับเป็น "วันตามปฏิทิน" (เวลาไทย): จองล่วงหน้า N วัน = จองได้ทุกเวลาจนถึงสิ้นวันที่ วันนี้ + N
+  // (เดิมนับ now + N×24 ชม. → วันสุดท้ายจองได้แค่รอบที่ก่อนเวลาปัจจุบัน หรือไม่มีรอบเลยถ้าเช็กก่อนร้านเปิด)
+  const lastDay = addDays(toLocalDateString(now), rules.MAX_ADVANCE_DAYS);
+  if (toLocalDateString(startAt) > lastDay) {
     return `can book at most ${rules.MAX_ADVANCE_DAYS} days in advance`;
   }
   return null;

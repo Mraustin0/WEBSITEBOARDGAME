@@ -21,7 +21,14 @@ import {
   RULES,
 } from './reservations.rules.js';
 import { getRules } from '../settings/settings.service.js';
+import { can } from '../../lib/permissions.js';
 import { openDamageTicket } from '../maintenance/maintenance.service.js';
+import {
+  notifyBookingCancelled,
+  notifyBookingNew,
+  resolveNotifications,
+  resolveTimeAlerts,
+} from '../notifications/notifications.service.js';
 import {
   brokenCopies,
   findBusy,
@@ -39,17 +46,21 @@ const POPULATE = [
   { path: 'user', select: 'username email' },
   { path: 'createdBy', select: 'username' },
   { path: 'returnedBy', select: 'username' },
+  { path: 'confirmedBy', select: 'username' },
 ];
 
 const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-const isAdmin = (user) => user.role === 'admin';
+// พนักงาน (admin หรือบทบาทที่มีสิทธิ์ผังโต๊ะ) จัดการการจองของคนอื่นได้
+const isStaff = (user, action = 'edit') => can(user, 'floor', action);
 const sameId = (a, b) => String(a?._id ?? a) === String(b?._id ?? b);
 
 async function loadOwned(id, user) {
   const r = await Reservation.findById(id);
   if (!r) throw notFound('reservation not found');
-  if (!isAdmin(user) && !sameId(r.user, user._id)) throw notFound('reservation not found');
+  if (!sameId(r.user, user._id) && !(await isStaff(user, 'view'))) {
+    throw notFound('reservation not found');
+  }
   return r;
 }
 
@@ -91,7 +102,15 @@ async function gameFullError(game, { startAt, endAt }, { excludeId, now = new Da
  * ใช้ร่วมกันทั้ง create / update / quote
  */
 async function validateBooking(
-  { table: tableId, game: gameId, players, startAt, durationHours, package: pkg = 'hourly' },
+  {
+    table: tableId,
+    game: gameId,
+    players,
+    startAt,
+    durationHours,
+    package: pkg = 'hourly',
+    student = false,
+  },
   { userId, excludeId, staff = false, now = new Date() },
 ) {
   const rules = await getRules();
@@ -133,6 +152,8 @@ async function validateBooking(
     tableExtraPerHour: table.extraPerHour,
     pkg,
     rules,
+    startAt,
+    student,
   });
   return { table, game, endAt, price };
 }
@@ -167,7 +188,9 @@ export async function create(userId, body) {
     note: body.note,
   });
   await syncLifecycle(); // ถ้าจองแบบเริ่มเลย (walk-in) จะเปลี่ยนเป็น playing ทันที
-  return Reservation.findById(r._id).populate(POPULATE);
+  const saved = await Reservation.findById(r._id).populate(POPULATE);
+  await notifyBookingNew(saved); // แจ้งพนักงาน: มีการจองออนไลน์ใหม่
+  return saved;
 }
 
 const SCOPES = {
@@ -230,6 +253,7 @@ export async function update(id, user, patch) {
     startAt: patch.startAt ?? r.startAt,
     durationHours: patch.durationHours ?? r.durationHours,
     package: patch.package ?? r.price?.package ?? 'hourly',
+    student: patch.student ?? Boolean(r.price?.discount),
   };
   if (next.package === 'flat3h' && next.durationHours !== RULES.FLAT_HOURS) {
     throw badRequest(`flat3h package must be ${RULES.FLAT_HOURS} hours`);
@@ -237,7 +261,7 @@ export async function update(id, user, patch) {
   const { table, game, endAt, price } = await validateBooking(next, {
     userId: r.user,
     excludeId: r._id,
-    staff: isAdmin(user),
+    staff: await isStaff(user),
   });
 
   Object.assign(r, {
@@ -258,7 +282,7 @@ export async function update(id, user, patch) {
 export async function cancel(id, user, reason = '') {
   await syncLifecycle();
   const r = await loadOwned(id, user);
-  const admin = isAdmin(user);
+  const admin = await isStaff(user);
   if (r.status === 'playing' && !admin) {
     throw conflict('reservation already started — return the game instead');
   }
@@ -278,7 +302,10 @@ export async function cancel(id, user, reason = '') {
   });
   await r.save();
   if (wasPlaying) await refreshGameStatus(r.game);
-  return r.populate(POPULATE);
+  await r.populate(POPULATE);
+  await resolveTimeAlerts(r._id);
+  if (!admin) await notifyBookingCancelled(r); // สมาชิกยกเลิกเอง → แจ้งพนักงาน
+  return r;
 }
 
 function assertPlaying(r) {
@@ -341,10 +368,10 @@ export async function returnGame(
       total: bill.total,
       condition,
       damageNote,
-      inspectedBy: isAdmin(user) ? user._id : undefined,
+      inspectedBy: (await isStaff(user)) ? user._id : undefined,
     },
   });
-  if (paymentMethod && isAdmin(user)) {
+  if (paymentMethod && (await can(user, 'checkout', 'edit'))) {
     r.payment = {
       status: 'paid',
       method: paymentMethod,
@@ -361,6 +388,7 @@ export async function returnGame(
   } else {
     await refreshGameStatus(r.game);
   }
+  await resolveTimeAlerts(r._id); // คืนเกมแล้ว → แจ้งเตือนเวลาของโต๊ะนี้จบ
   return r.populate(POPULATE);
 }
 
@@ -406,7 +434,7 @@ export async function extend(id, user, hours) {
   if (!['booked', 'playing'].includes(r.status)) {
     throw conflict(`cannot extend a ${r.status} reservation`);
   }
-  const staff = isAdmin(user);
+  const staff = await isStaff(user);
   const rules = await getRules();
   const newDuration = r.durationHours + hours;
   const newEnd = computeEnd(r.endAt, hours);
@@ -449,6 +477,7 @@ export async function extend(id, user, hours) {
   r.price.hours = newDuration;
   r.extensions.push({ hours, charge, at: now, by: user._id });
   await r.save();
+  await resolveTimeAlerts(r._id); // ต่อเวลาแล้ว (ถ้าใกล้หมดอีกจะแจ้งใหม่ตามเวลาใหม่)
   return Reservation.findById(r._id).populate(POPULATE);
 }
 
@@ -578,6 +607,8 @@ export async function adminCreate(admin, body) {
     customer: body.customer,
     source: walkIn ? 'walk_in' : 'admin',
     createdBy: admin._id,
+    confirmedAt: new Date(), // พนักงานเป็นคนเปิดเอง → ยืนยันแล้ว
+    confirmedBy: admin._id,
     table: table._id,
     game: game?._id ?? null,
     players: body.players,
@@ -603,11 +634,21 @@ export async function adminList({
   source,
   payment,
   q,
+  confirmed,
   page,
   limit,
 }) {
   await syncLifecycle();
   const query = {};
+  if (confirmed === 'false') {
+    Object.assign(query, {
+      source: 'online',
+      confirmedAt: null,
+      status: { $in: ['booked', 'playing'] },
+    });
+  } else if (confirmed === 'true') {
+    query.$and = [{ $or: [{ confirmedAt: { $ne: null } }, { source: { $ne: 'online' } }] }];
+  }
   if (date) {
     const { start, end } = localDayRange(date);
     query.startAt = { $gte: start, $lt: end };
@@ -643,10 +684,26 @@ export async function adminList({
   return { items, total, page, limit };
 }
 
+/** พนักงานกด "ยืนยัน" การจองออนไลน์ (หน้า 4 จัดการการจอง) */
+export async function confirm(id, staff) {
+  await syncLifecycle();
+  const r = await Reservation.findById(id);
+  if (!r) throw notFound('reservation not found');
+  if (!['booked', 'playing'].includes(r.status)) {
+    throw conflict(`cannot confirm a ${r.status} reservation`);
+  }
+  if (r.confirmedAt) throw conflict('reservation is already confirmed');
+  Object.assign(r, { confirmedAt: new Date(), confirmedBy: staff._id });
+  await r.save();
+  await resolveNotifications({ 'refs.reservation': r._id, type: 'booking_new' });
+  return Reservation.findById(r._id).populate(POPULATE);
+}
+
 export async function adminRemove(id) {
   const r = await Reservation.findByIdAndDelete(id);
   if (!r) throw notFound('reservation not found');
   if (r.status === 'playing') await refreshGameStatus(r.game);
+  await resolveTimeAlerts(r._id);
   return r;
 }
 
@@ -667,5 +724,6 @@ export async function markNoShow(id, admin) {
   Object.assign(r, { status: 'no_show', noShowAt: new Date(), cancelledBy: admin._id });
   await r.save();
   if (wasPlaying) await refreshGameStatus(r.game);
+  await resolveTimeAlerts(r._id);
   return r.populate(POPULATE);
 }

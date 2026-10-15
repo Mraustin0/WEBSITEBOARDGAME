@@ -1,6 +1,6 @@
 # API คน B — Tables · Reservations · Reviews · Stats
 
-สำหรับทีม frontend. Swagger ดูได้ที่ `http://localhost:4000/api/docs` (tag: tables, reservations, reviews, stats, settings, maintenance, assist).
+สำหรับทีม frontend. Swagger ดูได้ที่ `http://localhost:4000/api/docs` (tag: tables, reservations, reviews, stats, settings, maintenance, assist, notifications).
 ทุก request ที่ต้อง login ใส่ header `Authorization: Bearer <token>`.
 Error ทุกตัวเป็น `{ "error": "ข้อความ", "details": {...} }` — 400 = input ผิด, 401 = ไม่ได้ login, 403 = ไม่ใช่ admin, 404 = ไม่เจอ, 409 = ชนกัน (จองซ้ำ/โต๊ะปิด/เกมซ่อม).
 
@@ -32,6 +32,7 @@ npm run dev                                   # server :4000 + client :5173 พ�
 - บัญชี admin: สมัครสมาชิกปกติก่อน แล้วรัน `npm run --workspace server promote -- <email>`
 - บัญชีจาก `seed:demo` (รหัสผ่าน `demo1234` ทุกบัญชี)
   - admin: `demo_admin@demo.local`
+  - พนักงาน (สิทธิ์ละเอียด): `demo_staff@demo.local` (Game Master), `demo_manager@demo.local` (ผู้จัดการร้าน)
   - สมาชิก: `demo_ploy@demo.local`, `demo_ton@demo.local`, `demo_mint@demo.local`, `demo_bank@demo.local`, `demo_fah@demo.local`
 
 ### 2. ลองยิง API ใน Swagger (ไม่ต้องเขียนโค้ด)
@@ -221,16 +222,18 @@ useEffect(() => {
 
 > ค่าทั้งหมดในตารางนี้คือค่าเริ่มต้น admin แก้ได้ที่หน้า "ตั้งค่าร้าน" (`PUT /api/settings`) — frontend ควรอ่านค่าจริงจาก `GET /api/reservations/rules` หรือ `GET /api/settings`
 
-| กฎ          | ค่า                                                                                             |
-| ----------- | ----------------------------------------------------------------------------------------------- |
-| ราคา        | `ชั่วโมง × (ผู้เล่น × 50 + extraPerHour ของโต๊ะ)` บาท                                           |
-| จองล่วงหน้า | ไม่เกิน 3 วัน, เริ่มย้อนหลังได้ไม่เกิน 15 นาที (walk-in)                                        |
-| ระยะเวลา    | 1–6 ชม. ทีละ 0.5                                                                                |
-| แพ็กเกจ     | `hourly` (รายชั่วโมง) หรือ `flat3h` เหมา 3 ชม. = ผู้เล่น × 130 + 3 × ค่าโต๊ะ                    |
-| เกินเวลา    | เกินไม่เกิน 10 นาทีไม่คิด เกินกว่านั้นคิดเพิ่มทีละครึ่งชั่วโมง (อัตรารายชั่วโมง)                |
-| ผู้เล่น     | ≤ capacity ของโต๊ะ และอยู่ในช่วง min–max ของเกม                                                 |
-| ยกเลิก      | สมาชิกยกเลิกเองได้ถึงก่อนเริ่ม 2 ชม. (`CANCEL_CUTOFF_HOURS`, 0 = ได้จนถึงเวลาเริ่ม)             |
-| ชนกัน       | โต๊ะเดียวกัน / ผู้ใช้คนเดียวกัน ห้ามเวลาทับกัน. เกมเดียวกันใช้พร้อมกันได้ไม่เกิน `copies` กล่อง |
+| กฎ             | ค่า                                                                                                                                                          |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| ราคา           | `ชั่วโมง × (ผู้เล่น × 50 + extraPerHour ของโต๊ะ)` บาท                                                                                                        |
+| จองล่วงหน้า    | ไม่เกิน 3 วัน, เริ่มย้อนหลังได้ไม่เกิน 15 นาที (walk-in)                                                                                                     |
+| ระยะเวลา       | 1–6 ชม. ทีละ 0.5                                                                                                                                             |
+| แพ็กเกจ        | `hourly` (รายชั่วโมง) หรือ `flat3h` เหมา 3 ชม. = ผู้เล่น × 130 + 3 × ค่าโต๊ะ                                                                                 |
+| เกินเวลา       | เกินไม่เกิน 10 นาทีไม่คิด เกินกว่านั้นคิดเพิ่มทีละครึ่งชั่วโมง (อัตรารายชั่วโมง)                                                                             |
+| ผู้เล่น        | ≤ capacity ของโต๊ะ และอยู่ในช่วง min–max ของเกม                                                                                                              |
+| ยกเลิก         | สมาชิกยกเลิกเองได้ถึงก่อนเริ่ม 2 ชม. (`CANCEL_CUTOFF_HOURS`, 0 = ได้จนถึงเวลาเริ่ม)                                                                          |
+| ชนกัน          | โต๊ะเดียวกัน / ผู้ใช้คนเดียวกัน ห้ามเวลาทับกัน. เกมเดียวกันใช้พร้อมกันได้ไม่เกิน `copies` กล่อง                                                              |
+| ส่วนลดนักศึกษา | ถ้าร้านเปิด (`STUDENT.enabled`) ส่ง `student: true` ใน body จอง/quote → ลด `STUDENT.percent`% (`price.subtotal`, `price.discount`) — พนักงานตรวจบัตรหน้าร้าน |
+| มัดจำ          | ไม่มี — ลูกค้าจ่ายเต็มจำนวนที่เคาน์เตอร์หลังคืนเกม (`checkout.total`); กันไม่มาตามนัดด้วยการนับ `noShowCount` และระงับบัญชีเมื่อครบ `noShow.suspendAfter`    |
 
 ## สถานะ
 
@@ -422,7 +425,7 @@ Table body (`position` เป็น % ของพื้นที่ floor plan 
       { "day": 1, "open": "10:00", "close": "22:00", "closed": true }
     ]
   },
-  "noShow": { "graceMin": 30, "depositPerPerson": 0, "suspendAfter": 3 }
+  "noShow": { "graceMin": 30, "suspendAfter": 3 }
 }
 ```
 
@@ -501,9 +504,42 @@ Table body (`position` เป็น % ของพื้นที่ floor plan 
 
 ### ส่วนที่ backend B ไม่ได้ทำ
 
-- รายได้อาหาร/เครื่องดื่ม, ส่งยอดเข้า POS, เก็บ/ริบเงินมัดจำจริง — ไม่มีในระบบ (settings เก็บแค่ค่า `depositPerPerson` ไว้แสดง)
+- รายได้อาหาร/เครื่องดื่ม, ส่งยอดเข้า POS, ชำระเงินออนไลน์, มัดจำ — ไม่มีในระบบ (จ่ายที่เคาน์เตอร์เท่านั้น)
 - Audit log (หน้า 9), ศูนย์แจ้งเตือน (หน้า 10), สิทธิ์ละเอียด (หน้า 16), SSO — นอกขอบเขต B
 - ระบบ Pending/Confirmed — การจองยืนยันทันที
+
+### หน้า 10 — ศูนย์การแจ้งเตือน (Notification Center)
+
+admin เท่านั้น — การแจ้งเตือนสร้างอัตโนมัติจากเหตุการณ์ในระบบ (ไม่ต้องสร้างเอง), สถานะ "อ่านแล้ว" แยกรายคน, เก็บ 60 วัน
+
+| ส่วนบนหน้า                               | Endpoint                                                                                                   |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| ไอคอนกระดิ่ง + ตัวเลข                    | `GET /api/notifications/unread-count` → `{ unread, important }` (poll ทุก 15–30 วิ)                        |
+| Filter Tabs ทั้งหมด / ยังไม่อ่าน / สำคัญ | `GET /api/notifications?filter=all\|unread\|important`                                                     |
+| แยกกลุ่มตามวัน                           | แต่ละรายการมี `dayGroup` (`today` / `yesterday` / `earlier`) และ `day` (YYYY-MM-DD)                        |
+| ปุ่มดำเนินการด่วน                        | `actions[]` = `{ key, label, method, path, body }` → เรียก API ตามนั้นได้เลย, ถ้า `done: true` ให้ซ่อนปุ่ม |
+| กดอ่าน 1 รายการ                          | `PATCH /api/notifications/:id/read`                                                                        |
+| อ่านทั้งหมดแล้ว                          | `PATCH /api/notifications/read-all`                                                                        |
+| ไอคอนตั้งค่า                             | `GET` / `PUT /api/notifications/preferences` body `{ "muted": ["booking_cancelled"] }`                     |
+
+| `type` (ไอคอน)      | เกิดเมื่อ                               | สำคัญ                                | ปุ่ม             |
+| ------------------- | --------------------------------------- | ------------------------------------ | ---------------- |
+| `booking_new`       | สมาชิกจองออนไลน์                        |                                      | ดูการจอง         |
+| `booking_cancelled` | สมาชิกยกเลิกเอง                         |                                      |                  |
+| `time_ending`       | โต๊ะเหลือ ≤ 10 นาที                     |                                      | ต่อเวลา, เช็คบิล |
+| `time_overdue`      | เลยเวลาแล้วยังไม่คืนเกม                 | ✅                                   | ต่อเวลา, เช็คบิล |
+| `assist`            | ลูกค้ากดเรียก GM                        | ✅                                   | รับเรื่อง        |
+| `maintenance_new`   | แจ้งซ่อม / เกมชำรุดตอนคืน               | ✅ ถ้า priority high หรือชำรุดตอนคืน | ดูใบแจ้งซ่อม     |
+| `maintenance_done`  | ซ่อมเสร็จ                               |                                      |                  |
+| `booking_affected`  | แจ้งซ่อมแล้วมีการจองที่ไม่มีกล่องเกมให้ | ✅                                   | ดูใบแจ้งซ่อม     |
+
+```js
+// ตัวอย่าง: ปุ่มดำเนินการด่วน
+async function runAction(a) {
+  await api(a.path.replace(/^\/api/, ''), { method: a.method, body: a.body });
+  await load(); // โหลดรายการใหม่ (รายการนั้นจะเป็น done: true)
+}
+```
 
 ## Demo data
 
