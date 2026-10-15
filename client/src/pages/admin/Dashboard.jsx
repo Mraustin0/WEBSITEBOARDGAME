@@ -276,10 +276,10 @@ export default function Dashboard() {
             <p className="muted">ยังไม่มีข้อมูลการเล่นวันนี้</p>
           )}
           {(ov?.popularGames ?? []).map((g, i) => (
-            <div key={g._id ?? i} className="ov-row">
+            <div key={g.game?._id ?? g._id ?? i} className="ov-row">
               <span className="rank">{i + 1}</span>
-              <span className="grow">{g.name}</span>
-              <span className="muted">{num(g.playCount)} รอบ</span>
+              <span className="grow">{g.game?.name ?? g.name ?? '—'}</span>
+              <span className="muted">{num(g.reservations ?? g.playCount)} รอบ</span>
             </div>
           ))}
         </section>
